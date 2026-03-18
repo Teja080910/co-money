@@ -3,10 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { Text, TextInput, Button, Card, Title, Paragraph } from 'react-native-paper';
 
 interface Props {
-  onLogin: () => void;
+  navigation: any;
 }
 
-export const LoginScreen: React.FC<Props> = ({ onLogin }) => {
+export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin }) => {
     // Simulate backend request
     setTimeout(() => {
       setLoading(false);
-      onLogin();
+      navigation.replace('Home');
     }, 1000);
   };
 
@@ -45,15 +45,24 @@ export const LoginScreen: React.FC<Props> = ({ onLogin }) => {
           />
         </Card.Content>
         <Card.Actions style={styles.actions}>
-          <Button 
-            mode="contained" 
-            onPress={handleLogin} 
-            loading={loading}
-            style={styles.button}
-            contentStyle={styles.buttonContent}
-          >
-            LOGIN
-          </Button>
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            <Button 
+              mode="contained" 
+              onPress={handleLogin} 
+              loading={loading}
+              style={styles.button}
+              contentStyle={styles.buttonContent}
+            >
+              LOGIN
+            </Button>
+            <Button 
+              mode="text" 
+              onPress={() => navigation.navigate('Register')}
+              style={{ marginTop: 12 }}
+            >
+              Don't have an account? Sign up
+            </Button>
+          </View>
         </Card.Actions>
       </Card>
     </View>

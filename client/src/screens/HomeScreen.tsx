@@ -4,10 +4,13 @@ import { Text, Appbar, Card, Title, Paragraph, Button, ActivityIndicator, FAB } 
 import axios from 'axios';
 
 interface Props {
-  onLogout: () => void;
+  navigation: any;
 }
 
-export const HomeScreen: React.FC<Props> = ({ onLogout }) => {
+export const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const onLogout = () => {
+    navigation.replace('Login');
+  };
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
