@@ -1,0 +1,19 @@
+# Common node modules
+node_modules/
+
+# Mac OS files
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Root IDE files
+.vscode/
+.idea/
