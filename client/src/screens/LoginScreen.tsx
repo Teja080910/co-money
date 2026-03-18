@@ -1,107 +1,190 @@
-import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Text, TextInput, Button, Card, Title, Paragraph } from 'react-native-paper';
+import React, { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from 'react-native-paper';
+import { AuthScreenShell } from '../components/auth/AuthScreenShell';
+import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
+import { PrimaryButton } from '../components/auth/PrimaryButton';
+import { ScreenProps } from '../navigation/types';
+import type { AppTheme } from '../theme/theme';
 
-interface Props {
-  navigation: any;
-}
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const LoginScreen: React.FC<Props> = ({ navigation }) => {
+export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
+  const theme = useTheme<AppTheme>();
+  const passwordRef = useRef<TextInput>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [touched, setTouched] = useState({
+    email: false,
+    password: false,
+  });
 
-  const handleLogin = () => {
+  const errors = useMemo(() => {
+    const nextErrors: { email?: string; password?: string } = {};
+
+    if (touched.email) {
+      if (!email.trim()) {
+        nextErrors.email = 'Enter your email address.';
+      } else if (!emailRegex.test(email.trim())) {
+        nextErrors.email = 'Use the email format linked to your account.';
+      }
+    }
+
+    if (touched.password) {
+      if (!password) {
+        nextErrors.password = 'Enter your password.';
+      } else if (password.length < 8) {
+        nextErrors.password = 'Your password should be at least 8 characters.';
+      }
+    }
+
+    return nextErrors;
+  }, [email, password, touched.email, touched.password]);
+
+  const validity = {
+    email: emailRegex.test(email.trim()),
+    password: password.length >= 8,
+  };
+
+  const isValid = validity.email && validity.password;
+
+  const markAllTouched = () => {
+    setTouched({
+      email: true,
+      password: true,
+    });
+  };
+
+  const handleLogin = async () => {
+    if (!isValid) {
+      markAllTouched();
+      return;
+    }
+
     setLoading(true);
-    // Simulate backend request
-    setTimeout(() => {
-      setLoading(false);
-      navigation.replace('Home');
-    }, 1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setLoading(false);
+    navigation.replace('Home');
   };
 
   return (
-    <View style={styles.container}>
-      <Card style={styles.card} mode="elevated" elevation={4}>
-        <Card.Title title="Welcome to Co-Money" titleStyle={styles.title} />
-        <Card.Content>
-          <Paragraph style={styles.subtitle}>Sign in to continue</Paragraph>
-          <TextInput
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            mode="outlined"
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            mode="outlined"
-            secureTextEntry
-            style={styles.input}
-          />
-        </Card.Content>
-        <Card.Actions style={styles.actions}>
-          <View style={{ width: '100%', alignItems: 'center' }}>
-            <Button 
-              mode="contained" 
-              onPress={handleLogin} 
-              loading={loading}
-              style={styles.button}
-              contentStyle={styles.buttonContent}
-            >
-              LOGIN
-            </Button>
-            <Button 
-              mode="text" 
-              onPress={() => navigation.navigate('Register')}
-              style={{ marginTop: 12 }}
-            >
-              Don't have an account? Sign up
-            </Button>
+    <AuthScreenShell
+      badge={
+        <View style={[styles.badge, { backgroundColor: theme.custom.surfaceStrong, borderColor: theme.custom.border }]}>
+          <MaterialCommunityIcons name="star-four-points-outline" size={18} color={theme.custom.brand} />
+          <Text style={[styles.badgeText, { color: theme.custom.textPrimary }]}>Welcome back</Text>
+        </View>
+      }
+      footer={
+        <View style={styles.footerRow}>
+          <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>New here?</Text>
+          <Text style={[styles.footerLink, { color: theme.custom.brand }]} onPress={() => navigation.navigate('Register')}>
+            Create account
+          </Text>
+        </View>
+      }
+      subtitle="Sign in to continue with your workspace"
+      title="Welcome back"
+    >
+      <View style={styles.form}>
+        <FloatingLabelInput
+          accessibleLabel="Email address"
+          autoComplete="email"
+          error={errors.email}
+          helperText={!errors.email ? 'Use the email you registered with.' : undefined}
+          icon="email-outline"
+          keyboardType="email-address"
+          label="Email address"
+          onChangeText={text => {
+            setEmail(text.trim().toLowerCase());
+            setTouched(current => ({ ...current, email: true }));
+          }}
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          returnKeyType="next"
+          valid={validity.email}
+          value={email}
+        />
+        <FloatingLabelInput
+          accessibleLabel="Password"
+          autoComplete="password"
+          error={errors.password}
+          helperText={!errors.password ? 'Your password stays encrypted end to end.' : undefined}
+          icon="lock-outline"
+          inputRef={passwordRef}
+          label="Password"
+          onChangeText={text => {
+            setPassword(text);
+            setTouched(current => ({ ...current, password: true }));
+          }}
+          onSubmitEditing={handleLogin}
+          onToggleSecureEntry={() => setShowPassword(!showPassword)}
+          returnKeyType="done"
+          secureTextEntry={!showPassword}
+          textContentType="password"
+          valid={validity.password}
+          value={password}
+        />
+
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <MaterialCommunityIcons name="shield-lock-outline" size={16} color={theme.custom.brand} />
+            <Text style={[styles.metaText, { color: theme.custom.textSecondary }]}>Fast and secure sign in</Text>
           </View>
-        </Card.Actions>
-      </Card>
-    </View>
+          {loading ? <ActivityIndicator color={theme.custom.brand} size="small" /> : null}
+        </View>
+
+        <PrimaryButton disabled={!isValid} label="Login" loading={loading} onPress={handleLogin} />
+      </View>
+    </AuthScreenShell>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#F6F6F6',
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  card: {
-    borderRadius: 16,
-    paddingVertical: 10,
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-  },
-  input: {
-    marginBottom: 16,
-  },
-  actions: {
-    justifyContent: 'center',
-    paddingBottom: 20,
-  },
-  button: {
+  form: {
     width: '100%',
-    borderRadius: 8,
   },
-  buttonContent: {
-    paddingVertical: 6,
-  }
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  footerText: {
+    fontSize: 14,
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
 });
