@@ -14,8 +14,9 @@ export const HomeScreen: React.FC<Props> = ({ onLogout }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Connect to the local backend. Note: Adjust IP address if running on physical device
-      const response = await axios.get('http://127.0.0.1:3000/api/users');
+      // Connect to the backend using environment variable
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:5008';
+      const response = await axios.get(`${apiUrl}/api/users`);
       setUsers(response.data);
     } catch (error) {
       console.warn("Could not fetch users, make sure backend is running");

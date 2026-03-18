@@ -8,7 +8,7 @@ async function bootstrap() {
         console.log('Database connection initialized successfully.');
         
         const server = new AppServer();
-        const port = parseInt(process.env.PORT || '3000');
+        const port = parseInt(process.env.PORT || '5008');
         server.start(port);
     } catch (error) {
         console.error('Error during initialization:', error);
