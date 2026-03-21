@@ -15,6 +15,8 @@
       "passwordLabel": "Password",
       "passwordHelper": "Inserisci la password del tuo account.",
       "cta": "ACCEDI",
+      "resumeVerificationPrompt": "Hai una registrazione non verificata?",
+      "resumeVerificationAction": "Verifica email",
       "footerPrompt": "Non hai un account?",
       "footerAction": "Registrati",
       "errors": {
@@ -89,5 +91,27 @@
     "registeredUsers": "Utenti registrati",
     "logout": "Esci",
     "fetchWarning": "Impossibile caricare gli utenti, assicurati che il backend sia attivo"
+  },
+  "apiErrors": {
+    "firstNameRequired": "Inserisci il tuo nome.",
+    "lastNameRequired": "Inserisci il tuo cognome.",
+    "emailRequired": "Inserisci la tua email.",
+    "emailRequiredGeneric": "Email richiesta.",
+    "emailInvalid": "Inserisci una email valida.",
+    "passwordRequired": "Inserisci una password.",
+    "passwordRequiredShort": "Password richiesta.",
+    "passwordShort": "La password deve essere di almeno 8 caratteri.",
+    "emailAlreadyRegistered": "Email gia registrata.",
+    "otpRequired": "Inserisci il codice OTP.",
+    "userNotFound": "Utente non trovato.",
+    "emailAlreadyVerified": "Email gia verificata.",
+    "otpUnavailable": "Codice OTP non disponibile.",
+    "invalidOtp": "OTP non valido.",
+    "otpResent": "Codice OTP reinviato alla tua email.",
+    "usernameRequired": "Inserisci nome utente.",
+    "identifierRequired": "Inserisci nome utente o email.",
+    "invalidCredentials": "Credenziali non valide.",
+    "verifyEmailFirst": "Verifica prima la tua email.",
+    "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento."
   }
 }

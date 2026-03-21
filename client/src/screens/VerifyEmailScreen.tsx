@@ -20,7 +20,7 @@ import { OtpInput } from '../components/auth/OtpInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage } from '../services/api';
-import { resendRegistrationOtp, verifyRegistrationOtp } from '../services/auth';
+import { clearPendingVerificationEmail, resendRegistrationOtp, verifyRegistrationOtp } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 const logoSource = require('../../assets/auth/co-money-logo.png');
@@ -36,6 +36,7 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const normalizedOtp = otp.replace(/\D/g, '').slice(0, 6);
 
   useEffect(() => {
     if (timer === 0) {
@@ -50,7 +51,8 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
   }, [timer]);
 
   const handleVerify = async () => {
-    if (otp.length !== 6) {
+    if (normalizedOtp.length !== 6) {
+      setErrorMessage(t('auth.verifyEmail.invalidOtp'));
       return;
     }
 
@@ -58,7 +60,8 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
     setLoading(true);
 
     try {
-      await verifyRegistrationOtp({ email, otp });
+      await verifyRegistrationOtp({ email, otp: normalizedOtp });
+      await clearPendingVerificationEmail();
       navigation.replace('RegistrationSuccess');
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, t('auth.verifyEmail.invalidOtp')));
@@ -103,12 +106,12 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
           <View style={styles.heroWrap}>
             <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
               <View style={styles.heroOverlay}>
-                <View style={styles.languageWrap}>
+                <View style={styles.topRow}>
+                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                    <MaterialCommunityIcons name="message-badge-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.topPillText}>{t('auth.verifyEmail.heroBadge')}</Text>
+                  </View>
                   <LanguageSwitcher tone="light" />
-                </View>
-                <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                  <MaterialCommunityIcons name="message-badge-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.topPillText}>{t('auth.verifyEmail.heroBadge')}</Text>
                 </View>
                 <Image source={logoSource} style={styles.logo} resizeMode="contain" />
                 <Text style={styles.heroTitle}>{t('auth.verifyEmail.heroTitle')}</Text>
@@ -139,12 +142,21 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
               <Text style={[styles.emailText, { color: theme.custom.textPrimary }]}>{email}</Text>
             </View>
 
-            <Text style={[styles.sectionLabel, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.sectionLabel')}</Text>
-            <OtpInput onChange={setOtp} value={otp} />
+            <View style={styles.formStack}>
+              <Text style={[styles.sectionLabel, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.sectionLabel')}</Text>
+              <OtpInput onChange={setOtp} value={normalizedOtp} />
 
-            {errorMessage ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{errorMessage}</Text> : null}
+              {errorMessage ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{errorMessage}</Text> : null}
 
-            <PrimaryButton disabled={otp.length !== 6} label={t('auth.verifyEmail.cta')} loading={loading} onPress={handleVerify} />
+              <View style={styles.buttonWrap}>
+                <PrimaryButton
+                  disabled={normalizedOtp.length !== 6}
+                  label={t('auth.verifyEmail.cta')}
+                  loading={loading}
+                  onPress={handleVerify}
+                />
+              </View>
+            </View>
 
             <View style={styles.resendRow}>
               <Text style={[styles.resendText, { color: theme.custom.textSecondary }]}>
@@ -204,14 +216,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  languageWrap: {
+  topRow: {
     position: 'absolute',
     top: 54,
+    left: 20,
     right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   topPill: {
-    position: 'absolute',
-    top: 56,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -220,6 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(12, 18, 24, 0.28)',
+    flexShrink: 1,
   },
   topPillText: {
     color: '#FFFFFF',
@@ -292,6 +308,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 12,
   },
+  formStack: {
+    width: '100%',
+  },
   errorText: {
     fontSize: 13,
     lineHeight: 18,
@@ -299,6 +318,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 4,
+  },
+  buttonWrap: {
+    width: '100%',
+    marginTop: 10,
   },
   resendRow: {
     flexDirection: 'row',

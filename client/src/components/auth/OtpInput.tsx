@@ -97,12 +97,14 @@ export function OtpInput({ value, length = 6, onChange }: Props) {
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
+    alignSelf: 'stretch',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
   },
   input: {
     flex: 1,
+    minWidth: 0,
     minHeight: 62,
     borderRadius: 18,
     borderWidth: 1.2,

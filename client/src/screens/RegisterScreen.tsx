@@ -23,7 +23,7 @@ import { PrimaryButton } from '../components/auth/PrimaryButton';
 import { useRegisterForm } from '../hooks/useRegisterForm';
 import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage } from '../services/api';
-import { registerUser } from '../services/auth';
+import { registerUser, savePendingVerificationEmail } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 const logoSource = require('../../assets/auth/co-money-logo.png');
@@ -71,6 +71,7 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
         email: values.email,
         password: values.password,
       });
+      await savePendingVerificationEmail(result.email);
 
       navigation.navigate('VerifyEmail', {
         email: result.email,
@@ -122,12 +123,12 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
           <View style={styles.heroWrap}>
             <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
               <View style={styles.heroOverlay}>
-                <View style={styles.languageWrap}>
+                <View style={styles.topRow}>
+                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                    <MaterialCommunityIcons name="email-check-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.topPillText}>{t('auth.register.heroBadge')}</Text>
+                  </View>
                   <LanguageSwitcher tone="light" />
-                </View>
-                <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                  <MaterialCommunityIcons name="email-check-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.topPillText}>{t('auth.register.heroBadge')}</Text>
                 </View>
                 <Image source={logoSource} style={styles.logo} resizeMode="contain" />
                 <Text style={styles.heroTitle}>{t('auth.register.heroTitle')}</Text>
@@ -318,14 +319,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  languageWrap: {
+  topRow: {
     position: 'absolute',
     top: 54,
+    left: 20,
     right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   topPill: {
-    position: 'absolute',
-    top: 56,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -334,6 +338,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(12, 18, 24, 0.28)',
+    flexShrink: 1,
   },
   topPillText: {
     color: '#FFFFFF',

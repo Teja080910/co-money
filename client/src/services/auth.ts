@@ -1,4 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './api';
+
+const PENDING_VERIFICATION_EMAIL_KEY = 'pending-verification-email';
 
 type RegisterPayload = {
   firstName: string;
@@ -61,4 +64,17 @@ export async function resendRegistrationOtp(email: string) {
 export async function loginUser(payload: LoginPayload) {
   const response = await apiClient.post<LoginResponse>('/auth/login', payload);
   return response.data;
+}
+
+export async function savePendingVerificationEmail(email: string) {
+  await AsyncStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, email.trim().toLowerCase());
+}
+
+export async function getPendingVerificationEmail() {
+  const email = await AsyncStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
+  return email?.trim().toLowerCase() || null;
+}
+
+export async function clearPendingVerificationEmail() {
+  await AsyncStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
 }

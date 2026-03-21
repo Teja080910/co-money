@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -19,8 +19,8 @@ import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 import { ScreenProps } from '../navigation/types';
-import { getApiErrorMessage } from '../services/api';
-import { loginUser } from '../services/auth';
+import { getApiErrorMessage, getApiResponseError } from '../services/api';
+import { getPendingVerificationEmail, loginUser, savePendingVerificationEmail } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 const logoSource = require('../../assets/auth/co-money-logo.png');
@@ -39,6 +39,7 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
     password: false,
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
 
   const trimmedIdentifier = identifier.trim();
   const errors = {
@@ -52,6 +53,31 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
     setTouched({
       identifier: true,
       password: true,
+    });
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    void getPendingVerificationEmail().then(email => {
+      if (active) {
+        setPendingVerificationEmail(email);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const openPendingVerification = () => {
+    if (!pendingVerificationEmail) {
+      return;
+    }
+
+    setSubmitError(null);
+    navigation.push('VerifyEmail', {
+      email: pendingVerificationEmail,
     });
   };
 
@@ -71,6 +97,21 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
       });
       navigation.replace('Home');
     } catch (error) {
+      const responseError = getApiResponseError(error);
+      if (responseError === 'Verifica prima la tua email.') {
+        const verificationEmail = trimmedIdentifier.includes('@')
+          ? trimmedIdentifier.toLowerCase()
+          : pendingVerificationEmail;
+
+        if (verificationEmail) {
+          await savePendingVerificationEmail(verificationEmail);
+          navigation.push('VerifyEmail', {
+            email: verificationEmail,
+          });
+          return;
+        }
+      }
+
       setSubmitError(getApiErrorMessage(error, t('auth.login.errors.submit')));
     } finally {
       setLoading(false);
@@ -94,12 +135,12 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
           <View style={styles.heroWrap}>
             <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
               <View style={styles.heroOverlay}>
-                <View style={styles.languageWrap}>
+                <View style={styles.topRow}>
+                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                    <MaterialCommunityIcons name="login-variant" size={16} color="#FFFFFF" />
+                    <Text style={styles.topPillText}>{t('auth.login.heroBadge')}</Text>
+                  </View>
                   <LanguageSwitcher tone="light" />
-                </View>
-                <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                  <MaterialCommunityIcons name="login-variant" size={16} color="#FFFFFF" />
-                  <Text style={styles.topPillText}>{t('auth.login.heroBadge')}</Text>
                 </View>
                 <Image source={logoSource} style={styles.logo} resizeMode="contain" />
                 <Text style={styles.heroTitle}>{t('auth.login.heroTitle')}</Text>
@@ -164,6 +205,22 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
 
             <PrimaryButton disabled={!isValid} label={t('auth.login.cta')} loading={loading} onPress={handleLogin} />
 
+            {pendingVerificationEmail ? (
+              <View style={styles.resumeRow}>
+                <Text style={[styles.resumeText, { color: theme.custom.textSecondary }]}>
+                  {t('auth.login.resumeVerificationPrompt')}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={openPendingVerification}
+                  style={({ pressed }) => [styles.inlineAction, pressed ? styles.inlineActionPressed : null]}
+                >
+                  <Text style={styles.footerLink}>{t('auth.login.resumeVerificationAction')}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             <View style={styles.footerRow}>
               <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.login.footerPrompt')}</Text>
               <Text style={styles.footerLink} onPress={() => navigation.navigate('Register')}>
@@ -199,14 +256,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  languageWrap: {
+  topRow: {
     position: 'absolute',
     top: 54,
+    left: 20,
     right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   topPill: {
-    position: 'absolute',
-    top: 56,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -215,6 +275,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(12, 18, 24, 0.28)',
+    flexShrink: 1,
   },
   topPillText: {
     color: '#FFFFFF',
@@ -273,6 +334,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 14,
+  },
+  resumeRow: {
+    marginTop: 16,
+    marginBottom: 2,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  resumeText: {
+    fontSize: 14,
+  },
+  inlineAction: {
+    justifyContent: 'center',
+  },
+  inlineActionPressed: {
+    opacity: 0.72,
   },
   footerRow: {
     marginTop: 18,
