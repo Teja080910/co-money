@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import { AuthScreenShell } from '../components/auth/AuthScreenShell';
@@ -9,51 +9,22 @@ import type { AppTheme } from '../theme/theme';
 
 export function RegistrationSuccessScreen({ navigation }: ScreenProps<'RegistrationSuccess'>) {
   const theme = useTheme<AppTheme>();
-  const circleScale = useRef(new Animated.Value(0.5)).current;
-  const checkOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.spring(circleScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        damping: 10,
-        stiffness: 180,
-      }),
-      Animated.timing(checkOpacity, {
-        toValue: 1,
-        duration: 280,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [checkOpacity, circleScale]);
 
   return (
     <AuthScreenShell
       badge={
-        <Animated.View
-          style={[
-            styles.badge,
-            {
-              backgroundColor: theme.custom.success,
-              transform: [{ scale: circleScale }],
-            },
-          ]}
-        >
-          <Animated.View style={{ opacity: checkOpacity }}>
-            <MaterialCommunityIcons name="check" size={36} color="#FFFFFF" />
-          </Animated.View>
-        </Animated.View>
+        <View style={[styles.badge, { backgroundColor: theme.custom.success }]}>
+          <MaterialCommunityIcons name="check" size={34} color="#FFFFFF" />
+        </View>
       }
-      subtitle="Your email is verified and your workspace is ready."
-      title="Account created"
+      subtitle="Your account is ready and the reward network is available."
+      title="Welcome aboard"
     >
       <View style={styles.content}>
         <Text style={[styles.body, { color: theme.custom.textSecondary }]}>
-          You can now continue into the app and complete the rest of your profile from inside your dashboard.
+          Head into the app to view wallet balances, merchant tools, admin reporting, and the shared rewards logic.
         </Text>
-        <PrimaryButton label="Continue to app" onPress={() => navigation.replace('Home')} />
+        <PrimaryButton label="Continue to dashboard" onPress={() => navigation.replace('Home')} />
       </View>
     </AuthScreenShell>
   );

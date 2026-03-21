@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appStorage } from './services/storage';
 
 import en from './locales/en.json';
 import it from './locales/it.json';
@@ -14,7 +14,8 @@ const LANGUAGE_DETECTOR = {
   type: 'languageDetector',
   async: true,
   detect: (callback: (lang: string) => void) => {
-    AsyncStorage.getItem('user-language')
+    appStorage
+      .getItem('user-language')
       .then(language => {
         if (language) {
           return callback(language);
@@ -27,7 +28,7 @@ const LANGUAGE_DETECTOR = {
   },
   init: () => {},
   cacheUserLanguage: (language: string) => {
-    AsyncStorage.setItem('user-language', language);
+    void appStorage.setItem('user-language', language);
   },
 };
 

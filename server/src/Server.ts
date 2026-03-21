@@ -1,7 +1,8 @@
 import express from 'express';
 import { Server as OvernightServer } from '@overnightjs/core';
-import { UserController } from './controllers/UserController';
 import cors from 'cors';
+import { AuthController } from './controllers/AuthController';
+import { AppController } from './controllers/AppController';
 
 export class AppServer extends OvernightServer {
     constructor() {
@@ -13,8 +14,7 @@ export class AppServer extends OvernightServer {
     }
 
     private setupControllers(): void {
-        const userController = new UserController();
-        super.addControllers([userController]);
+        super.addControllers([new AuthController(), new AppController()]);
     }
 
     public start(port: number): void {

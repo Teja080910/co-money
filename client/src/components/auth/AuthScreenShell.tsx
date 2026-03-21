@@ -25,6 +25,7 @@ type Props = {
   footer?: React.ReactNode;
   badge?: React.ReactNode;
   cardStyle?: StyleProp<ViewStyle>;
+  centerHeader?: boolean;
 };
 
 export function AuthScreenShell({
@@ -34,6 +35,7 @@ export function AuthScreenShell({
   footer,
   badge,
   cardStyle,
+  centerHeader = false,
 }: Props) {
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
@@ -125,9 +127,13 @@ export function AuthScreenShell({
             ]}
           >
             {badge ? <View style={styles.badgeWrap}>{badge}</View> : null}
-            <View style={styles.header}>
-              <Text style={[styles.title, { color: theme.custom.textPrimary }]}>{title}</Text>
-              <Text style={[styles.subtitle, { color: theme.custom.textSecondary }]}>{subtitle}</Text>
+            <View style={[styles.header, centerHeader ? styles.headerCentered : null]}>
+              <Text style={[styles.title, centerHeader ? styles.textCentered : null, { color: theme.custom.textPrimary }]}>
+                {title}
+              </Text>
+              <Text style={[styles.subtitle, centerHeader ? styles.textCentered : null, { color: theme.custom.textSecondary }]}>
+                {subtitle}
+              </Text>
             </View>
             {children}
             {footer ? <View style={styles.footer}>{footer}</View> : null}
@@ -171,6 +177,9 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     gap: 8,
   },
+  headerCentered: {
+    alignItems: 'center',
+  },
   title: {
     fontSize: 32,
     lineHeight: 38,
@@ -180,6 +189,9 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  textCentered: {
+    textAlign: 'center',
   },
   footer: {
     marginTop: 24,

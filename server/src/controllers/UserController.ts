@@ -25,6 +25,7 @@ export class UserController {
         try {
             const userId = req.params.id as string;
             const user = await this.userService.getUserById(userId);
+            console.log(`Fetching user with ID: ${user}`);
             if (!user) {
                 return res.status(404).json({ error: 'User not found' });
             }

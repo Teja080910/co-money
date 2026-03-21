@@ -6,7 +6,6 @@ async function bootstrap() {
     try {
         await AppDataSource.initialize();
         console.log('Database connection initialized successfully.');
-        
         const server = new AppServer();
         const port = parseInt(process.env.PORT || '5008');
         server.start(port);
