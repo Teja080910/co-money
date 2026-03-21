@@ -1,7 +1,10 @@
-import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'crypto';
+import { randomInt } from 'crypto';
 import { AppDataSource } from '../config/db';
 import { User } from '../models/User';
 import { EmailService } from './EmailService';
+import { UserRole } from '../constants/userRoles';
+import { hashPassword, verifyPassword } from '../utils/password';
+import { createAccessToken, getJwtExpiresInSeconds } from '../utils/jwt';
 
 type RegisterInput = {
     firstName: string;
@@ -55,12 +58,13 @@ export class AuthService {
             lastName,
             username,
             email,
-            password: this.hashPassword(password),
+            password: hashPassword(password),
+            role: UserRole.CUSTOMER,
             emailVerified: false,
             verificationCode,
             verificationCodeExpiresAt: this.getOtpExpiryDate(),
         });
-
+        
         await this.userRepository.save(user);
         await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
 
@@ -163,7 +167,7 @@ export class AuthService {
             : this.buildEmail(normalizedIdentifier, domain);
 
         const user = await this.userRepository.findOneBy({ email });
-        if (!user || !this.verifyPassword(normalizedPassword, user.password)) {
+        if (!user || !verifyPassword(normalizedPassword, user.password)) {
             throw new Error('Credenziali non valide.');
         }
 
@@ -173,12 +177,20 @@ export class AuthService {
 
         return {
             message: 'Login effettuato con successo.',
+            accessToken: createAccessToken({
+                sub: user.id,
+                email: user.email,
+                role: user.role,
+            }),
+            tokenType: 'Bearer',
+            expiresInSeconds: getJwtExpiresInSeconds(),
             user: {
                 id: user.id,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 username: user.username,
                 email: user.email,
+                role: user.role,
                 emailVerified: user.emailVerified,
             },
         };
@@ -216,28 +228,6 @@ export class AuthService {
 
     private getOtpExpiryDate(): Date {
         return new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
-    }
-
-    private hashPassword(password: string): string {
-        const salt = randomBytes(16).toString('hex');
-        const hash = scryptSync(password, salt, 64).toString('hex');
-        return `${salt}:${hash}`;
-    }
-
-    private verifyPassword(password: string, storedPassword: string): boolean {
-        const [salt, storedHash] = storedPassword.split(':');
-        if (!salt || !storedHash) {
-            return false;
-        }
-
-        const computedHash = scryptSync(password, salt, 64);
-        const storedHashBuffer = Buffer.from(storedHash, 'hex');
-
-        if (computedHash.length !== storedHashBuffer.length) {
-            return false;
-        }
-
-        return timingSafeEqual(computedHash, storedHashBuffer);
     }
 
     private getDebugOtpPayload(otp: string): Pick<AuthPayload, 'debugOtp'> | {} {

@@ -21,9 +21,10 @@ export class AuthController {
                 password,
                 username,
             });
-
+            console.log('Registration result:', result);
             return res.status(201).json(result);
         } catch (error: any) {
+            console.error('Registration error:', error);
             const statusCode = error.message === 'Email gia registrata.' ? 409 : 400;
             return res.status(statusCode).json({ error: error.message });
         }

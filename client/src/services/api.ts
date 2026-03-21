@@ -1,6 +1,10 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import i18n from '../i18n';
+
+const AUTH_USER_KEY = 'auth-user';
+const AUTH_TOKEN_KEY = 'auth-token';
 
 const fallbackApiUrl =
   Platform.OS === 'android' ? 'http://10.0.2.2:5008' : 'http://127.0.0.1:5008';
@@ -22,12 +26,29 @@ function resolveApiUrl() {
 }
 
 export const apiClient = axios.create({
-  baseURL: resolveApiUrl(),
+  baseURL: 'https://modern-fawn-immensely.ngrok-free.app',
   timeout: 10000,
 });
 
 apiClient.interceptors.request.use(config => {
   config.headers.set?.('Accept-Language', i18n.resolvedLanguage === 'en' ? 'en' : 'it');
+  return config;
+});
+
+apiClient.interceptors.request.use(async config => {
+  const accessToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  const serializedUser = await AsyncStorage.getItem(AUTH_USER_KEY);
+  const authenticatedUser = serializedUser ? (JSON.parse(serializedUser) as { id: string; email: string }) : null;
+
+  if (accessToken) {
+    config.headers.set?.('Authorization', `Bearer ${accessToken}`);
+  }
+
+  if (authenticatedUser) {
+    config.headers.set?.('x-user-id', authenticatedUser.id);
+    config.headers.set?.('x-user-email', authenticatedUser.email);
+  }
+
   return config;
 });
 

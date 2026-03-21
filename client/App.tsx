@@ -10,6 +10,8 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { RegistrationSuccessScreen } from './src/screens/RegistrationSuccessScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
+import { CustomerQrScreen } from './src/screens/CustomerQrScreen';
+import { MerchantScanScreen } from './src/screens/MerchantScanScreen';
 import { RootStackParamList } from './src/navigation/types';
 import { getTheme } from './src/theme/theme';
 
@@ -43,6 +45,8 @@ export default function App() {
             <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
             <Stack.Screen name="RegistrationSuccess" component={RegistrationSuccessScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="CustomerQr" component={CustomerQrScreen} />
+            <Stack.Screen name="MerchantScan" component={MerchantScanScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </PaperProvider>

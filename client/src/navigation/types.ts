@@ -5,7 +5,9 @@ export type RootStackParamList = {
   Register: undefined;
   VerifyEmail: { email: string };
   RegistrationSuccess: undefined;
-  Home: undefined;
+  Home: { selectedCustomerId?: string } | undefined;
+  CustomerQr: undefined;
+  MerchantScan: undefined;
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

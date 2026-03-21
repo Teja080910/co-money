@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { UserRole } from '../constants/userRoles';
 
 @Entity('users')
 export class User {
@@ -19,6 +20,9 @@ export class User {
 
     @Column({ type: 'varchar' })
     password!: string;
+
+    @Column({ type: 'enum', enum: UserRole, default: UserRole.CUSTOMER })
+    role!: UserRole;
 
     @Column({ type: 'boolean', default: false })
     emailVerified!: boolean;

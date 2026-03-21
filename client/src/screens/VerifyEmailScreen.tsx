@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Image,
-  ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -22,9 +20,6 @@ import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage } from '../services/api';
 import { clearPendingVerificationEmail, resendRegistrationOtp, verifyRegistrationOtp } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
-
-const logoSource = require('../../assets/auth/co-money-logo.png');
-const backgroundSource = require('../../assets/auth/register-background.png');
 
 export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmail'>) {
   const theme = useTheme<AppTheme>();
@@ -98,26 +93,33 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
       >
         <ScrollView
           bounces={false}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 28, 40) }}
+          contentContainerStyle={{
+            paddingTop: Math.max(insets.top + 16, 24),
+            paddingBottom: Math.max(insets.bottom + 28, 40),
+          }}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroWrap}>
-            <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
-              <View style={styles.heroOverlay}>
-                <View style={styles.topRow}>
-                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                    <MaterialCommunityIcons name="message-badge-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.topPillText}>{t('auth.verifyEmail.heroBadge')}</Text>
-                  </View>
-                  <LanguageSwitcher tone="light" />
-                </View>
-                <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-                <Text style={styles.heroTitle}>{t('auth.verifyEmail.heroTitle')}</Text>
-                <Text style={styles.heroSubtitle}>{t('auth.verifyEmail.heroSubtitle')}</Text>
+          <View
+            style={[
+              styles.headerCard,
+              {
+                backgroundColor: theme.custom.surfaceStrong,
+                borderColor: theme.custom.border,
+                shadowColor: theme.custom.shadow,
+              },
+            ]}
+          >
+            <View style={styles.headerTopRow}>
+              <View style={[styles.topPill, { backgroundColor: 'rgba(47,107,255,0.1)' }]}>
+                <MaterialCommunityIcons name="message-badge-outline" size={16} color={theme.custom.brandStrong} />
+                <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>{t('auth.verifyEmail.heroBadge')}</Text>
               </View>
-            </ImageBackground>
+              <LanguageSwitcher />
+            </View>
+            <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.heroTitle')}</Text>
+            <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>{t('auth.verifyEmail.heroSubtitle')}</Text>
           </View>
 
           <View
@@ -126,7 +128,6 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
               {
                 backgroundColor: theme.custom.surfaceStrong,
                 borderColor: 'rgba(243, 111, 33, 0.12)',
-                marginTop: -28,
               },
             ]}
           >
@@ -201,65 +202,48 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  heroWrap: {
-    height: 340,
+  headerCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 30,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 1,
+    shadowRadius: 28,
+    elevation: 8,
   },
-  heroImage: {
-    flex: 1,
-  },
-  heroOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(6, 25, 34, 0.42)',
-    paddingTop: 64,
-    paddingHorizontal: 24,
-    paddingBottom: 34,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  topRow: {
-    position: 'absolute',
-    top: 54,
-    left: 20,
-    right: 20,
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
   },
   topPill: {
-    borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(12, 18, 24, 0.28)',
     flexShrink: 1,
+    marginBottom: 18,
   },
   topPillText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },
-  logo: {
-    width: 148,
-    height: 104,
-    marginBottom: 12,
-  },
   heroTitle: {
-    color: '#FFFFFF',
     fontSize: 30,
-    lineHeight: 34,
+    lineHeight: 36,
     fontWeight: '900',
     marginBottom: 8,
   },
   heroSubtitle: {
-    color: 'rgba(255,255,255,0.92)',
     fontSize: 14,
     lineHeight: 21,
-    textAlign: 'center',
-    maxWidth: 320,
   },
   sheet: {
     marginHorizontal: 16,

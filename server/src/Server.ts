@@ -3,7 +3,10 @@ import { Server as OvernightServer } from '@overnightjs/core';
 import { UserController } from './controllers/UserController';
 import { AuthController } from './controllers/AuthController';
 import { LegacyAuthController } from './controllers/LegacyAuthController';
+import { WalletController } from './controllers/WalletController';
+import { ShopController } from './controllers/ShopController';
 import cors from 'cors';
+import { attachAuthenticatedUser } from './middleware/attachAuthenticatedUser';
 
 export class AppServer extends OvernightServer {
     constructor() {
@@ -11,6 +14,7 @@ export class AppServer extends OvernightServer {
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
         this.app.use(cors());
+        this.app.use(attachAuthenticatedUser);
         this.setupControllers();
     }
 
@@ -18,7 +22,9 @@ export class AppServer extends OvernightServer {
         const userController = new UserController();
         const authController = new AuthController();
         const legacyAuthController = new LegacyAuthController();
-        super.addControllers([userController, authController, legacyAuthController]);
+        const walletController = new WalletController();
+        const shopController = new ShopController();
+        super.addControllers([userController, authController, legacyAuthController, walletController, shopController]);
     }
 
     public start(port: number): void {
