@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'react-native-paper';
 import { AuthScreenShell } from '../components/auth/AuthScreenShell';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
@@ -9,6 +10,7 @@ import type { AppTheme } from '../theme/theme';
 
 export function RegistrationSuccessScreen({ navigation }: ScreenProps<'RegistrationSuccess'>) {
   const theme = useTheme<AppTheme>();
+  const { t } = useTranslation();
   const circleScale = useRef(new Animated.Value(0.5)).current;
   const checkOpacity = useRef(new Animated.Value(0)).current;
 
@@ -46,14 +48,12 @@ export function RegistrationSuccessScreen({ navigation }: ScreenProps<'Registrat
           </Animated.View>
         </Animated.View>
       }
-      subtitle="Your email is verified and your workspace is ready."
-      title="Account created"
+      subtitle={t('auth.success.subtitle')}
+      title={t('auth.success.title')}
     >
       <View style={styles.content}>
-        <Text style={[styles.body, { color: theme.custom.textSecondary }]}>
-          You can now continue into the app and complete the rest of your profile from inside your dashboard.
-        </Text>
-        <PrimaryButton label="Continue to app" onPress={() => navigation.replace('Home')} />
+        <Text style={[styles.body, { color: theme.custom.textSecondary }]}>{t('auth.success.body')}</Text>
+        <PrimaryButton label={t('auth.success.cta')} onPress={() => navigation.replace('Home')} />
       </View>
     </AuthScreenShell>
   );

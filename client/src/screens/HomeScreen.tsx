@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Text, Appbar, Card, Title, Paragraph, Button, ActivityIndicator, FAB } from 'react-native-paper';
-import axios from 'axios';
+import { Appbar, Card, Title, ActivityIndicator, FAB } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { apiClient } from '../services/api';
 
 interface Props {
   navigation: any;
 }
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { t } = useTranslation();
   const onLogout = () => {
     navigation.replace('Login');
   };
@@ -17,15 +20,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Connect to the backend using environment variable
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:5008';
-      const response = await axios.get(`${apiUrl}/api/users`);
+      const response = await apiClient.get('/api/users');
       setUsers(response.data);
     } catch (error) {
-      console.warn("Could not fetch users, make sure backend is running");
+      console.warn(t('home.fetchWarning'));
       setUsers([
         { id: '1', username: 'TestUser1', email: 'test1@test.com' },
-        { id: '2', username: 'TestUser2', email: 'test2@test.com' }
+        { id: '2', username: 'TestUser2', email: 'test2@test.com' },
       ]);
     } finally {
       setLoading(false);
@@ -33,18 +34,21 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    void fetchUsers();
+  }, [t]);
 
   return (
     <View style={styles.container}>
       <Appbar.Header elevated>
-        <Appbar.Content title="Dashboard" subtitle="Co-Money" />
-        <Appbar.Action icon="logout" onPress={onLogout} />
+        <Appbar.Content title={t('home.title')} subtitle={t('home.subtitle')} />
+        <View style={styles.headerActions}>
+          <LanguageSwitcher />
+          <Appbar.Action accessibilityLabel={t('home.logout')} icon="logout" onPress={onLogout} />
+        </View>
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Title style={styles.sectionTitle}>Registered Users</Title>
+        <Title style={styles.sectionTitle}>{t('home.registeredUsers')}</Title>
         {loading ? (
           <ActivityIndicator animating={true} size="large" style={styles.loader} />
         ) : (
@@ -72,6 +76,12 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 80, // Space for FAB
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingRight: 8,
   },
   sectionTitle: {
     marginBottom: 16,

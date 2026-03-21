@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
+import { LanguageSwitcher } from '../LanguageSwitcher';
 import type { AppTheme } from '../../theme/theme';
 
 type Props = {
@@ -124,6 +125,9 @@ export function AuthScreenShell({
               cardStyle,
             ]}
           >
+            <View style={styles.topControls}>
+              <LanguageSwitcher />
+            </View>
             {badge ? <View style={styles.badgeWrap}>{badge}</View> : null}
             <View style={styles.header}>
               <Text style={[styles.title, { color: theme.custom.textPrimary }]}>{title}</Text>
@@ -166,6 +170,10 @@ const styles = StyleSheet.create({
   badgeWrap: {
     alignItems: 'center',
     marginBottom: 18,
+  },
+  topControls: {
+    alignItems: 'flex-end',
+    marginBottom: 16,
   },
   header: {
     marginBottom: 28,

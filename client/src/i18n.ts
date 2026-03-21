@@ -10,32 +10,36 @@ const resources = {
   it: { translation: it },
 };
 
+export const LANGUAGE_STORAGE_KEY = 'user-language';
+
 const LANGUAGE_DETECTOR = {
   type: 'languageDetector',
   async: true,
   detect: (callback: (lang: string) => void) => {
-    AsyncStorage.getItem('user-language')
+    AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)
       .then(language => {
-        if (language) {
+        if (language === 'en' || language === 'it') {
           return callback(language);
         }
-        callback('en');
+        callback('it');
       })
       .catch(() => {
-        callback('en');
+        callback('it');
       });
   },
   init: () => {},
   cacheUserLanguage: (language: string) => {
-    AsyncStorage.setItem('user-language', language);
+    AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
   },
 };
 
 i18n
+  .use(LANGUAGE_DETECTOR as any)
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: 'en',
+    fallbackLng: 'it',
+    supportedLngs: ['it', 'en'],
     interpolation: {
       escapeValue: false,
     },

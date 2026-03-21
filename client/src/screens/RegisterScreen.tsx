@@ -16,21 +16,26 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 import { useRegisterForm } from '../hooks/useRegisterForm';
 import { ScreenProps } from '../navigation/types';
+import { getApiErrorMessage } from '../services/api';
+import { registerUser } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 const logoSource = require('../../assets/auth/co-money-logo.png');
 const backgroundSource = require('../../assets/auth/register-background.png');
-const defaultEmailDomain = '@sottocasa.it';
 
 export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const lastNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
@@ -56,10 +61,25 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
       return;
     }
 
+    setSubmitError(null);
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1400));
-    setLoading(false);
-    navigation.navigate('VerifyEmail', { email: `${values.username.trim().toLowerCase()}${defaultEmailDomain}` });
+
+    try {
+      const result = await registerUser({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        password: values.password,
+      });
+
+      navigation.navigate('VerifyEmail', {
+        email: result.email,
+      });
+    } catch (error) {
+      setSubmitError(getApiErrorMessage(error, t('auth.register.errors.submit')));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const scrollToField = (y: number) => {
@@ -102,15 +122,16 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
           <View style={styles.heroWrap}>
             <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
               <View style={styles.heroOverlay}>
+                <View style={styles.languageWrap}>
+                  <LanguageSwitcher tone="light" />
+                </View>
                 <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
                   <MaterialCommunityIcons name="email-check-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.topPillText}>Verifica Email</Text>
+                  <Text style={styles.topPillText}>{t('auth.register.heroBadge')}</Text>
                 </View>
                 <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-                <Text style={styles.heroTitle}>Registrazione</Text>
-                <Text style={styles.heroSubtitle}>
-                  Crea il tuo account e continua nel nuovo Co-Money con lo stile dell&apos;app originale.
-                </Text>
+                <Text style={styles.heroTitle}>{t('auth.register.heroTitle')}</Text>
+                <Text style={styles.heroSubtitle}>{t('auth.register.heroSubtitle')}</Text>
               </View>
             </ImageBackground>
           </View>
@@ -126,22 +147,22 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
             ]}
           >
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>REGISTRATI</Text>
+              <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.register.title')}</Text>
               <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-                Abbiamo recuperato dall&apos;app precedente il flusso di registrazione con verifica OTP via email.
+                {t('auth.register.subtitle')}
               </Text>
             </View>
 
             <View style={styles.nameRow}>
               <View style={styles.halfField}>
                 <FloatingLabelInput
-                  accessibleLabel="Nome"
+                  accessibleLabel={t('auth.register.firstNameLabel')}
                   autoCapitalize="words"
                   autoComplete="name-given"
                   error={errors.firstName}
-                  helperText={!errors.firstName ? 'Inserisci il tuo nome' : undefined}
+                  helperText={!errors.firstName ? t('auth.register.firstNameHelper') : undefined}
                   icon="account-outline"
-                  label="Nome"
+                  label={t('auth.register.firstNameLabel')}
                   onChangeText={text => {
                     setFieldValue('firstName', text);
                     touchField('firstName');
@@ -155,14 +176,14 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
               </View>
               <View style={styles.halfField}>
                 <FloatingLabelInput
-                  accessibleLabel="Cognome"
+                  accessibleLabel={t('auth.register.lastNameLabel')}
                   autoCapitalize="words"
                   autoComplete="name-family"
                   error={errors.lastName}
-                  helperText={!errors.lastName ? 'Inserisci il tuo cognome' : undefined}
+                  helperText={!errors.lastName ? t('auth.register.lastNameHelper') : undefined}
                   icon="badge-account-outline"
                   inputRef={lastNameRef}
-                  label="Cognome"
+                  label={t('auth.register.lastNameLabel')}
                   onChangeText={text => {
                     setFieldValue('lastName', text);
                     touchField('lastName');
@@ -176,52 +197,40 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
               </View>
             </View>
 
-            <View style={styles.usernameSection}>
-              <View style={styles.usernameRow}>
-                <View style={styles.usernameField}>
-                  <FloatingLabelInput
-                    accessibleLabel="Nome utente"
-                    autoCapitalize="none"
-                    autoComplete="username"
-                    error={errors.username}
-                    helperText={!errors.username ? 'Inserisci nome utente' : undefined}
-                    icon="account-circle-outline"
-                    inputRef={emailRef}
-                    label="Nome utente"
-                    onChangeText={text => {
-                      setFieldValue('username', text.replace(/\s+/g, '').toLowerCase());
-                      touchField('username');
-                    }}
-                    onFocus={() => scrollToField(300)}
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                    returnKeyType="next"
-                    valid={validity.username}
-                    value={values.username}
-                  />
-                </View>
-                <View style={[styles.domainCard, { backgroundColor: '#FFF4EC', borderColor: 'rgba(243, 111, 33, 0.18)' }]}>
-                  <Text style={styles.domainLabel}>Dominio</Text>
-                  <Text style={styles.domainValue}>{defaultEmailDomain}</Text>
-                </View>
-              </View>
-              <Text style={[styles.usernameHint, { color: theme.custom.textSecondary }]}>
-                Come nell&apos;app originale, il sistema completa automaticamente l&apos;indirizzo email.
-              </Text>
-            </View>
+            <FloatingLabelInput
+              accessibleLabel={t('auth.register.emailLabel')}
+              autoCapitalize="none"
+              autoComplete="email"
+              error={errors.email}
+              helperText={!errors.email ? t('auth.register.emailHelper') : undefined}
+              icon="email-outline"
+              inputRef={emailRef}
+              keyboardType="email-address"
+              label={t('auth.register.emailLabel')}
+              onChangeText={text => {
+                setFieldValue('email', text);
+                touchField('email');
+              }}
+              onFocus={() => scrollToField(300)}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              returnKeyType="next"
+              valid={validity.email}
+              value={values.email}
+            />
 
             <FloatingLabelInput
-              accessibleLabel="Password"
+              accessibleLabel={t('auth.register.passwordLabel')}
               autoComplete="password-new"
               error={errors.password}
-              helperText={!errors.password ? 'La password deve essere di almeno 8 caratteri' : undefined}
+              helperText={!errors.password ? t('auth.register.passwordHelper') : undefined}
               icon="lock-outline"
               inputRef={passwordRef}
-              label="Password"
+              label={t('auth.register.passwordLabel')}
               onChangeText={text => {
                 setFieldValue('password', text);
                 touchField('password');
               }}
-              onFocus={() => scrollToField(470)}
+              onFocus={() => scrollToField(420)}
               onSubmitEditing={() => confirmPasswordRef.current?.focus()}
               onToggleSecureEntry={() => setPasswordVisible(!passwordVisible)}
               returnKeyType="next"
@@ -232,18 +241,18 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
             />
 
             <FloatingLabelInput
-              accessibleLabel="Conferma Password"
+              accessibleLabel={t('auth.register.confirmPasswordLabel')}
               autoComplete="password-new"
               error={errors.confirmPassword}
-              helperText={!errors.confirmPassword ? 'Conferma la password' : undefined}
+              helperText={!errors.confirmPassword ? t('auth.register.confirmPasswordHelper') : undefined}
               icon="lock-check-outline"
               inputRef={confirmPasswordRef}
-              label="Conferma Password"
+              label={t('auth.register.confirmPasswordLabel')}
               onChangeText={text => {
                 setFieldValue('confirmPassword', text);
                 touchField('confirmPassword');
               }}
-              onFocus={() => scrollToField(580)}
+              onFocus={() => scrollToField(520)}
               onSubmitEditing={handleRegister}
               onToggleSecureEntry={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
               returnKeyType="done"
@@ -256,27 +265,28 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
             <View style={styles.infoCard}>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="shield-check-outline" size={18} color="#F36F21" />
-                <Text style={[styles.infoTitle, { color: theme.custom.textPrimary }]}>Verifica OTP</Text>
+                <Text style={[styles.infoTitle, { color: theme.custom.textPrimary }]}>{t('auth.register.otpTitle')}</Text>
               </View>
               <Text style={[styles.infoText, { color: theme.custom.textSecondary }]}>
-                Dopo la registrazione, invieremo un codice OTP alla tua email per completare l&apos;attivazione.
+                {t('auth.register.otpBody')}
               </Text>
             </View>
 
             <View style={styles.actionWrap}>
+              {submitError ? <Text style={[styles.submitError, { color: theme.custom.error }]}>{submitError}</Text> : null}
               {loading ? (
                 <View style={styles.loaderRow}>
                   <ActivityIndicator color="#F36F21" size="small" />
-                  <Text style={[styles.loaderText, { color: theme.custom.textSecondary }]}>Registrazione in corso...</Text>
+                  <Text style={[styles.loaderText, { color: theme.custom.textSecondary }]}>{t('auth.register.submitting')}</Text>
                 </View>
               ) : null}
-              <PrimaryButton disabled={!isValid} label="REGISTRATI" loading={loading} onPress={handleRegister} />
+              <PrimaryButton disabled={!isValid} label={t('auth.register.cta')} loading={loading} onPress={handleRegister} />
             </View>
 
             <View style={styles.footerRow}>
-              <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>Hai gia un account?</Text>
+              <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.register.footerPrompt')}</Text>
               <Text style={styles.footerLink} onPress={() => navigation.navigate('Login')}>
-                Accedi
+                {t('auth.register.footerAction')}
               </Text>
             </View>
           </View>
@@ -307,6 +317,11 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     justifyContent: 'flex-end',
     alignItems: 'center',
+  },
+  languageWrap: {
+    position: 'absolute',
+    top: 54,
+    right: 20,
   },
   topPill: {
     position: 'absolute',
@@ -377,45 +392,6 @@ const styles = StyleSheet.create({
   halfField: {
     flex: 1,
   },
-  usernameSection: {
-    marginBottom: 8,
-  },
-  usernameRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  usernameField: {
-    flex: 1,
-  },
-  domainCard: {
-    minHeight: 64,
-    minWidth: 126,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    justifyContent: 'center',
-  },
-  domainLabel: {
-    color: '#F36F21',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  domainValue: {
-    color: '#7C2D12',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  usernameHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
-    paddingHorizontal: 4,
-  },
   infoCard: {
     borderRadius: 20,
     backgroundColor: '#FFF4EC',
@@ -450,6 +426,12 @@ const styles = StyleSheet.create({
   loaderText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  submitError: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   footerRow: {
     marginTop: 18,

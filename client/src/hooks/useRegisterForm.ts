@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-type FieldName = 'firstName' | 'lastName' | 'username' | 'password' | 'confirmPassword';
+type FieldName = 'firstName' | 'lastName' | 'email' | 'password' | 'confirmPassword';
 
 type FormValues = Record<FieldName, string>;
 type FormErrors = Partial<Record<FieldName, string>>;
@@ -9,7 +10,7 @@ type TouchedFields = Record<FieldName, boolean>;
 const initialValues: FormValues = {
   firstName: '',
   lastName: '',
-  username: '',
+  email: '',
   password: '',
   confirmPassword: '',
 };
@@ -17,58 +18,55 @@ const initialValues: FormValues = {
 const initialTouched: TouchedFields = {
   firstName: false,
   lastName: false,
-  username: false,
+  email: false,
   password: false,
   confirmPassword: false,
 };
 
-const usernameRegex = /^[a-z0-9._-]+$/i;
-
-function validate(values: FormValues): FormErrors {
-  const errors: FormErrors = {};
-
-  if (!values.firstName.trim()) {
-    errors.firstName = 'Inserisci il tuo nome.';
-  } else if (values.firstName.trim().length < 2) {
-    errors.firstName = 'Il nome deve avere almeno 2 caratteri.';
-  }
-
-  if (!values.lastName.trim()) {
-    errors.lastName = 'Inserisci il tuo cognome.';
-  } else if (values.lastName.trim().length < 2) {
-    errors.lastName = 'Il cognome deve avere almeno 2 caratteri.';
-  }
-
-  if (!values.username.trim()) {
-    errors.username = 'Inserisci nome utente.';
-  } else if (values.username.trim().length < 3) {
-    errors.username = 'Il nome utente deve avere almeno 3 caratteri.';
-  } else if (!usernameRegex.test(values.username.trim())) {
-    errors.username = 'Usa solo lettere, numeri, punto, trattino o underscore.';
-  }
-
-  if (!values.password) {
-    errors.password = 'Inserisci una password.';
-  } else if (values.password.length < 8) {
-    errors.password = 'La password deve essere di almeno 8 caratteri.';
-  }
-
-  if (!values.confirmPassword) {
-    errors.confirmPassword = 'Conferma la password.';
-  } else if (values.confirmPassword !== values.password) {
-    errors.confirmPassword = 'Le password non coincidono.';
-  }
-
-  return errors;
-}
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function useRegisterForm() {
+  const { t } = useTranslation();
   const [values, setValues] = useState<FormValues>(initialValues);
   const [touched, setTouched] = useState<TouchedFields>(initialTouched);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
 
-  const allErrors = useMemo(() => validate(values), [values]);
+  const allErrors = useMemo(() => {
+    const errors: FormErrors = {};
+
+    if (!values.firstName.trim()) {
+      errors.firstName = t('auth.register.errors.firstNameRequired');
+    } else if (values.firstName.trim().length < 2) {
+      errors.firstName = t('auth.register.errors.firstNameShort');
+    }
+
+    if (!values.lastName.trim()) {
+      errors.lastName = t('auth.register.errors.lastNameRequired');
+    } else if (values.lastName.trim().length < 2) {
+      errors.lastName = t('auth.register.errors.lastNameShort');
+    }
+
+    if (!values.email.trim()) {
+      errors.email = t('auth.register.errors.emailRequired');
+    } else if (!emailRegex.test(values.email.trim())) {
+      errors.email = t('auth.register.errors.emailInvalid');
+    }
+
+    if (!values.password) {
+      errors.password = t('auth.register.errors.passwordRequired');
+    } else if (values.password.length < 8) {
+      errors.password = t('auth.register.errors.passwordShort');
+    }
+
+    if (!values.confirmPassword) {
+      errors.confirmPassword = t('auth.register.errors.confirmRequired');
+    } else if (values.confirmPassword !== values.password) {
+      errors.confirmPassword = t('auth.register.errors.confirmMismatch');
+    }
+
+    return errors;
+  }, [t, values]);
 
   const errors = useMemo(
     () =>
@@ -84,7 +82,7 @@ export function useRegisterForm() {
   const setFieldValue = (field: FieldName, nextValue: string) => {
     setValues(current => ({
       ...current,
-      [field]: field === 'username' ? nextValue.trim().toLowerCase() : nextValue,
+      [field]: field === 'email' ? nextValue.trim().toLowerCase() : nextValue,
     }));
   };
 
@@ -96,7 +94,7 @@ export function useRegisterForm() {
     setTouched({
       firstName: true,
       lastName: true,
-      username: true,
+      email: true,
       password: true,
       confirmPassword: true,
     });
@@ -105,7 +103,7 @@ export function useRegisterForm() {
   const validity = {
     firstName: values.firstName.trim().length >= 2,
     lastName: values.lastName.trim().length >= 2,
-    username: values.username.trim().length >= 3 && usernameRegex.test(values.username.trim()),
+    email: emailRegex.test(values.email.trim()),
     password: values.password.length >= 8,
     confirmPassword: values.confirmPassword.length > 0 && values.confirmPassword === values.password,
   };

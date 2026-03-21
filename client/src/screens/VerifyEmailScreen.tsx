@@ -1,30 +1,41 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  ImageBackground,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
-import { AuthScreenShell } from '../components/auth/AuthScreenShell';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { OtpInput } from '../components/auth/OtpInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 import { ScreenProps } from '../navigation/types';
+import { getApiErrorMessage } from '../services/api';
+import { resendRegistrationOtp, verifyRegistrationOtp } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
+
+const logoSource = require('../../assets/auth/co-money-logo.png');
+const backgroundSource = require('../../assets/auth/register-background.png');
 
 export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmail'>) {
   const theme = useTheme<AppTheme>();
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const email = route.params.email;
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(30);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const pulse = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1800, useNativeDriver: true }),
-      ]),
-    ).start();
-  }, [pulse]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (timer === 0) {
@@ -43,10 +54,17 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
       return;
     }
 
+    setErrorMessage(null);
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    setLoading(false);
-    navigation.replace('RegistrationSuccess');
+
+    try {
+      await verifyRegistrationOtp({ email, otp });
+      navigation.replace('RegistrationSuccess');
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, t('auth.verifyEmail.invalidOtp')));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResend = async () => {
@@ -54,135 +72,261 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
       return;
     }
 
+    setErrorMessage(null);
     setResending(true);
-    await new Promise(resolve => setTimeout(resolve, 900));
-    setOtp('');
-    setTimer(30);
-    setResending(false);
+
+    try {
+      await resendRegistrationOtp(email);
+      setOtp('');
+      setTimer(30);
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, t('auth.verifyEmail.resendError')));
+    } finally {
+      setResending(false);
+    }
   };
 
-  const ringScale = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.08],
-  });
-
   return (
-    <AuthScreenShell
-      badge={
-        <Animated.View
-          style={[
-            styles.mailBadge,
-            {
-              backgroundColor: theme.custom.surfaceStrong,
-              borderColor: theme.custom.border,
-              transform: [{ scale: ringScale }],
-            },
-          ]}
+    <Pressable style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]} onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 24}
+      >
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 28, 40) }}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <MaterialCommunityIcons name="email-fast-outline" size={26} color={theme.custom.brand} />
-        </Animated.View>
-      }
-      footer={
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>Entered the wrong email?</Text>
-          <Text style={[styles.footerLink, { color: theme.custom.brand }]} onPress={() => navigation.goBack()}>
-            Edit it
-          </Text>
-        </View>
-      }
-      subtitle={`We sent a 6-digit verification code to ${email}`}
-      title="Verify your email"
-    >
-      <View style={styles.content}>
-        <OtpInput onChange={setOtp} value={otp} />
-        <Text style={[styles.helper, { color: theme.custom.textSecondary }]}>
-          Auto-fill works on supported devices. You can also paste the full code into any box.
-        </Text>
-
-        <PrimaryButton disabled={otp.length !== 6} label="Confirm email" loading={loading} onPress={handleVerify} />
-
-        <View style={styles.resendCard}>
-          <View>
-            <Text style={[styles.resendLabel, { color: theme.custom.textPrimary }]}>Need a new code?</Text>
-            <Text style={[styles.resendHint, { color: theme.custom.textSecondary }]}>
-              {timer > 0 ? `Resend available in 00:${timer.toString().padStart(2, '0')}` : 'You can request another verification code now.'}
-            </Text>
+          <View style={styles.heroWrap}>
+            <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
+              <View style={styles.heroOverlay}>
+                <View style={styles.languageWrap}>
+                  <LanguageSwitcher tone="light" />
+                </View>
+                <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                  <MaterialCommunityIcons name="message-badge-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.topPillText}>{t('auth.verifyEmail.heroBadge')}</Text>
+                </View>
+                <Image source={logoSource} style={styles.logo} resizeMode="contain" />
+                <Text style={styles.heroTitle}>{t('auth.verifyEmail.heroTitle')}</Text>
+                <Text style={styles.heroSubtitle}>{t('auth.verifyEmail.heroSubtitle')}</Text>
+              </View>
+            </ImageBackground>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            disabled={timer > 0 || resending}
-            onPress={handleResend}
-            style={({ pressed }) => [styles.resendButton, pressed && timer === 0 ? styles.resendPressed : null]}
+
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: theme.custom.surfaceStrong,
+                borderColor: 'rgba(243, 111, 33, 0.12)',
+                marginTop: -28,
+              },
+            ]}
           >
-            <Text
-              style={[
-                styles.resendButtonLabel,
-                {
-                  color: timer > 0 || resending ? theme.custom.textSecondary : theme.custom.brand,
-                },
-              ]}
-            >
-              {resending ? 'Sending...' : 'Resend'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </AuthScreenShell>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.title')}</Text>
+              <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                {t('auth.verifyEmail.subtitle')}
+              </Text>
+            </View>
+
+            <View style={styles.emailCard}>
+              <MaterialCommunityIcons name="email-outline" size={18} color="#F36F21" />
+              <Text style={[styles.emailText, { color: theme.custom.textPrimary }]}>{email}</Text>
+            </View>
+
+            <Text style={[styles.sectionLabel, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.sectionLabel')}</Text>
+            <OtpInput onChange={setOtp} value={otp} />
+
+            {errorMessage ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{errorMessage}</Text> : null}
+
+            <PrimaryButton disabled={otp.length !== 6} label={t('auth.verifyEmail.cta')} loading={loading} onPress={handleVerify} />
+
+            <View style={styles.resendRow}>
+              <Text style={[styles.resendText, { color: theme.custom.textSecondary }]}>
+                {timer > 0
+                  ? t('auth.verifyEmail.resendCountdown', { time: timer.toString().padStart(2, '0') })
+                  : t('auth.verifyEmail.resendPrompt')}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={timer > 0 || resending}
+                onPress={handleResend}
+                style={({ pressed }) => [styles.resendAction, pressed && timer === 0 ? styles.resendPressed : null]}
+              >
+                <Text
+                  style={[
+                    styles.resendActionText,
+                    { color: timer > 0 || resending ? theme.custom.textSecondary : '#F36F21' },
+                  ]}
+                >
+                  {resending ? t('auth.verifyEmail.resending') : t('auth.verifyEmail.resendAction')}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.footerRow}>
+              <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.verifyEmail.wrongEmailPrompt')}</Text>
+              <Text style={styles.footerLink} onPress={() => navigation.goBack()}>
+                {t('auth.verifyEmail.wrongEmailAction')}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  mailBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    borderWidth: 1,
+  root: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  heroWrap: {
+    height: 340,
+  },
+  heroImage: {
+    flex: 1,
+  },
+  heroOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(6, 25, 34, 0.42)',
+    paddingTop: 64,
+    paddingHorizontal: 24,
+    paddingBottom: 34,
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  content: {
-    gap: 18,
+  languageWrap: {
+    position: 'absolute',
+    top: 54,
+    right: 20,
   },
-  helper: {
+  topPill: {
+    position: 'absolute',
+    top: 56,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(12, 18, 24, 0.28)',
+  },
+  topPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  logo: {
+    width: 148,
+    height: 104,
+    marginBottom: 12,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  sheet: {
+    marginHorizontal: 16,
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 26,
+    borderWidth: 1,
+    shadowColor: '#18181B',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  sheetHeader: {
+    marginBottom: 12,
+  },
+  sheetTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    marginBottom: 6,
+  },
+  sheetSubtitle: {
     fontSize: 13,
     lineHeight: 20,
   },
-  resendCard: {
-    marginTop: 4,
+  emailCard: {
     borderRadius: 20,
+    backgroundColor: '#FFF4EC',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    marginBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  emailText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  resendRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(148, 163, 184, 0.08)',
+    gap: 10,
+    marginTop: 18,
   },
-  resendLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
+  resendText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
   },
-  resendHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    maxWidth: 220,
-  },
-  resendButton: {
-    minHeight: 44,
-    minWidth: 72,
-    alignItems: 'center',
+  resendAction: {
+    minHeight: 40,
     justifyContent: 'center',
-    paddingHorizontal: 12,
   },
   resendPressed: {
-    opacity: 0.75,
+    opacity: 0.7,
   },
-  resendButtonLabel: {
+  resendActionText: {
     fontSize: 14,
     fontWeight: '800',
   },
-  footer: {
+  footerRow: {
+    marginTop: 18,
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
   },
@@ -190,6 +334,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   footerLink: {
+    color: '#F36F21',
     fontSize: 14,
     fontWeight: '800',
   },

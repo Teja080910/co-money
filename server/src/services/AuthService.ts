@@ -1,0 +1,266 @@
+import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'crypto';
+import { AppDataSource } from '../config/db';
+import { User } from '../models/User';
+import { EmailService } from './EmailService';
+
+type RegisterInput = {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    username?: string;
+};
+
+type AuthPayload = {
+    message: string;
+    email: string;
+    emailVerified: boolean;
+    debugOtp?: string;
+};
+
+const DEFAULT_DOMAIN = '@sottocasa.it';
+const OTP_TTL_MINUTES = 10;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export class AuthService {
+    private userRepository = AppDataSource.getRepository(User);
+    private emailService = new EmailService();
+
+    public async register(input: RegisterInput): Promise<AuthPayload> {
+        const firstName = this.requireValue(input.firstName, 'Inserisci il tuo nome.');
+        const lastName = this.requireValue(input.lastName, 'Inserisci il tuo cognome.');
+        const email = this.normalizeEmail(input.email);
+        const password = this.requireValue(input.password, 'Inserisci una password.');
+        const username = input.username
+            ? this.normalizeUsername(input.username)
+            : this.deriveUsernameFromEmail(email);
+
+        if (!EMAIL_REGEX.test(email)) {
+            throw new Error('Inserisci una email valida.');
+        }
+
+        if (password.length < 8) {
+            throw new Error('La password deve essere di almeno 8 caratteri.');
+        }
+
+        const existingUser = await this.userRepository.findOneBy({ email });
+
+        if (existingUser) {
+            throw new Error('Email gia registrata.');
+        }
+
+        const verificationCode = this.generateVerificationCode();
+        const user = this.userRepository.create({
+            firstName,
+            lastName,
+            username,
+            email,
+            password: this.hashPassword(password),
+            emailVerified: false,
+            verificationCode,
+            verificationCodeExpiresAt: this.getOtpExpiryDate(),
+        });
+
+        await this.userRepository.save(user);
+        await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
+
+        return {
+            message: 'Registrazione completata con successo!',
+            email,
+            emailVerified: false,
+            ...(this.getDebugOtpPayload(verificationCode)),
+        };
+    }
+
+    public async verifyOtp(emailInput: string, otp: string): Promise<AuthPayload> {
+        const email = this.requireValue(emailInput, 'Email richiesta.').toLowerCase();
+        const normalizedOtp = this.requireValue(otp, 'Inserisci il codice OTP.');
+        const user = await this.userRepository.findOneBy({ email });
+
+        if (!user) {
+            throw new Error('Utente non trovato.');
+        }
+
+        if (user.emailVerified) {
+            return {
+                message: 'Email gia verificata.',
+                email: user.email,
+                emailVerified: true,
+            };
+        }
+
+        if (!user.verificationCode || !user.verificationCodeExpiresAt) {
+            throw new Error('Codice OTP non disponibile.');
+        }
+
+        const isExpired = user.verificationCodeExpiresAt.getTime() < Date.now();
+        if (isExpired || user.verificationCode !== normalizedOtp) {
+            throw new Error('OTP non valido.');
+        }
+
+        user.emailVerified = true;
+        user.verificationCode = null;
+        user.verificationCodeExpiresAt = null;
+        await this.userRepository.save(user);
+
+        return {
+            message: 'Email verificata con successo.',
+            email: user.email,
+            emailVerified: true,
+        };
+    }
+
+    public async resendOtp(emailInput: string): Promise<AuthPayload> {
+        const email = this.requireValue(emailInput, 'Email richiesta.').toLowerCase();
+        const user = await this.userRepository.findOneBy({ email });
+
+        if (!user) {
+            throw new Error('Utente non trovato.');
+        }
+
+        if (user.emailVerified) {
+            return {
+                message: 'Email gia verificata.',
+                email: user.email,
+                emailVerified: true,
+            };
+        }
+
+        const verificationCode = this.generateVerificationCode();
+        user.verificationCode = verificationCode;
+        user.verificationCodeExpiresAt = this.getOtpExpiryDate();
+        await this.userRepository.save(user);
+        await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
+
+        return {
+            message: 'Codice OTP reinviato alla tua email.',
+            email: user.email,
+            emailVerified: false,
+            ...(this.getDebugOtpPayload(verificationCode)),
+        };
+    }
+
+    public async checkUsernameAvailability(usernameInput: string, domain?: string) {
+        const username = this.normalizeUsername(usernameInput);
+        if (!username) {
+            throw new Error('Inserisci nome utente.');
+        }
+        const email = this.buildEmail(username, domain);
+        const user = await this.userRepository.findOne({ where: [{ username }, { email }] });
+
+        return {
+            username,
+            email,
+            available: !user,
+        };
+    }
+
+    public async login(identifierInput: string, password: string, domain?: string) {
+        const normalizedIdentifier = this.requireValue(identifierInput, 'Inserisci nome utente o email.').toLowerCase();
+        const normalizedPassword = this.requireValue(password, 'Inserisci una password.');
+        const email = normalizedIdentifier.includes('@')
+            ? normalizedIdentifier
+            : this.buildEmail(normalizedIdentifier, domain);
+
+        const user = await this.userRepository.findOneBy({ email });
+        if (!user || !this.verifyPassword(normalizedPassword, user.password)) {
+            throw new Error('Credenziali non valide.');
+        }
+
+        if (!user.emailVerified) {
+            throw new Error('Verifica prima la tua email.');
+        }
+
+        return {
+            message: 'Login effettuato con successo.',
+            user: {
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                username: user.username,
+                email: user.email,
+                emailVerified: user.emailVerified,
+            },
+        };
+    }
+
+    private normalizeUsername(username: string): string {
+        return this.requireValue(username, 'Inserisci nome utente.').toLowerCase().replace(/\s+/g, '');
+    }
+
+    private normalizeEmail(email: string): string {
+        return this.requireValue(email, 'Inserisci la tua email.').toLowerCase();
+    }
+
+    private deriveUsernameFromEmail(email: string): string {
+        return email.split('@')[0].trim().toLowerCase();
+    }
+
+    private buildEmail(username: string, domain = DEFAULT_DOMAIN): string {
+        const normalizedDomain = domain.startsWith('@') ? domain : `@${domain}`;
+        return `${this.normalizeUsername(username)}${normalizedDomain.toLowerCase()}`;
+    }
+
+    private generateVerificationCode(): string {
+        return randomInt(100000, 1000000).toString();
+    }
+
+    private requireValue(value: string, errorMessage: string): string {
+        const normalizedValue = value?.trim();
+        if (!normalizedValue) {
+            throw new Error(errorMessage);
+        }
+
+        return normalizedValue;
+    }
+
+    private getOtpExpiryDate(): Date {
+        return new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    }
+
+    private hashPassword(password: string): string {
+        const salt = randomBytes(16).toString('hex');
+        const hash = scryptSync(password, salt, 64).toString('hex');
+        return `${salt}:${hash}`;
+    }
+
+    private verifyPassword(password: string, storedPassword: string): boolean {
+        const [salt, storedHash] = storedPassword.split(':');
+        if (!salt || !storedHash) {
+            return false;
+        }
+
+        const computedHash = scryptSync(password, salt, 64);
+        const storedHashBuffer = Buffer.from(storedHash, 'hex');
+
+        if (computedHash.length !== storedHashBuffer.length) {
+            return false;
+        }
+
+        return timingSafeEqual(computedHash, storedHashBuffer);
+    }
+
+    private getDebugOtpPayload(otp: string): Pick<AuthPayload, 'debugOtp'> | {} {
+        if (process.env.NODE_ENV === 'production') {
+            return {};
+        }
+
+        return { debugOtp: otp };
+    }
+
+    private async deliverOtpEmail(email: string, otp: string, firstName?: string | null): Promise<void> {
+        try {
+            await this.emailService.sendOtpEmail({
+                to: email,
+                otp,
+                firstName,
+            });
+        } catch (error) {
+            console.error('Failed to send OTP email:', error);
+
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error("Impossibile inviare l'email di verifica in questo momento.");
+            }
+        }
+    }
+}
