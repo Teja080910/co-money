@@ -34,6 +34,8 @@ type Props = {
   valid?: boolean;
   accessibleLabel?: string;
   inputRef?: React.RefObject<RNTextInput | null>;
+  onFocus?: TextInputProps['onFocus'];
+  onBlur?: TextInputProps['onBlur'];
 };
 
 export function FloatingLabelInput({
@@ -54,6 +56,8 @@ export function FloatingLabelInput({
   valid = false,
   accessibleLabel,
   inputRef,
+  onFocus,
+  onBlur,
 }: Props) {
   const theme = useTheme<AppTheme>();
   const [isFocused, setIsFocused] = useState(false);
@@ -136,9 +140,15 @@ export function FloatingLabelInput({
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
           keyboardType={keyboardType}
-          onBlur={() => setIsFocused(false)}
+          onBlur={event => {
+            setIsFocused(false);
+            onBlur?.(event);
+          }}
           onChangeText={onChangeText}
-          onFocus={() => setIsFocused(true)}
+          onFocus={event => {
+            setIsFocused(true);
+            onFocus?.(event);
+          }}
           onSubmitEditing={onSubmitEditing}
           placeholder={isFocused ? '' : undefined}
           placeholderTextColor={theme.custom.textSecondary}

@@ -1,52 +1,62 @@
 import { useMemo, useState } from 'react';
 
-type FieldName = 'fullName' | 'email' | 'password' | 'confirmPassword';
+type FieldName = 'firstName' | 'lastName' | 'username' | 'password' | 'confirmPassword';
 
 type FormValues = Record<FieldName, string>;
 type FormErrors = Partial<Record<FieldName, string>>;
 type TouchedFields = Record<FieldName, boolean>;
 
 const initialValues: FormValues = {
-  fullName: '',
-  email: '',
+  firstName: '',
+  lastName: '',
+  username: '',
   password: '',
   confirmPassword: '',
 };
 
 const initialTouched: TouchedFields = {
-  fullName: false,
-  email: false,
+  firstName: false,
+  lastName: false,
+  username: false,
   password: false,
   confirmPassword: false,
 };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const usernameRegex = /^[a-z0-9._-]+$/i;
 
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
-  if (!values.fullName.trim()) {
-    errors.fullName = 'Tell us what to call you.';
-  } else if (values.fullName.trim().length < 2) {
-    errors.fullName = 'Your name should be at least 2 characters.';
+  if (!values.firstName.trim()) {
+    errors.firstName = 'Inserisci il tuo nome.';
+  } else if (values.firstName.trim().length < 2) {
+    errors.firstName = 'Il nome deve avere almeno 2 caratteri.';
   }
 
-  if (!values.email.trim()) {
-    errors.email = 'Enter the email you want to use.';
-  } else if (!emailRegex.test(values.email.trim())) {
-    errors.email = 'Use a valid email address.';
+  if (!values.lastName.trim()) {
+    errors.lastName = 'Inserisci il tuo cognome.';
+  } else if (values.lastName.trim().length < 2) {
+    errors.lastName = 'Il cognome deve avere almeno 2 caratteri.';
+  }
+
+  if (!values.username.trim()) {
+    errors.username = 'Inserisci nome utente.';
+  } else if (values.username.trim().length < 3) {
+    errors.username = 'Il nome utente deve avere almeno 3 caratteri.';
+  } else if (!usernameRegex.test(values.username.trim())) {
+    errors.username = 'Usa solo lettere, numeri, punto, trattino o underscore.';
   }
 
   if (!values.password) {
-    errors.password = 'Choose a password.';
+    errors.password = 'Inserisci una password.';
   } else if (values.password.length < 8) {
-    errors.password = 'Use at least 8 characters.';
+    errors.password = 'La password deve essere di almeno 8 caratteri.';
   }
 
   if (!values.confirmPassword) {
-    errors.confirmPassword = 'Re-enter your password.';
+    errors.confirmPassword = 'Conferma la password.';
   } else if (values.confirmPassword !== values.password) {
-    errors.confirmPassword = 'Those passwords do not match yet.';
+    errors.confirmPassword = 'Le password non coincidono.';
   }
 
   return errors;
@@ -74,7 +84,7 @@ export function useRegisterForm() {
   const setFieldValue = (field: FieldName, nextValue: string) => {
     setValues(current => ({
       ...current,
-      [field]: field === 'email' ? nextValue.trim().toLowerCase() : nextValue,
+      [field]: field === 'username' ? nextValue.trim().toLowerCase() : nextValue,
     }));
   };
 
@@ -84,16 +94,18 @@ export function useRegisterForm() {
 
   const markAllTouched = () => {
     setTouched({
-      fullName: true,
-      email: true,
+      firstName: true,
+      lastName: true,
+      username: true,
       password: true,
       confirmPassword: true,
     });
   };
 
   const validity = {
-    fullName: values.fullName.trim().length >= 2,
-    email: emailRegex.test(values.email.trim()),
+    firstName: values.firstName.trim().length >= 2,
+    lastName: values.lastName.trim().length >= 2,
+    username: values.username.trim().length >= 3 && usernameRegex.test(values.username.trim()),
     password: values.password.length >= 8,
     confirmPassword: values.confirmPassword.length > 0 && values.confirmPassword === values.password,
   };
