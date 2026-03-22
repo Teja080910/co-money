@@ -20,7 +20,7 @@ import { MerchantDirectoryCard } from '../components/user-directory/MerchantDire
 import { RepresentativeDirectoryCard } from '../components/user-directory/RepresentativeDirectoryCard';
 import type { ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
-import { clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
+import { changePassword, clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 type WalletTransaction = {
@@ -170,6 +170,7 @@ function getRoutesForRole(role: AuthUser['role']): NavRoute[] {
         { key: 'shop-management', title: 'Shops', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
         { key: 'promotions', title: 'Promotions', focusedIcon: 'tag-multiple', unfocusedIcon: 'tag-multiple-outline' },
         { key: 'events', title: 'Events', focusedIcon: 'calendar-star', unfocusedIcon: 'calendar-star' },
+        { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
       ];
   }
 }
@@ -254,6 +255,20 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [customerSearch, setCustomerSearch] = useState('');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('ALL');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('ALL');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    current: false,
+    next: false,
+    confirm: false,
+  });
+  const [passwordTouched, setPasswordTouched] = useState({
+    current: false,
+    next: false,
+    confirm: false,
+  });
   const [activeDatePicker, setActiveDatePicker] = useState<
     'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
   >(null);
@@ -361,6 +376,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     : undefined;
   const internalPasswordError = internalTouched.password && internalPassword && internalPassword.length < 8
     ? 'Password must be at least 8 characters.'
+    : undefined;
+  const currentPasswordError = passwordTouched.current && !currentPassword.trim()
+    ? 'Current password is required.'
+    : undefined;
+  const newPasswordError = passwordTouched.next && newPassword.trim() && newPassword.trim().length < 8
+    ? 'New password must be at least 8 characters.'
+    : undefined;
+  const confirmPasswordError = passwordTouched.confirm && confirmPassword.trim() && confirmPassword !== newPassword
+    ? 'Passwords do not match.'
     : undefined;
 
   const fetchSelectedCustomerWallet = useCallback(async (customerId: string) => {
@@ -553,6 +577,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       password: false,
     });
     setInternalRole(allowedInternalRoles[0] || 'MERCHANT');
+  };
+
+  const resetPasswordForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordTouched({
+      current: false,
+      next: false,
+      confirm: false,
+    });
+    setPasswordVisibility({
+      current: false,
+      next: false,
+      confirm: false,
+    });
   };
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -933,6 +973,57 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setError(submitError?.response?.data?.error || 'Unable to create user.');
     } finally {
       setUserSubmitting(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    const trimmedCurrentPassword = currentPassword.trim();
+    const trimmedNewPassword = newPassword.trim();
+    const trimmedConfirmPassword = confirmPassword.trim();
+
+    if (!trimmedCurrentPassword || !trimmedNewPassword || !trimmedConfirmPassword) {
+      setPasswordTouched({
+        current: true,
+        next: true,
+        confirm: true,
+      });
+      setError('Current password, new password, and confirmation are required.');
+      return;
+    }
+
+    if (trimmedNewPassword.length < 8) {
+      setPasswordTouched(current => ({ ...current, next: true }));
+      setError('New password must be at least 8 characters.');
+      return;
+    }
+
+    if (trimmedCurrentPassword === trimmedNewPassword) {
+      setError('New password must be different from the current password.');
+      return;
+    }
+
+    if (trimmedNewPassword !== trimmedConfirmPassword) {
+      setPasswordTouched(current => ({ ...current, confirm: true }));
+      setError('New password and confirm password must match.');
+      return;
+    }
+
+    setPasswordSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await changePassword({
+        currentPassword: trimmedCurrentPassword,
+        newPassword: trimmedNewPassword,
+        confirmPassword: trimmedConfirmPassword,
+      });
+      setSuccessMessage(response.message || 'Password updated successfully.');
+      resetPasswordForm();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to update password.');
+    } finally {
+      setPasswordSubmitting(false);
     }
   };
 
@@ -1805,17 +1896,77 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   );
 
   const renderProfileContent = () => (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title="Profile" subtitle="Current authenticated account" />
-      <Card.Content>
-        <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{displayName}</Text>
-        <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{authUser?.email}</Text>
-        <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {authUser?.role}</Text>
-        <Button mode="outlined" onPress={() => void onLogout()} style={styles.logoutButton}>
-          Logout
-        </Button>
-      </Card.Content>
-    </Card>
+    <>
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="Profile" subtitle="Current authenticated account" />
+        <Card.Content>
+          <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{displayName}</Text>
+          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{authUser?.email}</Text>
+          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {authUser?.role}</Text>
+          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+            Username: {authUser?.username}
+          </Text>
+          <Button mode="outlined" onPress={() => void onLogout()} style={styles.logoutButton}>
+            Logout
+          </Button>
+        </Card.Content>
+      </Card>
+
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="Change Password" subtitle="Update your sign-in password from the profile section" />
+        <Card.Content>
+          <FloatingLabelInput
+            icon="lock-outline"
+            label="Current password"
+            error={currentPasswordError}
+            helperText={!currentPasswordError ? 'Enter your existing password before choosing a new one.' : undefined}
+            onToggleSecureEntry={() => setPasswordVisibility(current => ({ ...current, current: !current.current }))}
+            secureTextEntry={!passwordVisibility.current}
+            value={currentPassword}
+            onChangeText={text => {
+              setCurrentPassword(text);
+              setPasswordTouched(current => ({ ...current, current: true }));
+            }}
+          />
+          <FloatingLabelInput
+            icon="lock-reset"
+            label="New password"
+            error={newPasswordError}
+            helperText={!newPasswordError ? 'Use at least 8 characters for the new password.' : undefined}
+            onToggleSecureEntry={() => setPasswordVisibility(current => ({ ...current, next: !current.next }))}
+            secureTextEntry={!passwordVisibility.next}
+            valid={newPassword.trim().length >= 8}
+            value={newPassword}
+            onChangeText={text => {
+              setNewPassword(text);
+              setPasswordTouched(current => ({ ...current, next: true }));
+            }}
+          />
+          <FloatingLabelInput
+            icon="shield-check-outline"
+            label="Confirm new password"
+            error={confirmPasswordError}
+            helperText={!confirmPasswordError ? 'Re-enter the new password to confirm the change.' : undefined}
+            onToggleSecureEntry={() => setPasswordVisibility(current => ({ ...current, confirm: !current.confirm }))}
+            secureTextEntry={!passwordVisibility.confirm}
+            valid={Boolean(confirmPassword.trim()) && confirmPassword === newPassword}
+            value={confirmPassword}
+            onChangeText={text => {
+              setConfirmPassword(text);
+              setPasswordTouched(current => ({ ...current, confirm: true }));
+            }}
+          />
+          <View style={styles.actionRow}>
+            <Button mode="contained" loading={passwordSubmitting} onPress={() => void handleChangePassword()}>
+              Update Password
+            </Button>
+            <Button mode="outlined" onPress={resetPasswordForm}>
+              Reset
+            </Button>
+          </View>
+        </Card.Content>
+      </Card>
+    </>
   );
 
   const renderReportsContent = () => (

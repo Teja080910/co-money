@@ -1,63 +1,11 @@
 import 'reflect-metadata';
 import dotenv from 'dotenv';
 import { AppDataSource } from '../config/db';
-import { UserRole } from '../constants/userRoles';
 import { User } from '../models/User';
 import { hashPassword } from '../utils/password';
+import { getRoleSeedUsers } from '../seed/demoSeedData';
 
 dotenv.config();
-
-type SeedUserDefinition = {
-    firstName: string;
-    lastName: string;
-    username: string;
-    email: string;
-    password: string;
-    role: UserRole;
-};
-
-function getRequiredSeedPassword(envKey: string, fallback: string): string {
-    const configuredPassword = process.env[envKey]?.trim();
-
-    if (configuredPassword) {
-        return configuredPassword;
-    }
-
-    if (process.env.NODE_ENV === 'production') {
-        throw new Error(`${envKey} is required in production.`);
-    }
-
-    return fallback;
-}
-
-function getSeedUsers(): SeedUserDefinition[] {
-    return [
-        {
-            firstName: 'System',
-            lastName: 'Admin',
-            username: 'admin',
-            email: process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@sottocasa.it',
-            password: getRequiredSeedPassword('SEED_ADMIN_PASSWORD', 'Admin123!'),
-            role: UserRole.ADMIN,
-        },
-        {
-            firstName: 'Demo',
-            lastName: 'Merchant',
-            username: 'merchant',
-            email: process.env.SEED_MERCHANT_EMAIL?.trim() || 'merchant@sottocasa.it',
-            password: getRequiredSeedPassword('SEED_MERCHANT_PASSWORD', 'Merchant123!'),
-            role: UserRole.MERCHANT,
-        },
-        {
-            firstName: 'Demo',
-            lastName: 'Representative',
-            username: 'representative',
-            email: process.env.SEED_REPRESENTATIVE_EMAIL?.trim() || 'representative@sottocasa.it',
-            password: getRequiredSeedPassword('SEED_REPRESENTATIVE_PASSWORD', 'Representative123!'),
-            role: UserRole.REPRESENTATIVE,
-        },
-    ];
-}
 
 async function seedRoleUsers(): Promise<void> {
     if (process.env.ALLOW_ROLE_USER_SEED !== 'true') {
@@ -69,7 +17,7 @@ async function seedRoleUsers(): Promise<void> {
     try {
         const userRepository = AppDataSource.getRepository(User);
 
-        for (const seedUser of getSeedUsers()) {
+        for (const seedUser of getRoleSeedUsers()) {
             const existingUser = await userRepository.findOneBy({ email: seedUser.email.toLowerCase() });
             const password = hashPassword(seedUser.password);
 

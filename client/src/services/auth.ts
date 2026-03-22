@@ -53,6 +53,12 @@ type LoginPayload = {
   password: string;
 };
 
+type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
 type LoginResponse = {
   message: string;
   accessToken: string;
@@ -85,6 +91,11 @@ export async function loginUser(payload: LoginPayload) {
     tokenType: response.data.tokenType,
     user: response.data.user,
   });
+  return response.data;
+}
+
+export async function changePassword(payload: ChangePasswordPayload) {
+  const response = await apiClient.post<{ message: string }>('/auth/change-password', payload);
   return response.data;
 }
 

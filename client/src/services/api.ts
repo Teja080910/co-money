@@ -73,6 +73,10 @@ const API_ERROR_KEY_BY_MESSAGE: Record<string, string> = {
   'Credenziali non valide.': 'apiErrors.invalidCredentials',
   'Verifica prima la tua email.': 'apiErrors.verifyEmailFirst',
   "Impossibile inviare l'email di verifica in questo momento.": 'apiErrors.verificationEmailFailed',
+  'Inserisci la password attuale.': 'apiErrors.passwordRequired',
+  'Inserisci la nuova password.': 'apiErrors.passwordRequired',
+  'Conferma la nuova password.': 'apiErrors.confirmPasswordRequired',
+  'La nuova password deve essere di almeno 8 caratteri.': 'apiErrors.passwordShort',
 };
 
 export function getApiResponseError(error: unknown): string | undefined {

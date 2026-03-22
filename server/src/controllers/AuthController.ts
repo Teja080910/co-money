@@ -63,6 +63,29 @@ export class AuthController {
         }
     }
 
+    @Post('change-password')
+    private async changePassword(req: Request, res: Response) {
+        try {
+            const authenticatedUser = (req as import('../middleware/requireRole').AuthenticatedRequest).authenticatedUser;
+            if (!authenticatedUser) {
+                return res.status(401).json({ error: 'Authentication required.' });
+            }
+
+            const { currentPassword, newPassword, confirmPassword } = req.body;
+            const result = await this.authService.changePassword(
+                authenticatedUser,
+                currentPassword,
+                newPassword,
+                confirmPassword,
+            );
+
+            return res.status(200).json(result);
+        } catch (error: any) {
+            const statusCode = error.message === 'Authentication required.' ? 401 : 400;
+            return res.status(statusCode).json({ error: error.message });
+        }
+    }
+
     @Get('check-username')
     private async checkUsername(req: Request, res: Response) {
         try {

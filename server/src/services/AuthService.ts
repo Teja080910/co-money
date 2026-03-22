@@ -5,6 +5,7 @@ import { EmailService } from './EmailService';
 import { UserRole } from '../constants/userRoles';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { createAccessToken, getJwtExpiresInSeconds } from '../utils/jwt';
+import { AuthenticatedUser } from '../middleware/requireRole';
 
 type RegisterInput = {
     firstName: string;
@@ -193,6 +194,41 @@ export class AuthService {
                 role: user.role,
                 emailVerified: user.emailVerified,
             },
+        };
+    }
+
+    public async changePassword(
+        authenticatedUser: AuthenticatedUser,
+        currentPasswordInput: string,
+        newPasswordInput: string,
+        confirmPasswordInput?: string,
+    ) {
+        const currentPassword = this.requireValue(currentPasswordInput, 'Inserisci la password attuale.');
+        const newPassword = this.requireValue(newPasswordInput, 'Inserisci la nuova password.');
+        const confirmPassword = this.requireValue(confirmPasswordInput || '', 'Conferma la nuova password.');
+
+        if (newPassword.length < 8) {
+            throw new Error('La nuova password deve essere di almeno 8 caratteri.');
+        }
+
+        if (newPassword !== confirmPassword) {
+            throw new Error('Le nuove password non coincidono.');
+        }
+
+        const user = await this.userRepository.findOneBy({ id: authenticatedUser.id });
+        if (!user) {
+            throw new Error('Utente non trovato.');
+        }
+
+        if (!verifyPassword(currentPassword, user.password)) {
+            throw new Error('La password attuale non e corretta.');
+        }
+
+        user.password = hashPassword(newPassword);
+        await this.userRepository.save(user);
+
+        return {
+            message: 'Password aggiornata con successo.',
         };
     }
 

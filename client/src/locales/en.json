@@ -100,6 +100,7 @@
     "emailInvalid": "Enter a valid email address.",
     "passwordRequired": "Enter a password.",
     "passwordRequiredShort": "Password required.",
+    "confirmPasswordRequired": "Confirm your password.",
     "passwordShort": "Password must be at least 8 characters.",
     "emailAlreadyRegistered": "Email is already registered.",
     "otpRequired": "Enter the OTP code.",
