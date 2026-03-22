@@ -32,6 +32,13 @@ export class ShopService {
     public async listShops(currentUser: CurrentUser) {
         this.assertCanViewShops(currentUser.role);
 
+        if (currentUser.role === UserRole.CUSTOMER) {
+            return this.shopRepository.find({
+                where: { isActive: true },
+                order: { createdAt: 'DESC' },
+            });
+        }
+
         if (currentUser.role === UserRole.MERCHANT) {
             return this.shopRepository.find({
                 where: { merchantId: currentUser.id },
@@ -183,7 +190,7 @@ export class ShopService {
     }
 
     private assertCanViewShops(role: UserRole): void {
-        if (![UserRole.MERCHANT, UserRole.REPRESENTATIVE, UserRole.ADMIN].includes(role)) {
+        if (![UserRole.CUSTOMER, UserRole.MERCHANT, UserRole.REPRESENTATIVE, UserRole.ADMIN].includes(role)) {
             throw new Error('You do not have permission to view shops.');
         }
     }

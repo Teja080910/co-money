@@ -3,6 +3,8 @@ import { User } from '../models/User';
 import { Shop } from '../models/Shop';
 import { Wallet } from '../models/Wallet';
 import { WalletTransaction } from '../models/WalletTransaction';
+import { Promotion } from '../models/Promotion';
+import { Event } from '../models/Event';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,7 +14,7 @@ export const AppDataSource = new DataSource({
     url: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/comoney',
     synchronize: false, // We will use migrations instead
     logging: true,
-    entities: [User, Shop, Wallet, WalletTransaction],
+    entities: [User, Shop, Wallet, WalletTransaction, Promotion, Event],
     migrations: ['src/migrations/**/*.ts'],
     subscribers: [],
 });

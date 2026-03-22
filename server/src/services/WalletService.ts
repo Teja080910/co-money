@@ -1,3 +1,4 @@
+import { FindOptionsWhere } from 'typeorm';
 import { AppDataSource } from '../config/db';
 import { WalletPointType } from '../constants/walletPointTypes';
 import { WalletTransactionStatus } from '../constants/walletTransactionStatuses';
@@ -7,7 +8,6 @@ import { Shop } from '../models/Shop';
 import { User } from '../models/User';
 import { Wallet } from '../models/Wallet';
 import { WalletTransaction } from '../models/WalletTransaction';
-import { FindOptionsWhere } from 'typeorm';
 import { createQrValue, verifyQrValue } from '../utils/qr';
 
 type CurrentUser = {
@@ -19,9 +19,13 @@ type UpdateWalletInput = {
     customerId: string;
     shopId: string;
     points: number;
+    purchaseAmount?: number;
     description?: string;
     pointType?: string;
 };
+
+const DEFAULT_MAX_DISCOUNT_PERCENT = 30;
+const DEFAULT_FIRST_TIME_BONUS_POINTS = 10;
 
 export class WalletService {
     private userRepository = AppDataSource.getRepository(User);
@@ -101,8 +105,8 @@ export class WalletService {
         if (currentUser.role === UserRole.CUSTOMER) {
             return this.applyTransactionFilters(
                 await this.walletTransactionRepository.find({
-                where: { customerId: currentUser.id },
-                order: { createdAt: 'DESC' },
+                    where: { customerId: currentUser.id },
+                    order: { createdAt: 'DESC' },
                 }),
                 type,
                 status,
@@ -153,8 +157,8 @@ export class WalletService {
         const shop = await this.getAccessibleShop(currentUser, input.shopId);
         const pointType = this.normalizePointType(input.pointType);
         const balanceBefore = wallet.balance;
-        wallet.balance += points;
 
+        wallet.balance += points;
         await this.walletRepository.save(wallet);
 
         const transaction = this.walletTransactionRepository.create({
@@ -169,6 +173,11 @@ export class WalletService {
             pointType,
             status: WalletTransactionStatus.SUCCESS,
             points,
+            purchaseAmount: null,
+            discountAmount: null,
+            payableAmount: null,
+            earnedPoints: points,
+            isFirstTransactionBonus: false,
             balanceBefore,
             balanceAfter: wallet.balance,
             description: input.description?.trim() || 'Points earned',
@@ -185,22 +194,74 @@ export class WalletService {
     public async spendPoints(currentUser: CurrentUser, input: UpdateWalletInput) {
         this.assertStaffCanUpdateWallet(currentUser.role);
 
-        const points = this.normalizePoints(input.points);
+        const requestedPoints = this.normalizePoints(input.points);
         const customer = await this.getCustomer(input.customerId);
         const wallet = await this.getOrCreateWallet(customer.id);
         const shop = await this.getAccessibleShop(currentUser, input.shopId);
         const availablePoints = await this.getSpendablePointsForShop(customer.id, shop.id);
         const pointType = this.normalizePointType(input.pointType);
+        const purchaseAmount = input.purchaseAmount === undefined ? null : this.normalizeCurrencyAmount(input.purchaseAmount);
 
-        if (wallet.balance < points || availablePoints < points) {
+        if (!purchaseAmount) {
+            if (wallet.balance < requestedPoints || availablePoints < requestedPoints) {
+                throw new Error('Insufficient spendable points for this shop.');
+            }
+
+            const balanceBefore = wallet.balance;
+            wallet.balance -= requestedPoints;
+            await this.walletRepository.save(wallet);
+
+            const transaction = this.walletTransactionRepository.create({
+                walletId: wallet.id,
+                customerId: customer.id,
+                merchantId: shop.merchantId,
+                performedByUserId: currentUser.id,
+                shopId: shop.id,
+                fromShopId: shop.id,
+                toShopId: null,
+                type: WalletTransactionType.SPEND,
+                pointType,
+                status: WalletTransactionStatus.SUCCESS,
+                points: requestedPoints,
+                purchaseAmount: null,
+                discountAmount: null,
+                payableAmount: null,
+                earnedPoints: null,
+                isFirstTransactionBonus: false,
+                balanceBefore,
+                balanceAfter: wallet.balance,
+                description: input.description?.trim() || 'Points spent',
+            });
+
+            await this.walletTransactionRepository.save(transaction);
+
+            return {
+                balance: wallet.balance,
+                transaction,
+            };
+        }
+
+        const maxDiscountPoints = Math.floor((purchaseAmount * DEFAULT_MAX_DISCOUNT_PERCENT) / 100);
+        const spendableBalance = Math.min(wallet.balance, availablePoints);
+        const pointsToUse = Math.min(requestedPoints, maxDiscountPoints, spendableBalance);
+
+        if (pointsToUse <= 0) {
             throw new Error('Insufficient spendable points for this shop.');
         }
 
+        const payableAmount = purchaseAmount - pointsToUse;
+        const earnedPoints = payableAmount;
+        const isFirstSettlement = await this.isFirstSettlement(customer.id);
+        const bonusPoints = isFirstSettlement ? DEFAULT_FIRST_TIME_BONUS_POINTS : 0;
         const balanceBefore = wallet.balance;
-        wallet.balance -= points;
+        const balanceAfterSpend = balanceBefore - pointsToUse;
+        const balanceAfterEarn = balanceAfterSpend + earnedPoints;
+        const finalBalance = balanceAfterEarn + bonusPoints;
+
+        wallet.balance = finalBalance;
         await this.walletRepository.save(wallet);
 
-        const transaction = this.walletTransactionRepository.create({
+        const spendTransaction = this.walletTransactionRepository.create({
             walletId: wallet.id,
             customerId: customer.id,
             merchantId: shop.merchantId,
@@ -211,17 +272,77 @@ export class WalletService {
             type: WalletTransactionType.SPEND,
             pointType,
             status: WalletTransactionStatus.SUCCESS,
-            points,
+            points: pointsToUse,
+            purchaseAmount,
+            discountAmount: pointsToUse,
+            payableAmount,
+            earnedPoints: earnedPoints + bonusPoints,
+            isFirstTransactionBonus: false,
             balanceBefore,
-            balanceAfter: wallet.balance,
-            description: input.description?.trim() || 'Points spent',
+            balanceAfter: balanceAfterSpend,
+            description: input.description?.trim() || 'Points spent during purchase settlement',
         });
 
-        await this.walletTransactionRepository.save(transaction);
+        const earnTransaction = this.walletTransactionRepository.create({
+            walletId: wallet.id,
+            customerId: customer.id,
+            merchantId: shop.merchantId,
+            performedByUserId: currentUser.id,
+            shopId: shop.id,
+            fromShopId: null,
+            toShopId: shop.id,
+            type: WalletTransactionType.EARN,
+            pointType: WalletPointType.STANDARD,
+            status: WalletTransactionStatus.SUCCESS,
+            points: earnedPoints,
+            purchaseAmount,
+            discountAmount: pointsToUse,
+            payableAmount,
+            earnedPoints,
+            isFirstTransactionBonus: false,
+            balanceBefore: balanceAfterSpend,
+            balanceAfter: balanceAfterEarn,
+            description: `Points earned on payable amount of ${payableAmount}`,
+        });
+
+        const transactionsToSave = [spendTransaction, earnTransaction];
+
+        if (bonusPoints > 0) {
+            transactionsToSave.push(
+                this.walletTransactionRepository.create({
+                    walletId: wallet.id,
+                    customerId: customer.id,
+                    merchantId: shop.merchantId,
+                    performedByUserId: currentUser.id,
+                    shopId: shop.id,
+                    fromShopId: null,
+                    toShopId: shop.id,
+                    type: WalletTransactionType.EARN,
+                    pointType: WalletPointType.BONUS,
+                    status: WalletTransactionStatus.SUCCESS,
+                    points: bonusPoints,
+                    purchaseAmount,
+                    discountAmount: pointsToUse,
+                    payableAmount,
+                    earnedPoints: bonusPoints,
+                    isFirstTransactionBonus: true,
+                    balanceBefore: balanceAfterEarn,
+                    balanceAfter: finalBalance,
+                    description: 'First-time bonus awarded',
+                }),
+            );
+        }
+
+        await this.walletTransactionRepository.save(transactionsToSave);
 
         return {
             balance: wallet.balance,
-            transaction,
+            usedPoints: pointsToUse,
+            maxDiscountPoints,
+            payableAmount,
+            earnedPoints,
+            bonusPoints,
+            transactions: transactionsToSave,
         };
     }
 
@@ -330,6 +451,18 @@ export class WalletService {
         return Math.max(earnedFromOtherShops - spentTotal, 0);
     }
 
+    private async isFirstSettlement(customerId: string) {
+        const earnCount = await this.walletTransactionRepository.count({
+            where: {
+                customerId,
+                type: WalletTransactionType.EARN,
+                status: WalletTransactionStatus.SUCCESS,
+            },
+        });
+
+        return earnCount === 0;
+    }
+
     private assertStaffCanUpdateWallet(role: UserRole): void {
         if (![UserRole.MERCHANT, UserRole.ADMIN].includes(role)) {
             throw new Error('You do not have permission to update wallet points.');
@@ -342,6 +475,14 @@ export class WalletService {
         }
 
         return points;
+    }
+
+    private normalizeCurrencyAmount(amount: number): number {
+        if (!Number.isInteger(amount) || amount <= 0) {
+            throw new Error('Purchase amount must be a positive integer.');
+        }
+
+        return amount;
     }
 
     private normalizePointType(pointType?: string): WalletPointType {

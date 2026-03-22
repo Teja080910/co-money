@@ -5,6 +5,8 @@ import { AuthController } from './controllers/AuthController';
 import { LegacyAuthController } from './controllers/LegacyAuthController';
 import { WalletController } from './controllers/WalletController';
 import { ShopController } from './controllers/ShopController';
+import { PromotionController } from './controllers/PromotionController';
+import { EventController } from './controllers/EventController';
 import cors from 'cors';
 import { attachAuthenticatedUser } from './middleware/attachAuthenticatedUser';
 
@@ -24,7 +26,17 @@ export class AppServer extends OvernightServer {
         const legacyAuthController = new LegacyAuthController();
         const walletController = new WalletController();
         const shopController = new ShopController();
-        super.addControllers([userController, authController, legacyAuthController, walletController, shopController]);
+        const promotionController = new PromotionController();
+        const eventController = new EventController();
+        super.addControllers([
+            userController,
+            authController,
+            legacyAuthController,
+            walletController,
+            shopController,
+            promotionController,
+            eventController,
+        ]);
     }
 
     public start(port: number): void {

@@ -31,6 +31,11 @@ type WalletTransaction = {
   pointType: 'STANDARD' | 'BONUS';
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   points: number;
+  purchaseAmount: number | null;
+  discountAmount: number | null;
+  payableAmount: number | null;
+  earnedPoints: number | null;
+  isFirstTransactionBonus: boolean;
   balanceBefore: number;
   balanceAfter: number;
   description: string | null;
@@ -83,6 +88,31 @@ type ReportSummary = {
   totalPointsIssued: number;
   totalPointsSpent: number;
   activeBalance: number;
+};
+
+type Promotion = {
+  id: string;
+  title: string;
+  description: string | null;
+  shopId: string;
+  merchantId: string;
+  shopName: string;
+  shopLocation: string;
+  bonusPoints: number;
+  maxDiscountPercent: number;
+  startsAt: string;
+  endsAt: string;
+  isActive: boolean;
+};
+
+type EventItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string;
+  startsAt: string;
+  endsAt: string;
+  isActive: boolean;
 };
 
 type NavRoute = {
@@ -139,6 +169,10 @@ function getRoutesForRole(role: AuthUser['role']): NavRoute[] {
   }
 }
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
+}
+
 export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
@@ -151,9 +185,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [merchants, setMerchants] = useState<UserSummary[]>([]);
   const [representatives, setRepresentatives] = useState<UserSummary[]>([]);
   const [report, setReport] = useState<ReportSummary | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [shopSubmitting, setShopSubmitting] = useState(false);
+  const [promotionSubmitting, setPromotionSubmitting] = useState(false);
+  const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [userSubmitting, setUserSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [routeIndex, setRouteIndex] = useState(0);
@@ -162,12 +202,31 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [points, setPoints] = useState('');
   const [description, setDescription] = useState('');
   const [pointType, setPointType] = useState<'STANDARD' | 'BONUS'>('STANDARD');
+  const [purchaseAmount, setPurchaseAmount] = useState('');
+  const [spendPoints, setSpendPoints] = useState('');
+  const [spendDescription, setSpendDescription] = useState('');
   const [shopName, setShopName] = useState('');
   const [shopLocation, setShopLocation] = useState('');
   const [shopDescription, setShopDescription] = useState('');
   const [shopMerchantId, setShopMerchantId] = useState('');
   const [editingShopId, setEditingShopId] = useState('');
-  const [shopSubmitting, setShopSubmitting] = useState(false);
+  const [promotionTitle, setPromotionTitle] = useState('');
+  const [promotionDescription, setPromotionDescription] = useState('');
+  const [promotionBonusPoints, setPromotionBonusPoints] = useState('');
+  const [promotionStartDate, setPromotionStartDate] = useState('');
+  const [promotionEndDate, setPromotionEndDate] = useState('');
+  const [promotionShopId, setPromotionShopId] = useState('');
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventStartDate, setEventStartDate] = useState('');
+  const [eventEndDate, setEventEndDate] = useState('');
+  const [internalRole, setInternalRole] = useState<AuthUser['role']>('MERCHANT');
+  const [internalFirstName, setInternalFirstName] = useState('');
+  const [internalLastName, setInternalLastName] = useState('');
+  const [internalUsername, setInternalUsername] = useState('');
+  const [internalEmail, setInternalEmail] = useState('');
+  const [internalPassword, setInternalPassword] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('ALL');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('ALL');
@@ -212,6 +271,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     return shops;
   }, [authUser, shops]);
 
+  const manageablePromotionShops = useMemo(() => {
+    if (!authUser) {
+      return [];
+    }
+
+    if (authUser.role === 'MERCHANT') {
+      return availableShops;
+    }
+
+    if (authUser.role === 'REPRESENTATIVE') {
+      return shops.filter(shop => shop.representativeId === authUser.id);
+    }
+
+    return shops;
+  }, [authUser, availableShops, shops]);
+
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) {
       return customerUsers;
@@ -235,6 +310,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       return matchesType && matchesStatus;
     });
   }, [transactionStatusFilter, transactionTypeFilter, transactions]);
+
+  const allowedInternalRoles = useMemo(() => {
+    if (!authUser) {
+      return [] as AuthUser['role'][];
+    }
+
+    if (authUser.role === 'ADMIN') {
+      return ['REPRESENTATIVE', 'MERCHANT', 'CUSTOMER'] as AuthUser['role'][];
+    }
+
+    if (authUser.role === 'REPRESENTATIVE') {
+      return ['MERCHANT', 'CUSTOMER'] as AuthUser['role'][];
+    }
+
+    return [] as AuthUser['role'][];
+  }, [authUser]);
 
   const fetchSelectedCustomerWallet = useCallback(async (customerId: string) => {
     if (!customerId.trim() || !authUser || authUser.role === 'CUSTOMER') {
@@ -263,23 +354,30 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
     try {
       if (storedUser.role === 'CUSTOMER') {
-        const [walletResponse, transactionsResponse] = await Promise.all([
+        const [walletResponse, transactionsResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
           apiClient.get<WalletResponse>('/api/wallet/me'),
           apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
+          apiClient.get<Shop[]>('/api/shops'),
+          apiClient.get<Promotion[]>('/api/promotions'),
+          apiClient.get<EventItem[]>('/api/events'),
         ]);
 
         setWallet(walletResponse.data);
         setTransactions(transactionsResponse.data);
+        setShops(shopsResponse.data);
+        setPromotions(promotionsResponse.data);
+        setEvents(eventsResponse.data);
         setCustomers([]);
         setMerchants([]);
         setRepresentatives([]);
-        setShops([]);
         setReport(null);
       } else {
         const requests: Array<Promise<any>> = [
           apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
           apiClient.get<UserSummary[]>('/api/users/customers'),
           apiClient.get<Shop[]>('/api/shops'),
+          apiClient.get<Promotion[]>('/api/promotions'),
+          apiClient.get<EventItem[]>('/api/events'),
         ];
 
         if (storedUser.role === 'REPRESENTATIVE' || storedUser.role === 'ADMIN') {
@@ -292,19 +390,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         }
 
         const responses = await Promise.all(requests);
+
+        setWallet(null);
         setTransactions(responses[0].data);
         setCustomers(responses[1].data);
         setShops(responses[2].data);
-        setWallet(null);
-        setMerchants(storedUser.role === 'REPRESENTATIVE' || storedUser.role === 'ADMIN' ? responses[3].data : []);
+        setPromotions(responses[3].data);
+        setEvents(responses[4].data);
+        setMerchants(storedUser.role === 'REPRESENTATIVE' || storedUser.role === 'ADMIN' ? responses[5].data : []);
         setReport(
           storedUser.role === 'REPRESENTATIVE'
-            ? responses[4].data
+            ? responses[6].data
             : storedUser.role === 'ADMIN'
-              ? responses[4].data
+              ? responses[6].data
               : null,
         );
-        setRepresentatives(storedUser.role === 'ADMIN' ? responses[5].data : []);
+        setRepresentatives(storedUser.role === 'ADMIN' ? responses[7].data : []);
       }
     } catch (loadError: any) {
       setError(loadError?.response?.data?.error || 'Unable to load dashboard data.');
@@ -339,6 +440,21 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }, [authUser?.role, merchants, shopMerchantId]);
 
   useEffect(() => {
+    if (
+      manageablePromotionShops.length &&
+      (!promotionShopId || !manageablePromotionShops.some(shop => shop.id === promotionShopId))
+    ) {
+      setPromotionShopId(manageablePromotionShops[0].id);
+    }
+  }, [manageablePromotionShops, promotionShopId]);
+
+  useEffect(() => {
+    if (allowedInternalRoles.length && !allowedInternalRoles.includes(internalRole)) {
+      setInternalRole(allowedInternalRoles[0]);
+    }
+  }, [allowedInternalRoles, internalRole]);
+
+  useEffect(() => {
     if (route.params?.selectedCustomerId) {
       setSelectedCustomerId(route.params.selectedCustomerId);
       const addPointsIndex = routes.findIndex(item => item.key === 'add-points');
@@ -369,6 +485,32 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setShopLocation('');
     setShopDescription('');
     setShopMerchantId(merchants[0]?.id || '');
+  };
+
+  const resetPromotionForm = () => {
+    setPromotionTitle('');
+    setPromotionDescription('');
+    setPromotionBonusPoints('');
+    setPromotionStartDate('');
+    setPromotionEndDate('');
+    setPromotionShopId(manageablePromotionShops[0]?.id || '');
+  };
+
+  const resetEventForm = () => {
+    setEventTitle('');
+    setEventDescription('');
+    setEventLocation('');
+    setEventStartDate('');
+    setEventEndDate('');
+  };
+
+  const resetInternalUserForm = () => {
+    setInternalFirstName('');
+    setInternalLastName('');
+    setInternalUsername('');
+    setInternalEmail('');
+    setInternalPassword('');
+    setInternalRole(allowedInternalRoles[0] || 'MERCHANT');
   };
 
   const handleAddPoints = async () => {
@@ -407,6 +549,61 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       await fetchSelectedCustomerWallet(selectedCustomerId);
     } catch (submitError: any) {
       setError(submitError?.response?.data?.error || 'Unable to add points.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSpendPoints = async () => {
+    if (!selectedCustomerId.trim()) {
+      setError('Select a customer before accepting points.');
+      return;
+    }
+
+    if (!selectedShopId.trim()) {
+      setError('Select a shop before accepting points.');
+      return;
+    }
+
+    if (!purchaseAmount.trim() || Number(purchaseAmount) <= 0) {
+      setError('Enter a valid purchase amount.');
+      return;
+    }
+
+    if (!spendPoints.trim() || Number(spendPoints) <= 0) {
+      setError('Enter the requested points to use.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiClient.post<{
+        usedPoints: number;
+        payableAmount: number;
+        earnedPoints: number;
+        bonusPoints: number;
+      }>('/api/wallet/spend', {
+        customerId: selectedCustomerId.trim(),
+        shopId: selectedShopId.trim(),
+        points: Number(spendPoints),
+        purchaseAmount: Number(purchaseAmount),
+        description: spendDescription.trim() || undefined,
+      });
+
+      const result = response.data;
+      setSuccessMessage(
+        `Settlement complete. Used ${result.usedPoints} pts, payable ${result.payableAmount}, earned ${result.earnedPoints}${result.bonusPoints ? ` + ${result.bonusPoints} bonus` : ''}.`,
+      );
+      setPurchaseAmount('');
+      setSpendPoints('');
+      setSpendDescription('');
+      await loadDashboard();
+      await fetchSelectedCustomerWallet(selectedCustomerId);
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to settle the purchase.');
     } finally {
       setSubmitting(false);
     }
@@ -488,6 +685,147 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }
   };
 
+  const handleCreatePromotion = async () => {
+    if (!promotionTitle.trim()) {
+      setError('Promotion title is required.');
+      return;
+    }
+
+    if (!promotionShopId.trim()) {
+      setError('Select a shop for the promotion.');
+      return;
+    }
+
+    if (!promotionStartDate.trim() || !promotionEndDate.trim()) {
+      setError('Enter both promotion dates.');
+      return;
+    }
+
+    setPromotionSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post('/api/promotions', {
+        title: promotionTitle.trim(),
+        description: promotionDescription.trim() || undefined,
+        shopId: promotionShopId.trim(),
+        bonusPoints: promotionBonusPoints.trim() ? Number(promotionBonusPoints) : 0,
+        startsAt: `${promotionStartDate.trim()}T00:00:00.000Z`,
+        endsAt: `${promotionEndDate.trim()}T23:59:59.000Z`,
+      });
+
+      setSuccessMessage('Promotion created successfully.');
+      resetPromotionForm();
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to create promotion.');
+    } finally {
+      setPromotionSubmitting(false);
+    }
+  };
+
+  const handleDeletePromotion = async (promotionId: string) => {
+    setPromotionSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.delete(`/api/promotions/${promotionId}`);
+      setSuccessMessage('Promotion removed successfully.');
+      await loadDashboard();
+    } catch (deleteError: any) {
+      setError(deleteError?.response?.data?.error || 'Unable to delete promotion.');
+    } finally {
+      setPromotionSubmitting(false);
+    }
+  };
+
+  const handleCreateEvent = async () => {
+    if (!eventTitle.trim()) {
+      setError('Event title is required.');
+      return;
+    }
+
+    if (!eventLocation.trim()) {
+      setError('Event location is required.');
+      return;
+    }
+
+    if (!eventStartDate.trim() || !eventEndDate.trim()) {
+      setError('Enter both event dates.');
+      return;
+    }
+
+    setEventSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post('/api/events', {
+        title: eventTitle.trim(),
+        description: eventDescription.trim() || undefined,
+        location: eventLocation.trim(),
+        startsAt: `${eventStartDate.trim()}T00:00:00.000Z`,
+        endsAt: `${eventEndDate.trim()}T23:59:59.000Z`,
+      });
+
+      setSuccessMessage('Event created successfully.');
+      resetEventForm();
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to create event.');
+    } finally {
+      setEventSubmitting(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    setEventSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.delete(`/api/events/${eventId}`);
+      setSuccessMessage('Event removed successfully.');
+      await loadDashboard();
+    } catch (deleteError: any) {
+      setError(deleteError?.response?.data?.error || 'Unable to delete event.');
+    } finally {
+      setEventSubmitting(false);
+    }
+  };
+
+  const handleCreateInternalUser = async () => {
+    if (!internalEmail.trim() || !internalUsername.trim() || !internalPassword.trim()) {
+      setError('Username, email, and password are required.');
+      return;
+    }
+
+    setUserSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post('/api/users/internal', {
+        firstName: internalFirstName.trim() || undefined,
+        lastName: internalLastName.trim() || undefined,
+        username: internalUsername.trim(),
+        email: internalEmail.trim(),
+        password: internalPassword.trim(),
+        role: internalRole,
+      });
+
+      setSuccessMessage(`${internalRole} account created successfully.`);
+      resetInternalUserForm();
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to create user.');
+    } finally {
+      setUserSubmitting(false);
+    }
+  };
+
   const renderSummaryMetric = (label: string, value: string | number) => (
     <View style={[styles.metricBox, { backgroundColor: theme.custom.surfaceStrong, borderColor: theme.custom.border }]}>
       <Text style={[styles.metricLabel, { color: theme.custom.textSecondary }]}>{label}</Text>
@@ -535,8 +873,19 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 {transaction.type} {transaction.points} pts
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {transaction.pointType} • {transaction.status}
+                {transaction.pointType} • {transaction.status} • {new Date(transaction.createdAt).toLocaleString()}
               </Text>
+              {transaction.purchaseAmount ? (
+                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                  Purchase: {transaction.purchaseAmount} | Discount: {transaction.discountAmount || 0} | Payable: {transaction.payableAmount || 0}
+                </Text>
+              ) : null}
+              {transaction.earnedPoints ? (
+                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                  Earned in settlement: {transaction.earnedPoints}
+                  {transaction.isFirstTransactionBonus ? ' • First-time bonus' : ''}
+                </Text>
+              ) : null}
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
                 From: {transaction.fromShopId || 'N/A'} | To: {transaction.toShopId || 'N/A'}
               </Text>
@@ -563,6 +912,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{user.email}</Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {user.role}</Text>
             </View>
           ))
         ) : (
@@ -666,6 +1016,293 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     </>
   );
 
+  const renderShopDirectory = () => (
+    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+      <Card.Title title="Shops List" subtitle="Participating local shops" />
+      <Card.Content>
+        {shops.length ? (
+          shops.map(shop => (
+            <View key={shop.id} style={styles.listItem}>
+              <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{shop.name}</Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{shop.location}</Text>
+              {shop.description ? (
+                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{shop.description}</Text>
+              ) : null}
+            </View>
+          ))
+        ) : (
+          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No shops are available yet.</Text>
+        )}
+      </Card.Content>
+    </Card>
+  );
+
+  const renderPromotionsContent = (editable: boolean) => (
+    <>
+      {editable ? (
+        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+          <Card.Title title="Promotions" subtitle="Create shop offers and bonus campaigns" />
+          <Card.Content>
+            <TextInput
+              placeholder="Promotion title"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={promotionTitle}
+              onChangeText={setPromotionTitle}
+            />
+            <TextInput
+              placeholder="Description"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={promotionDescription}
+              onChangeText={setPromotionDescription}
+            />
+            <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Shop</Text>
+            <View style={styles.filterRow}>
+              {manageablePromotionShops.map(shop => (
+                <Chip
+                  key={shop.id}
+                  selected={promotionShopId === shop.id}
+                  mode={promotionShopId === shop.id ? 'flat' : 'outlined'}
+                  onPress={() => setPromotionShopId(shop.id)}
+                  style={styles.filterChip}
+                >
+                  {shop.name}
+                </Chip>
+              ))}
+            </View>
+            <TextInput
+              placeholder="Bonus points"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              keyboardType="number-pad"
+              value={promotionBonusPoints}
+              onChangeText={setPromotionBonusPoints}
+            />
+            <TextInput
+              placeholder="Start date (YYYY-MM-DD)"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={promotionStartDate}
+              onChangeText={setPromotionStartDate}
+            />
+            <TextInput
+              placeholder="End date (YYYY-MM-DD)"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={promotionEndDate}
+              onChangeText={setPromotionEndDate}
+            />
+            <View style={styles.actionRow}>
+              <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>
+                Save Promotion
+              </Button>
+              <Button mode="outlined" onPress={resetPromotionForm}>
+                Reset
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      ) : null}
+
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="Active Promotions" subtitle="Offers available across the network" />
+        <Card.Content>
+          {promotions.length ? (
+            promotions.map(promotion => (
+              <View key={promotion.id} style={styles.shopRow}>
+                <View style={styles.shopRowBody}>
+                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{promotion.title}</Text>
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                    {promotion.shopName} • {promotion.shopLocation}
+                  </Text>
+                  {promotion.description ? (
+                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{promotion.description}</Text>
+                  ) : null}
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                    Bonus: {promotion.bonusPoints} pts • Max discount: {promotion.maxDiscountPercent}%
+                  </Text>
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                    {formatDate(promotion.startsAt)} to {formatDate(promotion.endsAt)}
+                  </Text>
+                </View>
+                {editable ? (
+                  <View style={styles.shopActions}>
+                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeletePromotion(promotion.id)}>
+                      Delete
+                    </Button>
+                  </View>
+                ) : null}
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No promotions are available right now.</Text>
+          )}
+        </Card.Content>
+      </Card>
+    </>
+  );
+
+  const renderEventsContent = (editable: boolean) => (
+    <>
+      {editable ? (
+        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+          <Card.Title title="Events" subtitle="Plan community events and announcements" />
+          <Card.Content>
+            <TextInput
+              placeholder="Event title"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={eventTitle}
+              onChangeText={setEventTitle}
+            />
+            <TextInput
+              placeholder="Description"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={eventDescription}
+              onChangeText={setEventDescription}
+            />
+            <TextInput
+              placeholder="Location"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={eventLocation}
+              onChangeText={setEventLocation}
+            />
+            <TextInput
+              placeholder="Start date (YYYY-MM-DD)"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={eventStartDate}
+              onChangeText={setEventStartDate}
+            />
+            <TextInput
+              placeholder="End date (YYYY-MM-DD)"
+              placeholderTextColor={theme.custom.textSecondary}
+              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+              value={eventEndDate}
+              onChangeText={setEventEndDate}
+            />
+            <View style={styles.actionRow}>
+              <Button mode="contained" loading={eventSubmitting} onPress={() => void handleCreateEvent()}>
+                Save Event
+              </Button>
+              <Button mode="outlined" onPress={resetEventForm}>
+                Reset
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      ) : null}
+
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="Events" subtitle="Upcoming network activity" />
+        <Card.Content>
+          {events.length ? (
+            events.map(event => (
+              <View key={event.id} style={styles.shopRow}>
+                <View style={styles.shopRowBody}>
+                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{event.title}</Text>
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{event.location}</Text>
+                  {event.description ? (
+                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{event.description}</Text>
+                  ) : null}
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                    {formatDate(event.startsAt)} to {formatDate(event.endsAt)}
+                  </Text>
+                </View>
+                {editable ? (
+                  <View style={styles.shopActions}>
+                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteEvent(event.id)}>
+                      Delete
+                    </Button>
+                  </View>
+                ) : null}
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No events are scheduled yet.</Text>
+          )}
+        </Card.Content>
+      </Card>
+    </>
+  );
+
+  const renderInternalUserManagement = () => {
+    if (!allowedInternalRoles.length) {
+      return null;
+    }
+
+    return (
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="User Management" subtitle="Create internal and managed accounts" />
+        <Card.Content>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Role</Text>
+          <View style={styles.filterRow}>
+            {allowedInternalRoles.map(role => (
+              <Chip
+                key={role}
+                selected={internalRole === role}
+                mode={internalRole === role ? 'flat' : 'outlined'}
+                onPress={() => setInternalRole(role)}
+                style={styles.filterChip}
+              >
+                {role}
+              </Chip>
+            ))}
+          </View>
+          <TextInput
+            placeholder="First name"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={internalFirstName}
+            onChangeText={setInternalFirstName}
+          />
+          <TextInput
+            placeholder="Last name"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={internalLastName}
+            onChangeText={setInternalLastName}
+          />
+          <TextInput
+            placeholder="Username"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={internalUsername}
+            onChangeText={setInternalUsername}
+            autoCapitalize="none"
+          />
+          <TextInput
+            placeholder="Email"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={internalEmail}
+            onChangeText={setInternalEmail}
+            autoCapitalize="none"
+          />
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={internalPassword}
+            onChangeText={setInternalPassword}
+            secureTextEntry
+          />
+          <View style={styles.actionRow}>
+            <Button mode="contained" loading={userSubmitting} onPress={() => void handleCreateInternalUser()}>
+              Create User
+            </Button>
+            <Button mode="outlined" onPress={resetInternalUserForm}>
+              Reset
+            </Button>
+          </View>
+        </Card.Content>
+      </Card>
+    );
+  };
+
   const renderHomeContent = () => {
     if (!authUser) {
       return null;
@@ -690,6 +1327,9 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             {renderSummaryMetric('Current Balance', wallet?.balance ?? 0)}
             {renderSummaryMetric('Transactions', transactions.length)}
           </View>
+          {renderPromotionsContent(false)}
+          {renderShopDirectory()}
+          {renderEventsContent(false)}
         </>
       );
     }
@@ -706,6 +1346,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             Scan Customer QR
           </Button>
           {renderUserList('Recent Customers', 'Customers available for point assignment', filteredCustomers.slice(0, 5))}
+          {renderPromotionsContent(true)}
+          {renderEventsContent(false)}
         </>
       );
     }
@@ -719,7 +1361,9 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             {renderSummaryMetric('Transactions', transactions.length)}
             {renderSummaryMetric('Shops', shops.length)}
           </View>
+          {renderInternalUserManagement()}
           {renderShopManagementContent('Shop Management', 'Representatives can add, update, and delete shop records')}
+          {renderPromotionsContent(true)}
           {report ? (
             <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
               <Card.Title title="Operational Snapshot" subtitle="Representative reporting" />
@@ -748,7 +1392,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           {renderSummaryMetric('Customers', customers.length)}
           {renderSummaryMetric('Transactions', transactions.length)}
         </View>
+        {renderInternalUserManagement()}
         {renderShopManagementContent('Shop Management', 'Admins can manage every shop record in the network')}
+        {renderPromotionsContent(true)}
+        {renderEventsContent(true)}
         {report ? (
           <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
             <Card.Title title="Executive Summary" subtitle="Admin reporting" />
@@ -859,102 +1506,144 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   );
 
   const renderAddPointsContent = () => (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title="Add Points" subtitle="Merchant earn transaction for a customer" />
-      <Card.Content>
-        <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Selected Customer</Text>
-        {selectedCustomer ? (
-          <View style={[styles.selectionCard, { borderColor: theme.custom.border }]}>
+    <>
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="Add Points" subtitle="Merchant earn transaction for a customer" />
+        <Card.Content>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Selected Customer</Text>
+          {selectedCustomer ? (
+            <View style={[styles.selectionCard, { borderColor: theme.custom.border }]}>
+              <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
+                {[selectedCustomer.firstName, selectedCustomer.lastName].filter(Boolean).join(' ') || selectedCustomer.username}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{selectedCustomer.email}</Text>
+            </View>
+          ) : (
             <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
-              {[selectedCustomer.firstName, selectedCustomer.lastName].filter(Boolean).join(' ') || selectedCustomer.username}
+              Choose a customer below or from the Customers tab.
             </Text>
-            <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{selectedCustomer.email}</Text>
-          </View>
-        ) : (
-          <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
-            Choose a customer below or from the Customers tab.
-          </Text>
-        )}
-        <Button mode="outlined" onPress={() => navigation.navigate('MerchantScan')} style={styles.secondaryAction}>
-          Scan Customer QR
-        </Button>
+          )}
+          <Button mode="outlined" onPress={() => navigation.navigate('MerchantScan')} style={styles.secondaryAction}>
+            Scan Customer QR
+          </Button>
 
-        <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Choose Customer</Text>
-        <View style={styles.filterRow}>
-          {filteredCustomers.slice(0, 8).map(customer => (
-            <Chip
-              key={customer.id}
-              selected={selectedCustomerId === customer.id}
-              mode={selectedCustomerId === customer.id ? 'flat' : 'outlined'}
-              onPress={() => setSelectedCustomerId(customer.id)}
-              style={styles.filterChip}
-            >
-              {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username}
-            </Chip>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Point Type</Text>
-        <View style={styles.filterRow}>
-          {pointTypeOptions.map(option => (
-            <Chip
-              key={option}
-              selected={pointType === option}
-              mode={pointType === option ? 'flat' : 'outlined'}
-              onPress={() => setPointType(option)}
-              style={styles.filterChip}
-            >
-              {option}
-            </Chip>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Select Shop</Text>
-        {availableShops.length ? (
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Choose Customer</Text>
           <View style={styles.filterRow}>
-            {availableShops.map(shop => (
+            {filteredCustomers.slice(0, 8).map(customer => (
               <Chip
-                key={shop.id}
-                selected={selectedShopId === shop.id}
-                mode={selectedShopId === shop.id ? 'flat' : 'outlined'}
-                onPress={() => setSelectedShopId(shop.id)}
+                key={customer.id}
+                selected={selectedCustomerId === customer.id}
+                mode={selectedCustomerId === customer.id ? 'flat' : 'outlined'}
+                onPress={() => setSelectedCustomerId(customer.id)}
                 style={styles.filterChip}
               >
-                {shop.name}
+                {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username}
               </Chip>
             ))}
           </View>
-        ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>
-            No merchant shop is available for point assignment.
-          </Text>
-        )}
 
-        <TextInput
-          placeholder="Points"
-          placeholderTextColor={theme.custom.textSecondary}
-          style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
-          keyboardType="number-pad"
-          value={points}
-          onChangeText={setPoints}
-        />
-        <TextInput
-          placeholder="Description"
-          placeholderTextColor={theme.custom.textSecondary}
-          style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
-          value={description}
-          onChangeText={setDescription}
-        />
-        <Button
-          mode="contained"
-          disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !points.trim()}
-          loading={submitting}
-          onPress={() => void handleAddPoints()}
-        >
-          Submit Earn Transaction
-        </Button>
-      </Card.Content>
-    </Card>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Point Type</Text>
+          <View style={styles.filterRow}>
+            {pointTypeOptions.map(option => (
+              <Chip
+                key={option}
+                selected={pointType === option}
+                mode={pointType === option ? 'flat' : 'outlined'}
+                onPress={() => setPointType(option)}
+                style={styles.filterChip}
+              >
+                {option}
+              </Chip>
+            ))}
+          </View>
+
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Select Shop</Text>
+          {availableShops.length ? (
+            <View style={styles.filterRow}>
+              {availableShops.map(shop => (
+                <Chip
+                  key={shop.id}
+                  selected={selectedShopId === shop.id}
+                  mode={selectedShopId === shop.id ? 'flat' : 'outlined'}
+                  onPress={() => setSelectedShopId(shop.id)}
+                  style={styles.filterChip}
+                >
+                  {shop.name}
+                </Chip>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>
+              No merchant shop is available for point assignment.
+            </Text>
+          )}
+
+          <TextInput
+            placeholder="Points"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            keyboardType="number-pad"
+            value={points}
+            onChangeText={setPoints}
+          />
+          <TextInput
+            placeholder="Description"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={description}
+            onChangeText={setDescription}
+          />
+          <Button
+            mode="contained"
+            disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !points.trim()}
+            loading={submitting}
+            onPress={() => void handleAddPoints()}
+          >
+            Submit Earn Transaction
+          </Button>
+        </Card.Content>
+      </Card>
+
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title="Accept Points" subtitle="Settle a purchase with discount, payable amount, and new points" />
+        <Card.Content>
+          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+            Same-shop restriction is enforced automatically and discounts are capped at 30% of the purchase.
+          </Text>
+          <TextInput
+            placeholder="Purchase amount"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            keyboardType="number-pad"
+            value={purchaseAmount}
+            onChangeText={setPurchaseAmount}
+          />
+          <TextInput
+            placeholder="Requested points to use"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            keyboardType="number-pad"
+            value={spendPoints}
+            onChangeText={setSpendPoints}
+          />
+          <TextInput
+            placeholder="Settlement description"
+            placeholderTextColor={theme.custom.textSecondary}
+            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            value={spendDescription}
+            onChangeText={setSpendDescription}
+          />
+          <Button
+            mode="contained"
+            disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()}
+            loading={submitting}
+            onPress={() => void handleSpendPoints()}
+          >
+            Submit Purchase Settlement
+          </Button>
+        </Card.Content>
+      </Card>
+    </>
   );
 
   const renderProfileContent = () => (
@@ -1101,9 +1790,9 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 <BottomNavigation.Bar
                   navigationState={{ index: routeIndex, routes }}
                   onTabPress={({ route }) => setRouteIndex(routes.findIndex(item => item.key === route.key))}
-                  renderIcon={({ route, focused, color }) => (
+                  renderIcon={({ route: navRoute, focused, color }) => (
                     <MaterialCommunityIcons
-                      name={(focused ? route.focusedIcon : route.unfocusedIcon) as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
+                      name={(focused ? navRoute.focusedIcon : navRoute.unfocusedIcon) as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
                       size={22}
                       color={color}
                     />
@@ -1281,10 +1970,6 @@ const styles = StyleSheet.create({
   filterChip: {
     marginBottom: 4,
   },
-  customerChip: {
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-  },
   customerRow: {
     borderWidth: 1,
     borderRadius: 18,
@@ -1301,6 +1986,7 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 8,
   },

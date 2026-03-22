@@ -41,6 +41,21 @@ export class WalletTransaction {
     @Column({ type: 'integer' })
     points!: number;
 
+    @Column({ type: 'integer', nullable: true })
+    purchaseAmount!: number | null;
+
+    @Column({ type: 'integer', nullable: true })
+    discountAmount!: number | null;
+
+    @Column({ type: 'integer', nullable: true })
+    payableAmount!: number | null;
+
+    @Column({ type: 'integer', nullable: true })
+    earnedPoints!: number | null;
+
+    @Column({ type: 'boolean', default: false })
+    isFirstTransactionBonus!: boolean;
+
     @Column({ type: 'integer' })
     balanceBefore!: number;
 
