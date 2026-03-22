@@ -13,8 +13,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ActivityIndicator, BottomNavigation, Button, Card, Chip, Divider, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomerDirectoryCard } from '../components/user-directory/CustomerDirectoryCard';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
+import { MerchantDirectoryCard } from '../components/user-directory/MerchantDirectoryCard';
+import { RepresentativeDirectoryCard } from '../components/user-directory/RepresentativeDirectoryCard';
 import type { ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
 import { clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
@@ -134,6 +137,7 @@ const roleTitles: Record<AuthUser['role'], string> = {
 const transactionTypeOptions = ['ALL', 'EARN', 'SPEND'];
 const transactionStatusOptions = ['ALL', 'SUCCESS', 'PENDING', 'FAILED'];
 const pointTypeOptions: Array<'STANDARD' | 'BONUS'> = ['STANDARD', 'BONUS'];
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getRoutesForRole(role: AuthUser['role']): NavRoute[] {
   switch (role) {
@@ -241,6 +245,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [internalUsername, setInternalUsername] = useState('');
   const [internalEmail, setInternalEmail] = useState('');
   const [internalPassword, setInternalPassword] = useState('');
+  const [internalPasswordVisible, setInternalPasswordVisible] = useState(false);
+  const [internalTouched, setInternalTouched] = useState({
+    username: false,
+    email: false,
+    password: false,
+  });
   const [customerSearch, setCustomerSearch] = useState('');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('ALL');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('ALL');
@@ -343,6 +353,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
     return [] as AuthUser['role'][];
   }, [authUser]);
+
+  const trimmedInternalUsername = internalUsername.trim();
+  const trimmedInternalEmail = internalEmail.trim();
+  const internalEmailError = internalTouched.email && trimmedInternalEmail && !emailPattern.test(trimmedInternalEmail)
+    ? 'Enter a valid email address.'
+    : undefined;
+  const internalPasswordError = internalTouched.password && internalPassword && internalPassword.length < 8
+    ? 'Password must be at least 8 characters.'
+    : undefined;
 
   const fetchSelectedCustomerWallet = useCallback(async (customerId: string) => {
     if (!customerId.trim() || !authUser || authUser.role === 'CUSTOMER') {
@@ -527,6 +546,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setInternalUsername('');
     setInternalEmail('');
     setInternalPassword('');
+    setInternalPasswordVisible(false);
+    setInternalTouched({
+      username: false,
+      email: false,
+      password: false,
+    });
     setInternalRole(allowedInternalRoles[0] || 'MERCHANT');
   };
 
@@ -865,8 +890,25 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   };
 
   const handleCreateInternalUser = async () => {
-    if (!internalEmail.trim() || !internalUsername.trim() || !internalPassword.trim()) {
+    if (!trimmedInternalEmail || !trimmedInternalUsername || !internalPassword.trim()) {
       setError('Username, email, and password are required.');
+      setInternalTouched({
+        username: true,
+        email: true,
+        password: true,
+      });
+      return;
+    }
+
+    if (!emailPattern.test(trimmedInternalEmail)) {
+      setError('Enter a valid email address.');
+      setInternalTouched(current => ({ ...current, email: true }));
+      return;
+    }
+
+    if (internalPassword.trim().length < 8) {
+      setError('Password must be at least 8 characters.');
+      setInternalTouched(current => ({ ...current, password: true }));
       return;
     }
 
@@ -879,7 +921,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         firstName: internalFirstName.trim() || undefined,
         lastName: internalLastName.trim() || undefined,
         username: internalUsername.trim(),
-        email: internalEmail.trim(),
+        email: trimmedInternalEmail,
         password: internalPassword.trim(),
         role: internalRole,
       });
@@ -1338,26 +1380,41 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             icon="account-circle-outline"
             label="Username"
             helperText="Use a unique sign-in name without spaces."
+            valid={Boolean(trimmedInternalUsername)}
             value={internalUsername}
-            onChangeText={setInternalUsername}
+            onChangeText={text => {
+              setInternalUsername(text);
+              setInternalTouched(current => ({ ...current, username: true }));
+            }}
             autoCapitalize="none"
           />
           <FloatingLabelInput
             icon="email-outline"
             label="Email"
-            helperText="Add the email address used for login and notifications."
+            error={internalEmailError}
+            helperText={!internalEmailError ? 'Add the email address used for login and notifications.' : undefined}
+            valid={Boolean(trimmedInternalEmail) && !internalEmailError}
             value={internalEmail}
-            onChangeText={setInternalEmail}
+            onChangeText={text => {
+              setInternalEmail(text);
+              setInternalTouched(current => ({ ...current, email: true }));
+            }}
             autoCapitalize="none"
             keyboardType="email-address"
           />
           <FloatingLabelInput
             icon="lock-outline"
             label="Password"
-            helperText="Set a temporary password the user can change later."
+            error={internalPasswordError}
+            helperText={!internalPasswordError ? 'Set a temporary password with at least 8 characters.' : undefined}
+            onToggleSecureEntry={() => setInternalPasswordVisible(current => !current)}
+            secureTextEntry={!internalPasswordVisible}
+            valid={internalPassword.length >= 8}
             value={internalPassword}
-            onChangeText={setInternalPassword}
-            secureTextEntry
+            onChangeText={text => {
+              setInternalPassword(text);
+              setInternalTouched(current => ({ ...current, password: true }));
+            }}
           />
           <View style={styles.actionRow}>
             <Button mode="contained" loading={userSubmitting} onPress={() => void handleCreateInternalUser()}>
@@ -1407,16 +1464,17 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const renderAdminUserManagementContent = () => (
     <>
       {renderInternalUserManagement()}
-      {renderUserList('Representatives', 'Internal representative accounts', representatives)}
-      {renderUserList('Merchants', 'Managed merchant accounts', merchants)}
-      {renderUserList('Customers', 'Customer accounts across the network', customers)}
+      <RepresentativeDirectoryCard users={representatives} />
+      <MerchantDirectoryCard users={merchants} />
+      <CustomerDirectoryCard users={customers} />
     </>
   );
 
   const renderRepresentativeUserManagementContent = () => (
     <>
       {renderInternalUserManagement()}
-      {renderUserList('Merchants', 'Managed merchant accounts', merchants)}
+      <MerchantDirectoryCard users={merchants} />
+      <CustomerDirectoryCard users={customers} />
       {renderCustomersContent()}
     </>
   );
@@ -2137,6 +2195,15 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  directoryTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  directorySubtitle: {
+    fontSize: 13,
+    marginBottom: 8,
   },
   listMeta: {
     marginTop: 4,
