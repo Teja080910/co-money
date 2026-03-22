@@ -36,6 +36,9 @@ type Props = {
   inputRef?: React.RefObject<RNTextInput | null>;
   onFocus?: TextInputProps['onFocus'];
   onBlur?: TextInputProps['onBlur'];
+  multiline?: boolean;
+  numberOfLines?: number;
+  editable?: boolean;
 };
 
 export function FloatingLabelInput({
@@ -58,6 +61,9 @@ export function FloatingLabelInput({
   inputRef,
   onFocus,
   onBlur,
+  multiline = false,
+  numberOfLines,
+  editable = true,
 }: Props) {
   const theme = useTheme<AppTheme>();
   const [isFocused, setIsFocused] = useState(false);
@@ -139,7 +145,10 @@ export function FloatingLabelInput({
           accessibilityLabel={accessibleLabel ?? label}
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
+          editable={editable}
           keyboardType={keyboardType}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
           onBlur={event => {
             setIsFocused(false);
             onBlur?.(event);
@@ -156,8 +165,9 @@ export function FloatingLabelInput({
           ref={inputRef}
           secureTextEntry={secureTextEntry}
           selectionColor={theme.custom.brand}
-          style={[styles.input, { color: theme.custom.textPrimary }]}
+          style={[styles.input, multiline ? styles.multilineInput : null, { color: theme.custom.textPrimary }]}
           textContentType={textContentType}
+          textAlignVertical={multiline ? 'top' : 'center'}
           value={value}
         />
         {onToggleSecureEntry ? (
@@ -219,6 +229,10 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 10,
     minHeight: 62,
+  },
+  multilineInput: {
+    minHeight: 104,
+    paddingTop: 28,
   },
   rightAction: {
     minWidth: 24,

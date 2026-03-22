@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ActivityIndicator, BottomNavigation, Button, Card, Chip, Divider, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import type { ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
 import { clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
@@ -153,24 +155,36 @@ function getRoutesForRole(role: AuthUser['role']): NavRoute[] {
     case 'REPRESENTATIVE':
       return [
         { key: 'home', title: 'Home', focusedIcon: 'home-city', unfocusedIcon: 'home-city-outline' },
-        { key: 'merchants', title: 'Merchants', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
-        { key: 'customers', title: 'Customers', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
+        { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
         { key: 'transactions', title: 'Transactions', focusedIcon: 'history', unfocusedIcon: 'history' },
         { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
       ];
     case 'ADMIN':
       return [
         { key: 'dashboard', title: 'Dashboard', focusedIcon: 'view-dashboard', unfocusedIcon: 'view-dashboard-outline' },
-        { key: 'representatives', title: 'Representatives', focusedIcon: 'badge-account', unfocusedIcon: 'badge-account-outline' },
-        { key: 'merchants', title: 'Merchants', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
-        { key: 'customers', title: 'Customers', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
-        { key: 'reports', title: 'Reports', focusedIcon: 'chart-box', unfocusedIcon: 'chart-box-outline' },
+        { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
+        { key: 'shop-management', title: 'Shops', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
+        { key: 'promotions', title: 'Promotions', focusedIcon: 'tag-multiple', unfocusedIcon: 'tag-multiple-outline' },
+        { key: 'events', title: 'Events', focusedIcon: 'calendar-star', unfocusedIcon: 'calendar-star' },
       ];
   }
 }
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
+}
+
+function formatDateInputValue(date: Date) {
+  return date.toISOString().split('T')[0];
+}
+
+function getPickerDate(value: string) {
+  if (!value) {
+    return new Date();
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 }
 
 export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
@@ -230,6 +244,9 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [customerSearch, setCustomerSearch] = useState('');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('ALL');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('ALL');
+  const [activeDatePicker, setActiveDatePicker] = useState<
+    'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
+  >(null);
 
   const routes = useMemo(() => (authUser ? getRoutesForRole(authUser.role) : []), [authUser]);
   const activeRouteKey = routes[routeIndex]?.key || 'home';
@@ -513,6 +530,59 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setInternalRole(allowedInternalRoles[0] || 'MERCHANT');
   };
 
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (event.type === 'dismissed') {
+      setActiveDatePicker(null);
+      return;
+    }
+
+    if (!selectedDate || !activeDatePicker) {
+      return;
+    }
+
+    const nextValue = formatDateInputValue(selectedDate);
+
+    switch (activeDatePicker) {
+      case 'promotion-start':
+        setPromotionStartDate(nextValue);
+        break;
+      case 'promotion-end':
+        setPromotionEndDate(nextValue);
+        break;
+      case 'event-start':
+        setEventStartDate(nextValue);
+        break;
+      case 'event-end':
+        setEventEndDate(nextValue);
+        break;
+    }
+
+    if (Platform.OS !== 'ios') {
+      setActiveDatePicker(null);
+    }
+  };
+
+  const renderDateField = (
+    label: string,
+    value: string,
+    pickerKey: NonNullable<typeof activeDatePicker>,
+    helperText: string,
+  ) => (
+    <View style={styles.dateFieldBlock}>
+      <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{label}</Text>
+      <Pressable
+        onPress={() => setActiveDatePicker(pickerKey)}
+        style={[styles.dateField, { borderColor: theme.custom.border, backgroundColor: theme.custom.background }]}
+      >
+        <Text style={[styles.dateFieldValue, { color: value ? theme.custom.textPrimary : theme.custom.textSecondary }]}>
+          {value || 'Select date'}
+        </Text>
+        <MaterialCommunityIcons name="calendar-month-outline" size={20} color={theme.custom.textSecondary} />
+      </Pressable>
+      <Text style={[styles.dateFieldHelper, { color: theme.custom.textSecondary }]}>{helperText}</Text>
+    </View>
+  );
+
   const handleAddPoints = async () => {
     if (!selectedCustomerId.trim()) {
       setError('Select a customer before adding points.');
@@ -666,20 +736,18 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }
   };
 
-  const handleDeleteShop = async (shopId: string) => {
+  const handleToggleShopStatus = async (shop: Shop) => {
     setShopSubmitting(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      await apiClient.delete(`/api/shops/${shopId}`);
-      if (editingShopId === shopId) {
-        resetShopForm();
-      }
-      setSuccessMessage('Shop deleted successfully.');
+      const nextStatus = !shop.isActive;
+      await apiClient.put(`/api/shops/${shop.id}`, { isActive: nextStatus });
+      setSuccessMessage(`Shop ${nextStatus ? 'activated' : 'deactivated'} successfully.`);
       await loadDashboard();
-    } catch (deleteError: any) {
-      setError(deleteError?.response?.data?.error || 'Unable to delete shop.');
+    } catch (updateError: any) {
+      setError(updateError?.response?.data?.error || 'Unable to update shop status.');
     } finally {
       setShopSubmitting(false);
     }
@@ -927,26 +995,31 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={title} subtitle={subtitle} />
         <Card.Content>
-          <TextInput
-            placeholder="Shop name"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="store-outline"
+            label="Shop name"
+            helperText="Use the public-facing shop name customers will recognize."
             value={shopName}
             onChangeText={setShopName}
+            autoCapitalize="words"
           />
-          <TextInput
-            placeholder="Location"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="map-marker-outline"
+            label="Location"
+            helperText="Add the branch area or address shown in the shop listing."
             value={shopLocation}
             onChangeText={setShopLocation}
+            autoCapitalize="words"
           />
-          <TextInput
-            placeholder="Description"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="text-box-outline"
+            label="Description"
+            helperText="Write a short summary about what this shop offers."
             value={shopDescription}
             onChangeText={setShopDescription}
+            autoCapitalize="sentences"
+            multiline
+            numberOfLines={3}
           />
 
           <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Merchant</Text>
@@ -983,7 +1056,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       </Card>
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Managed Shops" subtitle="Add, update, or delete assigned shops" />
+        <Card.Title title="Managed Shops" subtitle="Add, update, activate, or deactivate assigned shops" />
         <Card.Content>
           {shops.length ? (
             shops.map(shop => (
@@ -997,13 +1070,21 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                   <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
                     Merchant: {merchantNameMap[shop.merchantId] || shop.merchantId}
                   </Text>
+                  <Text style={[styles.listMeta, { color: shop.isActive ? theme.custom.success : theme.custom.error }]}>
+                    Status: {shop.isActive ? 'Active' : 'Inactive'}
+                  </Text>
                 </View>
                 <View style={styles.shopActions}>
                   <Button compact mode="outlined" onPress={() => handleEditShop(shop)}>
                     Edit
                   </Button>
-                  <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteShop(shop.id)}>
-                    Delete
+                  <Button
+                    compact
+                    mode="text"
+                    textColor={shop.isActive ? theme.custom.error : theme.custom.success}
+                    onPress={() => void handleToggleShopStatus(shop)}
+                  >
+                    {shop.isActive ? 'Deactivate' : 'Activate'}
                   </Button>
                 </View>
               </View>
@@ -1041,21 +1122,25 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     <>
       {editable ? (
         <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title="Promotions" subtitle="Create shop offers and bonus campaigns" />
-          <Card.Content>
-            <TextInput
-              placeholder="Promotion title"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+        <Card.Title title="Promotions" subtitle="Create shop offers and bonus campaigns" />
+        <Card.Content>
+            <FloatingLabelInput
+              icon="tag-outline"
+              label="Promotion title"
+              helperText="Choose a clear campaign name customers can scan quickly."
               value={promotionTitle}
               onChangeText={setPromotionTitle}
+              autoCapitalize="sentences"
             />
-            <TextInput
-              placeholder="Description"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            <FloatingLabelInput
+              icon="text-box-outline"
+              label="Description"
+              helperText="Explain the offer, reward, or eligibility in one short note."
               value={promotionDescription}
               onChangeText={setPromotionDescription}
+              autoCapitalize="sentences"
+              multiline
+              numberOfLines={3}
             />
             <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Shop</Text>
             <View style={styles.filterRow}>
@@ -1071,28 +1156,16 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 </Chip>
               ))}
             </View>
-            <TextInput
-              placeholder="Bonus points"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            <FloatingLabelInput
+              icon="star-four-points-outline"
+              label="Bonus points"
+              helperText="Enter the extra reward points granted by this promotion."
               keyboardType="number-pad"
               value={promotionBonusPoints}
               onChangeText={setPromotionBonusPoints}
             />
-            <TextInput
-              placeholder="Start date (YYYY-MM-DD)"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
-              value={promotionStartDate}
-              onChangeText={setPromotionStartDate}
-            />
-            <TextInput
-              placeholder="End date (YYYY-MM-DD)"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
-              value={promotionEndDate}
-              onChangeText={setPromotionEndDate}
-            />
+            {renderDateField('Start date', promotionStartDate, 'promotion-start', 'Choose when this promotion should become active.')}
+            {renderDateField('End date', promotionEndDate, 'promotion-end', 'Choose the last day customers can use this promotion.')}
             <View style={styles.actionRow}>
               <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>
                 Save Promotion
@@ -1147,43 +1220,36 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     <>
       {editable ? (
         <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title="Events" subtitle="Plan community events and announcements" />
-          <Card.Content>
-            <TextInput
-              placeholder="Event title"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+        <Card.Title title="Events" subtitle="Plan community events and announcements" />
+        <Card.Content>
+            <FloatingLabelInput
+              icon="calendar-text-outline"
+              label="Event title"
+              helperText="Use the event name that should appear in announcements."
               value={eventTitle}
               onChangeText={setEventTitle}
+              autoCapitalize="sentences"
             />
-            <TextInput
-              placeholder="Description"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            <FloatingLabelInput
+              icon="text-box-outline"
+              label="Description"
+              helperText="Add a short agenda, purpose, or event summary."
               value={eventDescription}
               onChangeText={setEventDescription}
+              autoCapitalize="sentences"
+              multiline
+              numberOfLines={3}
             />
-            <TextInput
-              placeholder="Location"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+            <FloatingLabelInput
+              icon="map-marker-outline"
+              label="Location"
+              helperText="Mention the venue, branch, or meetup point."
               value={eventLocation}
               onChangeText={setEventLocation}
+              autoCapitalize="words"
             />
-            <TextInput
-              placeholder="Start date (YYYY-MM-DD)"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
-              value={eventStartDate}
-              onChangeText={setEventStartDate}
-            />
-            <TextInput
-              placeholder="End date (YYYY-MM-DD)"
-              placeholderTextColor={theme.custom.textSecondary}
-              style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
-              value={eventEndDate}
-              onChangeText={setEventEndDate}
-            />
+            {renderDateField('Start date', eventStartDate, 'event-start', 'Pick the first day this event will be visible as active.')}
+            {renderDateField('End date', eventEndDate, 'event-end', 'Pick the final day for this event schedule.')}
             <View style={styles.actionRow}>
               <Button mode="contained" loading={eventSubmitting} onPress={() => void handleCreateEvent()}>
                 Save Event
@@ -1252,40 +1318,43 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
               </Chip>
             ))}
           </View>
-          <TextInput
-            placeholder="First name"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="account-outline"
+            label="First name"
+            helperText="Enter the user’s given name for their profile."
             value={internalFirstName}
             onChangeText={setInternalFirstName}
+            autoCapitalize="words"
           />
-          <TextInput
-            placeholder="Last name"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="badge-account-outline"
+            label="Last name"
+            helperText="Enter the surname used for reporting and account records."
             value={internalLastName}
             onChangeText={setInternalLastName}
+            autoCapitalize="words"
           />
-          <TextInput
-            placeholder="Username"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="account-circle-outline"
+            label="Username"
+            helperText="Use a unique sign-in name without spaces."
             value={internalUsername}
             onChangeText={setInternalUsername}
             autoCapitalize="none"
           />
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="email-outline"
+            label="Email"
+            helperText="Add the email address used for login and notifications."
             value={internalEmail}
             onChangeText={setInternalEmail}
             autoCapitalize="none"
+            keyboardType="email-address"
           />
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="lock-outline"
+            label="Password"
+            helperText="Set a temporary password the user can change later."
             value={internalPassword}
             onChangeText={setInternalPassword}
             secureTextEntry
@@ -1302,6 +1371,55 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       </Card>
     );
   };
+
+  const renderAdminDashboardContent = () => (
+    <>
+      <View style={styles.metricGrid}>
+        {renderSummaryMetric('Representatives', representatives.length)}
+        {renderSummaryMetric('Merchants', merchants.length)}
+        {renderSummaryMetric('Customers', customers.length)}
+        {renderSummaryMetric('Transactions', transactions.length)}
+      </View>
+
+      {report ? (
+        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+          <Card.Title title="Executive Summary" subtitle="Admin reporting" />
+          <Card.Content>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
+              Customers: {report.totalCustomers} | Shops: {report.totalShops}
+            </Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
+              Issued: {report.totalPointsIssued} | Spent: {report.totalPointsSpent}
+            </Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
+              Active Balance: {report.activeBalance}
+            </Text>
+          </Card.Content>
+        </Card>
+      ) : null}
+
+      {renderUserList('Recent Representatives', 'Latest internal representative accounts', representatives.slice(0, 4))}
+      {renderUserList('Recent Merchants', 'Managed merchant accounts', merchants.slice(0, 4))}
+      {renderUserList('Recent Customers', 'Newest customer accounts in the network', customers.slice(0, 4))}
+    </>
+  );
+
+  const renderAdminUserManagementContent = () => (
+    <>
+      {renderInternalUserManagement()}
+      {renderUserList('Representatives', 'Internal representative accounts', representatives)}
+      {renderUserList('Merchants', 'Managed merchant accounts', merchants)}
+      {renderUserList('Customers', 'Customer accounts across the network', customers)}
+    </>
+  );
+
+  const renderRepresentativeUserManagementContent = () => (
+    <>
+      {renderInternalUserManagement()}
+      {renderUserList('Merchants', 'Managed merchant accounts', merchants)}
+      {renderCustomersContent()}
+    </>
+  );
 
   const renderHomeContent = () => {
     if (!authUser) {
@@ -1361,8 +1479,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             {renderSummaryMetric('Transactions', transactions.length)}
             {renderSummaryMetric('Shops', shops.length)}
           </View>
-          {renderInternalUserManagement()}
-          {renderShopManagementContent('Shop Management', 'Representatives can add, update, and delete shop records')}
+          {renderShopManagementContent('Shop Management', 'Representatives can add, update, activate, and deactivate shop records')}
           {renderPromotionsContent(true)}
           {report ? (
             <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
@@ -1385,31 +1502,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }
 
     return (
-      <>
-        <View style={styles.metricGrid}>
-          {renderSummaryMetric('Representatives', representatives.length)}
-          {renderSummaryMetric('Merchants', merchants.length)}
-          {renderSummaryMetric('Customers', customers.length)}
-          {renderSummaryMetric('Transactions', transactions.length)}
-        </View>
-        {renderInternalUserManagement()}
-        {renderShopManagementContent('Shop Management', 'Admins can manage every shop record in the network')}
-        {renderPromotionsContent(true)}
-        {renderEventsContent(true)}
-        {report ? (
-          <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-            <Card.Title title="Executive Summary" subtitle="Admin reporting" />
-            <Card.Content>
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-                Shops: {report.totalShops} | Active Balance: {report.activeBalance}
-              </Text>
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-                Issued: {report.totalPointsIssued} | Spent: {report.totalPointsSpent}
-              </Text>
-            </Card.Content>
-          </Card>
-        ) : null}
-      </>
+      renderAdminDashboardContent()
     );
   };
 
@@ -1446,12 +1539,13 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title="Customers" subtitle="Customer-role accounts available for point assignment" />
         <Card.Content>
-          <TextInput
-            placeholder="Search by name, username, or email"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="magnify"
+            label="Search by name, username, or email"
+            helperText="Filter the customer list to find the right wallet faster."
             value={customerSearch}
             onChangeText={setCustomerSearch}
+            autoCapitalize="none"
           />
           {filteredCustomers.length ? (
             filteredCustomers.map(customer => {
@@ -1578,20 +1672,23 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             </Text>
           )}
 
-          <TextInput
-            placeholder="Points"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="plus-circle-outline"
+            label="Points"
+            helperText="Enter how many points should be added to the customer wallet."
             keyboardType="number-pad"
             value={points}
             onChangeText={setPoints}
           />
-          <TextInput
-            placeholder="Description"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="text-box-outline"
+            label="Description"
+            helperText="Add an optional note explaining why these points were issued."
             value={description}
             onChangeText={setDescription}
+            autoCapitalize="sentences"
+            multiline
+            numberOfLines={3}
           />
           <Button
             mode="contained"
@@ -1610,28 +1707,31 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
             Same-shop restriction is enforced automatically and discounts are capped at 30% of the purchase.
           </Text>
-          <TextInput
-            placeholder="Purchase amount"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="cash-multiple"
+            label="Purchase amount"
+            helperText="Enter the bill total before discounts are applied."
             keyboardType="number-pad"
             value={purchaseAmount}
             onChangeText={setPurchaseAmount}
           />
-          <TextInput
-            placeholder="Requested points to use"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="ticket-percent-outline"
+            label="Requested points to use"
+            helperText="Enter how many customer points should be redeemed."
             keyboardType="number-pad"
             value={spendPoints}
             onChangeText={setSpendPoints}
           />
-          <TextInput
-            placeholder="Settlement description"
-            placeholderTextColor={theme.custom.textSecondary}
-            style={[styles.input, { borderColor: theme.custom.border, color: theme.custom.textPrimary }]}
+          <FloatingLabelInput
+            icon="text-box-outline"
+            label="Settlement description"
+            helperText="Add an optional note for the purchase or redemption context."
             value={spendDescription}
             onChangeText={setSpendDescription}
+            autoCapitalize="sentences"
+            multiline
+            numberOfLines={3}
           />
           <Button
             mode="contained"
@@ -1688,6 +1788,16 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         return renderWalletContent();
       case 'reports':
         return renderReportsContent();
+      case 'user-management':
+        return authUser?.role === 'REPRESENTATIVE'
+          ? renderRepresentativeUserManagementContent()
+          : renderAdminUserManagementContent();
+      case 'shop-management':
+        return renderShopManagementContent('Shop Management', 'Admins can add, update, activate, and deactivate shop records');
+      case 'promotions':
+        return renderPromotionsContent(true);
+      case 'events':
+        return renderEventsContent(true);
       case 'transactions':
         return renderTransactionList();
       case 'customers':
@@ -1782,6 +1892,29 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 {error ? <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text> : null}
                 {successMessage ? <Text style={[styles.message, { color: theme.custom.success }]}>{successMessage}</Text> : null}
                 {renderScene()}
+                {activeDatePicker ? (
+                  <View style={styles.datePickerWrap}>
+                    <DateTimePicker
+                      value={
+                        activeDatePicker === 'promotion-start'
+                          ? getPickerDate(promotionStartDate)
+                          : activeDatePicker === 'promotion-end'
+                            ? getPickerDate(promotionEndDate)
+                            : activeDatePicker === 'event-start'
+                              ? getPickerDate(eventStartDate)
+                              : getPickerDate(eventEndDate)
+                      }
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                      onChange={handleDateChange}
+                    />
+                    {Platform.OS === 'ios' ? (
+                      <Button mode="text" onPress={() => setActiveDatePicker(null)}>
+                        Done
+                      </Button>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
             </ScrollView>
 
@@ -2029,6 +2162,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 14,
+  },
+  dateFieldBlock: {
+    marginBottom: 12,
+  },
+  dateFieldHelper: {
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: 4,
+    paddingTop: 6,
+  },
+  dateField: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateFieldValue: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  datePickerWrap: {
+    marginTop: 12,
   },
   selectionCard: {
     borderWidth: 1,
