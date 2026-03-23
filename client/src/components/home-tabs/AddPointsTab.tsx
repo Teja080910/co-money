@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { Button, Card, Chip } from 'react-native-paper';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export function AddPointsTab({ context }: Props) {
+  const { t } = useTranslation();
   const {
     theme,
     styles,
@@ -40,9 +42,9 @@ export function AddPointsTab({ context }: Props) {
   return (
     <>
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Add Points" subtitle="Merchant earn transaction for a customer" />
+        <Card.Title title={t('addPoints.earn.title')} subtitle={t('addPoints.earn.subtitle')} />
         <Card.Content>
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Selected Customer</Text>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.selectedCustomer')}</Text>
           {selectedCustomer ? (
             <View style={[styles.selectionCard, { borderColor: theme.custom.border }]}>
               <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
@@ -52,14 +54,14 @@ export function AddPointsTab({ context }: Props) {
             </View>
           ) : (
             <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
-              Choose a customer below or from the Customers tab.
+              {t('addPoints.chooseCustomerHint')}
             </Text>
           )}
           <Button mode="outlined" onPress={() => navigation.navigate('MerchantScan')} style={styles.secondaryAction}>
-            Scan Customer QR
+            {t('addPoints.scanQr')}
           </Button>
 
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Choose Customer</Text>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.chooseCustomer')}</Text>
           <View style={styles.filterRow}>
             {filteredCustomers.slice(0, 8).map((customer: any) => (
               <Chip
@@ -74,7 +76,7 @@ export function AddPointsTab({ context }: Props) {
             ))}
           </View>
 
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Point Type</Text>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.pointType')}</Text>
           <View style={styles.filterRow}>
             {pointTypeOptions.map((option: string) => (
               <Chip
@@ -89,7 +91,7 @@ export function AddPointsTab({ context }: Props) {
             ))}
           </View>
 
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Select Shop</Text>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.selectShop')}</Text>
           {availableShops.length ? (
             <View style={styles.filterRow}>
               {availableShops.map((shop: any) => (
@@ -106,22 +108,22 @@ export function AddPointsTab({ context }: Props) {
             </View>
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>
-              No merchant shop is available for point assignment.
+              {t('addPoints.noShops')}
             </Text>
           )}
 
           <FloatingLabelInput
             icon="plus-circle-outline"
-            label="Points"
-            helperText="Enter how many points should be added to the customer wallet."
+            label={t('addPoints.fields.pointsLabel')}
+            helperText={t('addPoints.fields.pointsHelper')}
             keyboardType="number-pad"
             value={points}
             onChangeText={setPoints}
           />
           <FloatingLabelInput
             icon="text-box-outline"
-            label="Description"
-            helperText="Add an optional note explaining why these points were issued."
+            label={t('addPoints.fields.descriptionLabel')}
+            helperText={t('addPoints.fields.descriptionHelper')}
             value={description}
             onChangeText={setDescription}
             autoCapitalize="sentences"
@@ -134,37 +136,37 @@ export function AddPointsTab({ context }: Props) {
             loading={submitting}
             onPress={() => void handleAddPoints()}
           >
-            Submit Earn Transaction
+            {t('addPoints.earn.submit')}
           </Button>
         </Card.Content>
       </Card>
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Accept Points" subtitle="Settle a purchase with discount, payable amount, and new points" />
+        <Card.Title title={t('addPoints.spend.title')} subtitle={t('addPoints.spend.subtitle')} />
         <Card.Content>
           <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-            Same-shop restriction is enforced automatically and discounts are capped at 30% of the purchase.
+            {t('addPoints.spend.helper')}
           </Text>
           <FloatingLabelInput
             icon="cash-multiple"
-            label="Purchase amount"
-            helperText="Enter the bill total before discounts are applied."
+            label={t('addPoints.fields.purchaseAmountLabel')}
+            helperText={t('addPoints.fields.purchaseAmountHelper')}
             keyboardType="number-pad"
             value={purchaseAmount}
             onChangeText={setPurchaseAmount}
           />
           <FloatingLabelInput
             icon="ticket-percent-outline"
-            label="Requested points to use"
-            helperText="Enter how many customer points should be redeemed."
+            label={t('addPoints.fields.redeemPointsLabel')}
+            helperText={t('addPoints.fields.redeemPointsHelper')}
             keyboardType="number-pad"
             value={spendPoints}
             onChangeText={setSpendPoints}
           />
           <FloatingLabelInput
             icon="text-box-outline"
-            label="Settlement description"
-            helperText="Add an optional note for the purchase or redemption context."
+            label={t('addPoints.fields.settlementDescriptionLabel')}
+            helperText={t('addPoints.fields.settlementDescriptionHelper')}
             value={spendDescription}
             onChangeText={setSpendDescription}
             autoCapitalize="sentences"
@@ -177,7 +179,7 @@ export function AddPointsTab({ context }: Props) {
             loading={submitting}
             onPress={() => void handleSpendPoints()}
           >
-            Submit Purchase Settlement
+            {t('addPoints.spend.submit')}
           </Button>
         </Card.Content>
       </Card>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card, useTheme } from 'react-native-paper';
 import type { AppTheme } from '../../theme/theme';
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function UserDirectoryCard({ title, subtitle, users }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme<AppTheme>();
 
   return (
@@ -24,11 +26,13 @@ export function UserDirectoryCard({ title, subtitle, users }: Props) {
                 {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{user.email}</Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {user.role}</Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('common.role')}: {t(`roles.${user.role.toLowerCase()}`)}
+              </Text>
             </View>
           ))
         ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No records available.</Text>
+          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('common.noRecords')}</Text>
         )}
       </Card.Content>
     </Card>

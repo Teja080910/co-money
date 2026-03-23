@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { Card, Chip } from 'react-native-paper';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export function CustomersTab({ context }: Props) {
+  const { t } = useTranslation();
   const {
     theme,
     styles,
@@ -22,12 +24,12 @@ export function CustomersTab({ context }: Props) {
   return (
     <>
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Customers" subtitle="Customer-role accounts available for point assignment" />
+        <Card.Title title={t('customers.title')} subtitle={t('customers.subtitle')} />
         <Card.Content>
           <FloatingLabelInput
             icon="magnify"
-            label="Search by name, username, or email"
-            helperText="Filter the customer list to find the right wallet faster."
+            label={t('customers.searchLabel')}
+            helperText={t('customers.searchHelper')}
             value={customerSearch}
             onChangeText={setCustomerSearch}
             autoCapitalize="none"
@@ -52,30 +54,32 @@ export function CustomersTab({ context }: Props) {
                   <View style={styles.customerRowBody}>
                     <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{customerName}</Text>
                     <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{customer.email}</Text>
-                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {customer.role}</Text>
+                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                      {t('common.role')}: {t(`roles.${customer.role.toLowerCase()}`)}
+                    </Text>
                   </View>
                   <Chip selected={selected} mode={selected ? 'flat' : 'outlined'}>
-                    {selected ? 'Selected' : 'Select'}
+                    {selected ? t('customers.selected') : t('customers.select')}
                   </Chip>
                 </Pressable>
               );
             })
           ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No customer-role users match your search.</Text>
+            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('customers.empty')}</Text>
           )}
         </Card.Content>
       </Card>
 
       {selectedCustomerWallet ? (
         <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title="Selected Customer Wallet" subtitle={selectedCustomerWallet.customer.email} />
+          <Card.Title title={t('customers.selectedWalletTitle')} subtitle={selectedCustomerWallet.customer.email} />
           <Card.Content>
             <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
-              Balance: {selectedCustomerWallet.balance} pts
+              {t('common.balance')}: {selectedCustomerWallet.balance} {t('common.pointsShort')}
             </Text>
             {selectedCustomerWallet.pointsBreakdown.map((item: any) => (
               <Text key={item.pointType} style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {item.pointType}: {item.balance}
+                {t(`pointTypes.${item.pointType.toLowerCase()}`)}: {item.balance}
               </Text>
             ))}
           </Card.Content>

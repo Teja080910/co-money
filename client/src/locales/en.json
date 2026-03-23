@@ -92,6 +92,339 @@
     "logout": "Logout",
     "fetchWarning": "Could not fetch users, make sure backend is running"
   },
+  "roles": {
+    "customer": "Customer App",
+    "merchant": "Merchant Console",
+    "representative": "Representative Workspace",
+    "admin": "Admin Dashboard"
+  },
+  "navigation": {
+    "tabs": {
+      "home": "Home",
+      "wallet": "Wallet",
+      "transactions": "History",
+      "profile": "Profile",
+      "customers": "Customers",
+      "add-points": "Add Points",
+      "user-management": "Users",
+      "dashboard": "Dashboard",
+      "shop-management": "Shops",
+      "promotions": "Promotions",
+      "events": "Events"
+    }
+  },
+  "dashboard": {
+    "overview": "Overview",
+    "logout": "Logout",
+    "welcomeBack": "Welcome back, {{name}}",
+    "bannerSubtitle": "{{section}} for your wallet, transactions, and daily actions.",
+    "sheetSubtitle": "Role-aware wallet and transaction workspace."
+  },
+  "overview": {
+    "customer": {
+      "welcomeBack": "Welcome back",
+      "subtitle": "Your wallet is ready for earning and spending across local shops.",
+      "qrCta": "Show My QR Code",
+      "metrics": {
+        "currentBalance": "Current Balance",
+        "transactions": "Transactions"
+      }
+    },
+    "merchant": {
+      "scanQr": "Scan Customer QR",
+      "recentCustomersTitle": "Recent Customers",
+      "recentCustomersSubtitle": "Customers available for point assignment",
+      "metrics": {
+        "customers": "Customers",
+        "myShops": "My Shops",
+        "transactions": "Transactions"
+      }
+    },
+    "representative": {
+      "shopManagementTitle": "Shop Management",
+      "shopManagementSubtitle": "Representatives can add, update, activate, and deactivate shop records",
+      "snapshotTitle": "Operational Snapshot",
+      "snapshotSubtitle": "Representative reporting",
+      "issued": "Total points issued",
+      "spent": "Total points spent",
+      "activeBalance": "Active balance",
+      "metrics": {
+        "merchants": "Merchants",
+        "customers": "Customers",
+        "transactions": "Transactions",
+        "shops": "Shops"
+      }
+    },
+    "admin": {
+      "summaryTitle": "Executive Summary",
+      "summarySubtitle": "Admin reporting",
+      "recentRepresentativesTitle": "Recent Representatives",
+      "recentRepresentativesSubtitle": "Latest internal representative accounts",
+      "recentMerchantsTitle": "Recent Merchants",
+      "recentMerchantsSubtitle": "Managed merchant accounts",
+      "recentCustomersTitle": "Recent Customers",
+      "recentCustomersSubtitle": "Newest customer accounts in the network",
+      "metrics": {
+        "representatives": "Representatives",
+        "merchants": "Merchants",
+        "customers": "Customers",
+        "transactions": "Transactions"
+      }
+    }
+  },
+  "common": {
+    "role": "Role",
+    "balance": "Balance",
+    "pointsShort": "pts",
+    "to": "to",
+    "na": "N/A",
+    "reset": "Reset",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "noRecords": "No records available.",
+    "startDate": "Start date",
+    "endDate": "End date"
+  },
+  "pointTypes": {
+    "standard": "Standard",
+    "bonus": "Bonus"
+  },
+  "customers": {
+    "title": "Customers",
+    "subtitle": "Customer-role accounts available for point assignment",
+    "searchLabel": "Search by name, username, or email",
+    "searchHelper": "Filter the customer list to find the right wallet faster.",
+    "selected": "Selected",
+    "select": "Select",
+    "empty": "No customer-role users match your search.",
+    "selectedWalletTitle": "Selected Customer Wallet"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Role-based reporting summary",
+    "customers": "Customers",
+    "shops": "Shops",
+    "issued": "Issued",
+    "spent": "Spent",
+    "activeBalance": "Active Balance",
+    "empty": "No report data available."
+  },
+  "transactions": {
+    "title": "Transactions",
+    "subtitle": "Track earn and spend activity",
+    "purchase": "Purchase",
+    "discount": "Discount",
+    "payable": "Payable",
+    "earnedInSettlement": "Earned in settlement",
+    "firstTimeBonus": "First-time bonus",
+    "from": "From",
+    "to": "To",
+    "empty": "No transactions match the current filters.",
+    "types": {
+      "earn": "Earn",
+      "spend": "Spend",
+      "adjustment": "Adjustment"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "filters": {
+      "type": {
+        "all": "All",
+        "earn": "Earn",
+        "spend": "Spend"
+      },
+      "status": {
+        "all": "All",
+        "success": "Success",
+        "pending": "Pending",
+        "failed": "Failed"
+      }
+    }
+  },
+  "wallet": {
+    "title": "Wallet",
+    "subtitle": "Current point balance",
+    "availablePoints": "Total available points",
+    "breakdownTitle": "Points Breakdown",
+    "breakdownSubtitle": "Supported point types",
+    "empty": "No point types recorded yet."
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Current authenticated account",
+    "username": "Username",
+    "password": {
+      "title": "Change Password",
+      "subtitle": "Update your sign-in password from the profile section",
+      "currentLabel": "Current password",
+      "currentHelper": "Enter your existing password before choosing a new one.",
+      "newLabel": "New password",
+      "newHelper": "Use at least 8 characters for the new password.",
+      "confirmLabel": "Confirm new password",
+      "confirmHelper": "Re-enter the new password to confirm the change.",
+      "submit": "Update Password"
+    }
+  },
+  "directory": {
+    "customers": {
+      "title": "Customers",
+      "subtitle": "Customer accounts across the network"
+    },
+    "merchants": {
+      "title": "Merchants",
+      "subtitle": "Managed merchant accounts"
+    },
+    "representatives": {
+      "title": "Representatives",
+      "subtitle": "Internal representative accounts"
+    }
+  },
+  "management": {
+    "shopDirectory": {
+      "title": "Shops List",
+      "subtitle": "Participating local shops",
+      "empty": "No shops are available yet."
+    },
+    "shopForm": {
+      "nameLabel": "Shop name",
+      "nameHelper": "Use the public-facing shop name customers will recognize.",
+      "locationLabel": "Location",
+      "locationHelper": "Add the branch area or address shown in the shop listing.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Write a short summary about what this shop offers.",
+      "merchant": "Merchant",
+      "update": "Update Shop",
+      "add": "Add Shop"
+    },
+    "managedShops": {
+      "title": "Managed Shops",
+      "subtitle": "Add, update, activate, or deactivate assigned shops",
+      "merchant": "Merchant",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "empty": "No shops available yet."
+    },
+    "promotions": {
+      "editTitle": "Promotions",
+      "editSubtitle": "Create shop offers and bonus campaigns",
+      "titleLabel": "Promotion title",
+      "titleHelper": "Choose a clear campaign name customers can scan quickly.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Explain the offer, reward, or eligibility in one short note.",
+      "shop": "Shop",
+      "bonusLabel": "Bonus points",
+      "bonusHelper": "Enter the extra reward points granted by this promotion.",
+      "startHelper": "Choose when this promotion should become active.",
+      "endHelper": "Choose the last day customers can use this promotion.",
+      "save": "Save Promotion",
+      "activeTitle": "Active Promotions",
+      "activeSubtitle": "Offers available across the network",
+      "bonus": "Bonus",
+      "maxDiscount": "Max discount",
+      "empty": "No promotions are available right now."
+    },
+    "events": {
+      "editTitle": "Events",
+      "editSubtitle": "Plan community events and announcements",
+      "titleLabel": "Event title",
+      "titleHelper": "Use the event name that should appear in announcements.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Add a short agenda, purpose, or event summary.",
+      "locationLabel": "Location",
+      "locationHelper": "Mention the venue, branch, or meetup point.",
+      "startHelper": "Pick the first day this event will be visible as active.",
+      "endHelper": "Pick the final day for this event schedule.",
+      "save": "Save Event",
+      "listTitle": "Events",
+      "listSubtitle": "Upcoming network activity",
+      "empty": "No events are scheduled yet."
+    },
+    "users": {
+      "title": "User Management",
+      "subtitle": "Create internal and managed accounts",
+      "firstNameLabel": "First name",
+      "firstNameHelper": "Enter the user's given name for their profile.",
+      "lastNameLabel": "Last name",
+      "lastNameHelper": "Enter the surname used for reporting and account records.",
+      "usernameLabel": "Username",
+      "usernameHelper": "Use a unique sign-in name without spaces.",
+      "emailLabel": "Email",
+      "emailHelper": "Add the email address used for login and notifications.",
+      "passwordLabel": "Password",
+      "passwordHelper": "Set a temporary password with at least 8 characters.",
+      "create": "Create User"
+    },
+    "admin": {
+      "shopManagementTitle": "Shop Management",
+      "shopManagementSubtitle": "Admins can add, update, activate, and deactivate shop records"
+    }
+  },
+  "customerQr": {
+    "badge": "Customer Wallet",
+    "title": "Customer QR",
+    "subtitle": "Show this code to a merchant to identify your wallet securely.",
+    "sheetTitle": "Wallet Pass",
+    "sheetSubtitle": "Refresh anytime to generate a fresh short-lived QR.",
+    "loading": "Loading QR code...",
+    "expiresAt": "Expires at",
+    "walletId": "Wallet ID",
+    "refresh": "Refresh QR",
+    "loadError": "Unable to load QR code."
+  },
+  "merchantScan": {
+    "badge": "Merchant Scanner",
+    "title": "Scan Customer",
+    "subtitle": "Scan QR to verify a customer and jump back into the add-points flow.",
+    "permissionSubtitle": "Camera access is required to verify a customer QR.",
+    "permissionText": "Allow camera access to scan customer QR codes.",
+    "grantAccess": "Grant Camera Access",
+    "sheetTitle": "Scanner",
+    "sheetSubtitle": "Align the customer QR inside the frame to fetch the wallet details.",
+    "checking": "Checking customer QR...",
+    "ready": "Ready to scan a customer wallet.",
+    "useCustomer": "Use This Customer",
+    "scanAgain": "Scan Again",
+    "scanError": "Unable to scan customer QR."
+  },
+  "addPoints": {
+    "selectedCustomer": "Selected Customer",
+    "chooseCustomerHint": "Choose a customer below or from the Customers tab.",
+    "scanQr": "Scan Customer QR",
+    "chooseCustomer": "Choose Customer",
+    "pointType": "Point Type",
+    "selectShop": "Select Shop",
+    "noShops": "No merchant shop is available for point assignment.",
+    "fields": {
+      "pointsLabel": "Points",
+      "pointsHelper": "Enter how many points should be added to the customer wallet.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Add an optional note explaining why these points were issued.",
+      "purchaseAmountLabel": "Purchase amount",
+      "purchaseAmountHelper": "Enter the bill total before discounts are applied.",
+      "redeemPointsLabel": "Requested points to use",
+      "redeemPointsHelper": "Enter how many customer points should be redeemed.",
+      "settlementDescriptionLabel": "Settlement description",
+      "settlementDescriptionHelper": "Add an optional note for the purchase or redemption context."
+    },
+    "earn": {
+      "title": "Add Points",
+      "subtitle": "Merchant earn transaction for a customer",
+      "submit": "Submit Earn Transaction"
+    },
+    "spend": {
+      "title": "Accept Points",
+      "subtitle": "Settle a purchase with discount, payable amount, and new points",
+      "helper": "Same-shop restriction is enforced automatically and discounts are capped at 30% of the purchase.",
+      "submit": "Submit Purchase Settlement"
+    }
+  },
   "apiErrors": {
     "firstNameRequired": "Enter your first name.",
     "lastNameRequired": "Enter your last name.",

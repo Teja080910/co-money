@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { Card, Chip, Divider } from 'react-native-paper';
 
@@ -7,6 +8,7 @@ type Props = {
 };
 
 export function TransactionsTab({ context }: Props) {
+  const { t } = useTranslation();
   const {
     theme,
     styles,
@@ -19,9 +21,12 @@ export function TransactionsTab({ context }: Props) {
     filteredTransactions,
   } = context;
 
+  const translateTypeFilter = (option: string) => t(`transactions.filters.type.${option.toLowerCase()}`);
+  const translateStatusFilter = (option: string) => t(`transactions.filters.status.${option.toLowerCase()}`);
+
   return (
     <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title="Transactions" subtitle="Track earn and spend activity" />
+      <Card.Title title={t('transactions.title')} subtitle={t('transactions.subtitle')} />
       <Card.Content>
         <View style={styles.filterRow}>
           {transactionTypeOptions.map((option: string) => (
@@ -32,7 +37,7 @@ export function TransactionsTab({ context }: Props) {
               onPress={() => setTransactionTypeFilter(option)}
               style={styles.filterChip}
             >
-              {option}
+              {translateTypeFilter(option)}
             </Chip>
           ))}
         </View>
@@ -45,7 +50,7 @@ export function TransactionsTab({ context }: Props) {
               onPress={() => setTransactionStatusFilter(option)}
               style={styles.filterChip}
             >
-              {option}
+              {translateStatusFilter(option)}
             </Chip>
           ))}
         </View>
@@ -56,32 +61,32 @@ export function TransactionsTab({ context }: Props) {
           filteredTransactions.map((transaction: any) => (
             <View key={transaction.id} style={styles.listItem}>
               <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
-                {transaction.type} {transaction.points} pts
+                {t(`transactions.types.${transaction.type.toLowerCase()}`)} {transaction.points} {t('common.pointsShort')}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {transaction.pointType} • {transaction.status} • {new Date(transaction.createdAt).toLocaleString()}
+                {t(`pointTypes.${transaction.pointType.toLowerCase()}`)} • {t(`transactions.statuses.${transaction.status.toLowerCase()}`)} • {new Date(transaction.createdAt).toLocaleString()}
               </Text>
               {transaction.purchaseAmount ? (
                 <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                  Purchase: {transaction.purchaseAmount} | Discount: {transaction.discountAmount || 0} | Payable: {transaction.payableAmount || 0}
+                  {t('transactions.purchase')}: {transaction.purchaseAmount} | {t('transactions.discount')}: {transaction.discountAmount || 0} | {t('transactions.payable')}: {transaction.payableAmount || 0}
                 </Text>
               ) : null}
               {transaction.earnedPoints ? (
                 <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                  Earned in settlement: {transaction.earnedPoints}
-                  {transaction.isFirstTransactionBonus ? ' • First-time bonus' : ''}
+                  {t('transactions.earnedInSettlement')}: {transaction.earnedPoints}
+                  {transaction.isFirstTransactionBonus ? ` • ${t('transactions.firstTimeBonus')}` : ''}
                 </Text>
               ) : null}
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                From: {transaction.fromShopId || 'N/A'} | To: {transaction.toShopId || 'N/A'}
+                {t('transactions.from')}: {transaction.fromShopId || t('common.na')} | {t('transactions.to')}: {transaction.toShopId || t('common.na')}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                Balance: {transaction.balanceBefore} to {transaction.balanceAfter}
+                {t('common.balance')}: {transaction.balanceBefore} {t('common.to')} {transaction.balanceAfter}
               </Text>
             </View>
           ))
         ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No transactions match the current filters.</Text>
+          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('transactions.empty')}</Text>
         )}
       </Card.Content>
     </Card>

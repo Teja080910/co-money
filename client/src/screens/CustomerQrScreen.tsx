@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
@@ -28,6 +29,7 @@ type CustomerQrResponse = {
 
 export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
   const theme = useTheme<AppTheme>();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [qrData, setQrData] = useState<CustomerQrResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
       const response = await apiClient.get<CustomerQrResponse>('/api/wallet/qr-code');
       setQrData(response.data);
     } catch (loadError: any) {
-      setError(loadError?.response?.data?.error || 'Unable to load QR code.');
+      setError(loadError?.response?.data?.error || t('customerQr.loadError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -87,11 +89,11 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
           </View>
           <View style={[styles.topPill, { backgroundColor: 'rgba(47,107,255,0.1)' }]}>
             <MaterialCommunityIcons name="qrcode" size={16} color={theme.custom.brandStrong} />
-            <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>Customer Wallet</Text>
+            <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>{t('customerQr.badge')}</Text>
           </View>
-          <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>Customer QR</Text>
+          <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>{t('customerQr.title')}</Text>
           <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>
-            Show this code to a merchant to identify your wallet securely.
+            {t('customerQr.subtitle')}
           </Text>
         </View>
 
@@ -105,16 +107,16 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
           ]}
         >
           <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Wallet Pass</Text>
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('customerQr.sheetTitle')}</Text>
             <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-              Refresh anytime to generate a fresh short-lived QR.
+              {t('customerQr.sheetSubtitle')}
             </Text>
           </View>
 
           <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
             <Card.Content style={styles.cardContent}>
               {loading ? (
-                <Text style={[styles.message, { color: theme.custom.textSecondary }]}>Loading QR code...</Text>
+                <Text style={[styles.message, { color: theme.custom.textSecondary }]}>{t('customerQr.loading')}</Text>
               ) : error ? (
                 <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text>
               ) : qrData ? (
@@ -124,10 +126,10 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
                   </View>
                   <Text style={[styles.balance, { color: theme.custom.brandStrong }]}>{qrData.balance} pts</Text>
                   <Text style={[styles.helper, { color: theme.custom.textSecondary }]}>
-                    Expires at {new Date(qrData.expiresAt).toLocaleTimeString()}
+                    {t('customerQr.expiresAt')} {new Date(qrData.expiresAt).toLocaleTimeString()}
                   </Text>
                   <Text style={[styles.helper, { color: theme.custom.textSecondary }]}>
-                    Wallet ID: {qrData.wallet.id}
+                    {t('customerQr.walletId')}: {qrData.wallet.id}
                   </Text>
                 </>
               ) : null}
@@ -135,7 +137,7 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
           </Card>
 
           <Button mode="contained" onPress={() => void loadQr()}>
-            Refresh QR
+            {t('customerQr.refresh')}
           </Button>
         </View>
       </ScrollView>

@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Button, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserRole } from '../constants/userRoles';
@@ -134,10 +135,10 @@ type EventItem = {
 };
 
 const roleTitles: Record<AuthUser['role'], string> = {
-  [UserRole.CUSTOMER]: 'Customer App',
-  [UserRole.MERCHANT]: 'Merchant Console',
-  [UserRole.REPRESENTATIVE]: 'Representative Workspace',
-  [UserRole.ADMIN]: 'Admin Dashboard',
+  [UserRole.CUSTOMER]: 'roles.customer',
+  [UserRole.MERCHANT]: 'roles.merchant',
+  [UserRole.REPRESENTATIVE]: 'roles.representative',
+  [UserRole.ADMIN]: 'roles.admin',
 };
 
 const transactionTypeOptions = ['ALL', 'EARN', 'SPEND'];
@@ -164,6 +165,7 @@ function getPickerDate(value: string) {
 
 export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const theme = useTheme<AppTheme>();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
@@ -243,7 +245,16 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
   >(null);
 
-  const routes = useMemo(() => (authUser ? getRoutesForRole(authUser.role) : []), [authUser]);
+  const routes = useMemo(() => {
+    if (!authUser) {
+      return [];
+    }
+
+    return getRoutesForRole(authUser.role).map(routeItem => ({
+      ...routeItem,
+      title: t(`navigation.tabs.${routeItem.key}`, routeItem.title),
+    }));
+  }, [authUser, t]);
   const activeRoute = useMemo(
     () => routes.find(routeItem => routeItem.key === activeTabKey) || routes[0] || null,
     [activeTabKey, routes],
@@ -1170,8 +1181,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         return (
           <ShopManagementSection
             context={tabContext}
-            title="Shop Management"
-            subtitle="Admins can add, update, activate, and deactivate shop records"
+            title={t('management.admin.shopManagementTitle')}
+            subtitle={t('management.admin.shopManagementSubtitle')}
           />
         );
       case 'promotions':
@@ -1188,8 +1199,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         return (
           <UserListSection
             context={tabContext}
-            title="Merchants"
-            subtitle="Managed merchant accounts"
+            title={t('directory.merchants.title')}
+            subtitle={t('directory.merchants.subtitle')}
             users={merchants}
           />
         );
@@ -1197,8 +1208,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         return (
           <UserListSection
             context={tabContext}
-            title="Representatives"
-            subtitle="Internal representative accounts"
+            title={t('directory.representatives.title')}
+            subtitle={t('directory.representatives.subtitle')}
             users={representatives}
           />
         );
@@ -1252,14 +1263,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 <View style={styles.rolePill}>
                   <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
                   <Text style={styles.rolePillText}>
-                    {authUser ? roleTitles[authUser.role] : 'Co-Money'}
+                    {authUser ? t(roleTitles[authUser.role]) : 'Co-Money'}
                   </Text>
                 </View>
                 <View style={styles.headerActions}>
                   <LanguageSwitcher tone="light" />
                   <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
                     <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
-                    <Text style={styles.headerLogoutText}>Logout</Text>
+                    <Text style={styles.headerLogoutText}>{t('dashboard.logout')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1268,12 +1279,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 <View style={styles.headerAccentLine} />
                 <View style={styles.headerAccentDot} />
               </View>
-              <Text style={styles.dashboardKicker}>{activeRoute?.title || 'Overview'}</Text>
+              <Text style={styles.dashboardKicker}>{activeRoute?.title || t('dashboard.overview')}</Text>
               <Text style={styles.dashboardTitle}>
-                {displayName ? `Welcome back, ${displayName}` : 'Co-Money'}
+                {displayName ? t('dashboard.welcomeBack', { name: displayName }) : 'Co-Money'}
               </Text>
               <Text style={styles.dashboardSubtitle}>
-                {activeRoute?.title || 'Overview'} for your wallet, transactions, and daily actions.
+                {t('dashboard.bannerSubtitle', { section: activeRoute?.title || t('dashboard.overview') })}
               </Text>
             </View>
 
@@ -1288,10 +1299,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             >
               <View style={styles.sheetHeader}>
                 <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
-                  {activeRoute?.title || 'Overview'}
+                  {activeRoute?.title || t('dashboard.overview')}
                 </Text>
                 <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-                  Role-aware wallet and transaction workspace.
+                  {t('dashboard.sheetSubtitle')}
                 </Text>
               </View>
 

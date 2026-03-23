@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -21,6 +22,7 @@ type ScannedCustomerResponse = {
 
 export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) {
   const theme = useTheme<AppTheme>();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +45,7 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
       });
       setScannedCustomer(response.data);
     } catch (scanError: any) {
-      setError(scanError?.response?.data?.error || 'Unable to scan customer QR.');
+      setError(scanError?.response?.data?.error || t('merchantScan.scanError'));
       setHasScanned(false);
     } finally {
       setIsSubmitting(false);
@@ -79,11 +81,11 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
           </View>
           <View style={[styles.topPill, { backgroundColor: 'rgba(47,107,255,0.1)' }]}>
             <MaterialCommunityIcons name="camera-outline" size={16} color={theme.custom.brandStrong} />
-            <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>Merchant Scanner</Text>
+            <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>{t('merchantScan.badge')}</Text>
           </View>
-          <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>Scan Customer</Text>
+          <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>{t('merchantScan.title')}</Text>
           <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>
-            Camera access is required to verify a customer QR.
+            {t('merchantScan.permissionSubtitle')}
           </Text>
         </View>
 
@@ -98,10 +100,10 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
           ]}
         >
           <Text style={[styles.permissionText, { color: theme.custom.textPrimary }]}>
-            Allow camera access to scan customer QR codes.
+            {t('merchantScan.permissionText')}
           </Text>
           <Button mode="contained" onPress={() => void requestPermission()}>
-            Grant Camera Access
+            {t('merchantScan.grantAccess')}
           </Button>
         </View>
       </View>
@@ -142,11 +144,11 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
           </View>
           <View style={[styles.topPill, { backgroundColor: 'rgba(47,107,255,0.1)' }]}>
             <MaterialCommunityIcons name="qrcode-scan" size={16} color={theme.custom.brandStrong} />
-            <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>Merchant Scanner</Text>
+            <Text style={[styles.topPillText, { color: theme.custom.brandStrong }]}>{t('merchantScan.badge')}</Text>
           </View>
-          <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>Scan Customer</Text>
+          <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>{t('merchantScan.title')}</Text>
           <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>
-            Scan QR to verify a customer and jump back into the add-points flow.
+            {t('merchantScan.subtitle')}
           </Text>
         </View>
 
@@ -160,9 +162,9 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
           ]}
         >
           <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Scanner</Text>
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('merchantScan.sheetTitle')}</Text>
             <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-              Align the customer QR inside the frame to fetch the wallet details.
+              {t('merchantScan.sheetSubtitle')}
             </Text>
           </View>
 
@@ -183,7 +185,7 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
               {error ? <Text style={[styles.statusText, { color: theme.custom.error }]}>{error}</Text> : null}
               {!error && !scannedCustomer ? (
                 <Text style={[styles.statusText, { color: theme.custom.textPrimary }]}>
-                  {isSubmitting ? 'Checking customer QR...' : 'Ready to scan a customer wallet.'}
+                  {isSubmitting ? t('merchantScan.checking') : t('merchantScan.ready')}
                 </Text>
               ) : null}
               {scannedCustomer ? (
@@ -192,19 +194,19 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
                     {[scannedCustomer.customer.firstName, scannedCustomer.customer.lastName].filter(Boolean).join(' ') || scannedCustomer.customer.email}
                   </Text>
                   <Text style={[styles.statusText, { color: theme.custom.textSecondary }]}>
-                    Balance: {scannedCustomer.balance} pts
+                    {t('common.balance')}: {scannedCustomer.balance} {t('common.pointsShort')}
                   </Text>
                   <Button
                     mode="contained"
                     onPress={() => navigation.replace('Home', { selectedCustomerId: scannedCustomer.customer.id })}
                     style={styles.actionButton}
                   >
-                    Use This Customer
+                    {t('merchantScan.useCustomer')}
                   </Button>
                 </>
               ) : (
                 <Button mode="outlined" onPress={() => { setHasScanned(false); setError(null); }}>
-                  Scan Again
+                  {t('merchantScan.scanAgain')}
                 </Button>
               )}
             </Card.Content>

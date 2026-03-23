@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { Button, Card } from 'react-native-paper';
 import { UserRole } from '../../constants/userRoles';
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function HomeOverviewTab({ context }: Props) {
+  const { t } = useTranslation();
   const { authUser, theme, styles, displayName, navigation, wallet, transactions, customerUsers, availableShops, filteredCustomers, merchants, customers, shops, report, representatives, renderSummaryMetric } = context;
   const safeTransactions = transactions ?? [];
   const safeCustomerUsers = customerUsers ?? [];
@@ -34,15 +36,15 @@ export function HomeOverviewTab({ context }: Props) {
       <>
         <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
           <Card.Content>
-            <Text style={[styles.heroEyebrow, { color: theme.custom.textSecondary }]}>Welcome back</Text>
+            <Text style={[styles.heroEyebrow, { color: theme.custom.textSecondary }]}>{t('overview.customer.welcomeBack')}</Text>
             <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>{displayName}</Text>
-            <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>Your wallet is ready for earning and spending across local shops.</Text>
-            <Button mode="contained" onPress={() => navigation.navigate('CustomerQr')} style={styles.primaryAction}>Show My QR Code</Button>
+            <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>{t('overview.customer.subtitle')}</Text>
+            <Button mode="contained" onPress={() => navigation.navigate('CustomerQr')} style={styles.primaryAction}>{t('overview.customer.qrCta')}</Button>
           </Card.Content>
         </Card>
         <View style={styles.metricGrid}>
-          {renderSummaryMetric('Current Balance', wallet?.balance ?? 0)}
-          {renderSummaryMetric('Transactions', safeTransactions.length)}
+          {renderSummaryMetric(t('overview.customer.metrics.currentBalance'), wallet?.balance ?? 0)}
+          {renderSummaryMetric(t('overview.customer.metrics.transactions'), safeTransactions.length)}
         </View>
         <PromotionsSection context={context} editable={false} />
         <ShopDirectorySection context={context} />
@@ -55,12 +57,12 @@ export function HomeOverviewTab({ context }: Props) {
     return (
       <>
         <View style={styles.metricGrid}>
-          {renderSummaryMetric('Customers', safeCustomerUsers.length)}
-          {renderSummaryMetric('My Shops', safeAvailableShops.length)}
-          {renderSummaryMetric('Transactions', safeTransactions.length)}
+          {renderSummaryMetric(t('overview.merchant.metrics.customers'), safeCustomerUsers.length)}
+          {renderSummaryMetric(t('overview.merchant.metrics.myShops'), safeAvailableShops.length)}
+          {renderSummaryMetric(t('overview.merchant.metrics.transactions'), safeTransactions.length)}
         </View>
-        <Button mode="contained" onPress={() => navigation.navigate('MerchantScan')} style={styles.primaryAction}>Scan Customer QR</Button>
-        <UserListSection context={context} title="Recent Customers" subtitle="Customers available for point assignment" users={safeFilteredCustomers.slice(0, 5)} />
+        <Button mode="contained" onPress={() => navigation.navigate('MerchantScan')} style={styles.primaryAction}>{t('overview.merchant.scanQr')}</Button>
+        <UserListSection context={context} title={t('overview.merchant.recentCustomersTitle')} subtitle={t('overview.merchant.recentCustomersSubtitle')} users={safeFilteredCustomers.slice(0, 5)} />
         <PromotionsSection context={context} editable />
         <EventsSection context={context} editable={false} />
       </>
@@ -71,20 +73,20 @@ export function HomeOverviewTab({ context }: Props) {
     return (
       <>
         <View style={styles.metricGrid}>
-          {renderSummaryMetric('Merchants', safeMerchants.length)}
-          {renderSummaryMetric('Customers', safeCustomers.length)}
-          {renderSummaryMetric('Transactions', safeTransactions.length)}
-          {renderSummaryMetric('Shops', safeShops.length)}
+          {renderSummaryMetric(t('overview.representative.metrics.merchants'), safeMerchants.length)}
+          {renderSummaryMetric(t('overview.representative.metrics.customers'), safeCustomers.length)}
+          {renderSummaryMetric(t('overview.representative.metrics.transactions'), safeTransactions.length)}
+          {renderSummaryMetric(t('overview.representative.metrics.shops'), safeShops.length)}
         </View>
-        <ShopManagementSection context={context} title="Shop Management" subtitle="Representatives can add, update, activate, and deactivate shop records" />
+        <ShopManagementSection context={context} title={t('overview.representative.shopManagementTitle')} subtitle={t('overview.representative.shopManagementSubtitle')} />
         <PromotionsSection context={context} editable />
         {report ? (
           <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-            <Card.Title title="Operational Snapshot" subtitle="Representative reporting" />
+            <Card.Title title={t('overview.representative.snapshotTitle')} subtitle={t('overview.representative.snapshotSubtitle')} />
             <Card.Content>
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Total points issued: {report.totalPointsIssued}</Text>
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Total points spent: {report.totalPointsSpent}</Text>
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Active balance: {report.activeBalance}</Text>
+              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.issued')}: {report.totalPointsIssued}</Text>
+              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.spent')}: {report.totalPointsSpent}</Text>
+              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.activeBalance')}: {report.activeBalance}</Text>
             </Card.Content>
           </Card>
         ) : null}
@@ -95,24 +97,24 @@ export function HomeOverviewTab({ context }: Props) {
   return (
     <>
       <View style={styles.metricGrid}>
-        {renderSummaryMetric('Representatives', safeRepresentatives.length)}
-        {renderSummaryMetric('Merchants', safeMerchants.length)}
-        {renderSummaryMetric('Customers', safeCustomers.length)}
-        {renderSummaryMetric('Transactions', safeTransactions.length)}
+        {renderSummaryMetric(t('overview.admin.metrics.representatives'), safeRepresentatives.length)}
+        {renderSummaryMetric(t('overview.admin.metrics.merchants'), safeMerchants.length)}
+        {renderSummaryMetric(t('overview.admin.metrics.customers'), safeCustomers.length)}
+        {renderSummaryMetric(t('overview.admin.metrics.transactions'), safeTransactions.length)}
       </View>
       {report ? (
         <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title="Executive Summary" subtitle="Admin reporting" />
+          <Card.Title title={t('overview.admin.summaryTitle')} subtitle={t('overview.admin.summarySubtitle')} />
           <Card.Content>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Customers: {report.totalCustomers} | Shops: {report.totalShops}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Issued: {report.totalPointsIssued} | Spent: {report.totalPointsSpent}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Active Balance: {report.activeBalance}</Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.customers')}: {report.totalCustomers} | {t('reports.shops')}: {report.totalShops}</Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.issued')}: {report.totalPointsIssued} | {t('reports.spent')}: {report.totalPointsSpent}</Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.activeBalance')}: {report.activeBalance}</Text>
           </Card.Content>
         </Card>
       ) : null}
-      <UserListSection context={context} title="Recent Representatives" subtitle="Latest internal representative accounts" users={safeRepresentatives.slice(0, 4)} />
-      <UserListSection context={context} title="Recent Merchants" subtitle="Managed merchant accounts" users={safeMerchants.slice(0, 4)} />
-      <UserListSection context={context} title="Recent Customers" subtitle="Newest customer accounts in the network" users={safeCustomers.slice(0, 4)} />
+      <UserListSection context={context} title={t('overview.admin.recentRepresentativesTitle')} subtitle={t('overview.admin.recentRepresentativesSubtitle')} users={safeRepresentatives.slice(0, 4)} />
+      <UserListSection context={context} title={t('overview.admin.recentMerchantsTitle')} subtitle={t('overview.admin.recentMerchantsSubtitle')} users={safeMerchants.slice(0, 4)} />
+      <UserListSection context={context} title={t('overview.admin.recentCustomersTitle')} subtitle={t('overview.admin.recentCustomersSubtitle')} users={safeCustomers.slice(0, 4)} />
     </>
   );
 }

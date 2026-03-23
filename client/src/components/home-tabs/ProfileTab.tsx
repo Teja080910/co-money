@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { Button, Card } from 'react-native-paper';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export function ProfileTab({ context }: Props) {
+  const { t } = useTranslation();
   const {
     theme,
     styles,
@@ -34,26 +36,26 @@ export function ProfileTab({ context }: Props) {
   return (
     <>
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Profile" subtitle="Current authenticated account" />
+        <Card.Title title={t('profile.title')} subtitle={t('profile.subtitle')} />
         <Card.Content>
           <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{displayName}</Text>
           <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{authUser?.email}</Text>
-          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {authUser?.role}</Text>
-          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Username: {authUser?.username}</Text>
+          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{t('common.role')}: {authUser?.role ? t(`roles.${authUser.role.toLowerCase()}`) : ''}</Text>
+          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{t('profile.username')}: {authUser?.username}</Text>
           <Button mode="outlined" onPress={() => void onLogout()} style={styles.logoutButton}>
-            Logout
+            {t('dashboard.logout')}
           </Button>
         </Card.Content>
       </Card>
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Change Password" subtitle="Update your sign-in password from the profile section" />
+        <Card.Title title={t('profile.password.title')} subtitle={t('profile.password.subtitle')} />
         <Card.Content>
           <FloatingLabelInput
             icon="lock-outline"
-            label="Current password"
+            label={t('profile.password.currentLabel')}
             error={currentPasswordError}
-            helperText={!currentPasswordError ? 'Enter your existing password before choosing a new one.' : undefined}
+            helperText={!currentPasswordError ? t('profile.password.currentHelper') : undefined}
             onToggleSecureEntry={() => setPasswordVisibility((current: any) => ({ ...current, current: !current.current }))}
             secureTextEntry={!passwordVisibility.current}
             value={currentPassword}
@@ -64,9 +66,9 @@ export function ProfileTab({ context }: Props) {
           />
           <FloatingLabelInput
             icon="lock-reset"
-            label="New password"
+            label={t('profile.password.newLabel')}
             error={newPasswordError}
-            helperText={!newPasswordError ? 'Use at least 8 characters for the new password.' : undefined}
+            helperText={!newPasswordError ? t('profile.password.newHelper') : undefined}
             onToggleSecureEntry={() => setPasswordVisibility((current: any) => ({ ...current, next: !current.next }))}
             secureTextEntry={!passwordVisibility.next}
             valid={newPassword.trim().length >= 8}
@@ -78,9 +80,9 @@ export function ProfileTab({ context }: Props) {
           />
           <FloatingLabelInput
             icon="shield-check-outline"
-            label="Confirm new password"
+            label={t('profile.password.confirmLabel')}
             error={confirmPasswordError}
-            helperText={!confirmPasswordError ? 'Re-enter the new password to confirm the change.' : undefined}
+            helperText={!confirmPasswordError ? t('profile.password.confirmHelper') : undefined}
             onToggleSecureEntry={() => setPasswordVisibility((current: any) => ({ ...current, confirm: !current.confirm }))}
             secureTextEntry={!passwordVisibility.confirm}
             valid={Boolean(confirmPassword.trim()) && confirmPassword === newPassword}
@@ -92,10 +94,10 @@ export function ProfileTab({ context }: Props) {
           />
           <View style={styles.actionRow}>
             <Button mode="contained" loading={passwordSubmitting} onPress={() => void handleChangePassword()}>
-              Update Password
+              {t('profile.password.submit')}
             </Button>
             <Button mode="outlined" onPress={resetPasswordForm}>
-              Reset
+              {t('common.reset')}
             </Button>
           </View>
         </Card.Content>
