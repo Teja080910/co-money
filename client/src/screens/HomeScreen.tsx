@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { ActivityIndicator, BottomNavigation, Button, Card, Chip, Divider, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, Chip, Divider, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomerDirectoryCard } from '../components/user-directory/CustomerDirectoryCard';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -2026,6 +2026,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
+      <View pointerEvents="none" style={styles.backdropLayer}>
+        <View style={styles.backdropBase} />
+        <View style={styles.backdropGlowBlue} />
+        <View style={styles.backdropGlowOrange} />
+        <View style={styles.backdropGrid} />
+      </View>
       <View style={styles.contentFrame}>
         {loading ? (
           <View style={styles.loaderWrap}>
@@ -2051,31 +2057,38 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 style={[
                   styles.headerCard,
                   {
-                    backgroundColor: theme.custom.surfaceStrong,
-                    borderColor: theme.custom.border,
                     shadowColor: theme.custom.shadow,
                   },
                 ]}
               >
+                <View style={styles.headerGlowBlue} />
+                <View style={styles.headerGlowOrange} />
+                <View style={styles.headerGrid} />
                 <View style={styles.headerTopRow}>
-                  <View style={[styles.rolePill, { backgroundColor: 'rgba(47,107,255,0.1)' }]}>
-                    <MaterialCommunityIcons name="shield-account-outline" size={16} color={theme.custom.brandStrong} />
-                    <Text style={[styles.rolePillText, { color: theme.custom.brandStrong }]}>
+                  <View style={styles.rolePill}>
+                    <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.rolePillText}>
                       {authUser ? roleTitles[authUser.role] : 'Co-Money'}
                     </Text>
                   </View>
                   <View style={styles.headerActions}>
-                    <LanguageSwitcher />
-                    <Button compact mode="outlined" onPress={() => void onLogout()} style={styles.headerActionButton}>
-                      Logout
-                    </Button>
+                    <LanguageSwitcher tone="light" />
+                    <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
+                      <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
+                      <Text style={styles.headerLogoutText}>Logout</Text>
+                    </Pressable>
                   </View>
                 </View>
 
-                <Text style={[styles.dashboardTitle, { color: theme.custom.textPrimary }]}>
+                <View style={styles.headerAccentRow}>
+                  <View style={styles.headerAccentLine} />
+                  <View style={styles.headerAccentDot} />
+                </View>
+                <Text style={styles.dashboardKicker}>{routes[routeIndex]?.title || 'Overview'}</Text>
+                <Text style={styles.dashboardTitle}>
                   {displayName ? `Welcome back, ${displayName}` : 'Co-Money'}
                 </Text>
-                <Text style={[styles.dashboardSubtitle, { color: theme.custom.textSecondary }]}>
+                <Text style={styles.dashboardSubtitle}>
                   {routes[routeIndex]?.title || 'Overview'} for your wallet, transactions, and daily actions.
                 </Text>
               </View>
@@ -2129,19 +2142,44 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
             {routes.length ? (
               <View style={styles.bottomBarWrap}>
-                <BottomNavigation.Bar
-                  navigationState={{ index: routeIndex, routes }}
-                  onTabPress={({ route }) => setRouteIndex(routes.findIndex(item => item.key === route.key))}
-                  renderIcon={({ route: navRoute, focused, color }) => (
-                    <MaterialCommunityIcons
-                      name={(focused ? navRoute.focusedIcon : navRoute.unfocusedIcon) as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
-                      size={22}
-                      color={color}
-                    />
-                  )}
-                  style={[styles.bottomBar, { backgroundColor: theme.custom.surfaceStrong }]}
-                  safeAreaInsets={{ bottom: insets.bottom }}
-                />
+                <View style={styles.bottomBar}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.bottomBarScroll, { paddingBottom: Math.max(insets.bottom, 10) }]}
+                  >
+                    {routes.map((navRoute, index) => {
+                      const focused = index === routeIndex;
+
+                      return (
+                        <Pressable
+                          key={navRoute.key}
+                          onPress={() => setRouteIndex(index)}
+                          style={[
+                            styles.bottomTab,
+                            focused ? styles.bottomTabActive : null,
+                          ]}
+                        >
+                          <View style={[styles.bottomTabIconWrap, focused ? styles.bottomTabIconWrapActive : null]}>
+                            <MaterialCommunityIcons
+                              name={(focused ? navRoute.focusedIcon : navRoute.unfocusedIcon) as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
+                              size={20}
+                              color={focused ? '#FFFFFF' : theme.custom.textSecondary}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.bottomTabLabel,
+                              { color: focused ? theme.custom.brandStrong : theme.custom.textSecondary },
+                            ]}
+                          >
+                            {navRoute.title}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
               </View>
             ) : null}
           </>
@@ -2155,6 +2193,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backdropLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backdropBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F4F7FB',
+  },
+  backdropGlowBlue: {
+    position: 'absolute',
+    top: -70,
+    right: -60,
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    backgroundColor: 'rgba(47,107,255,0.16)',
+  },
+  backdropGlowOrange: {
+    position: 'absolute',
+    top: 150,
+    left: -70,
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    backgroundColor: 'rgba(243,111,33,0.12)',
+  },
+  backdropGrid: {
+    position: 'absolute',
+    top: 80,
+    right: 22,
+    width: 132,
+    height: 132,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.05)',
+  },
   contentFrame: {
     flex: 1,
   },
@@ -2164,17 +2237,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerCard: {
+    overflow: 'hidden',
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 30,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 18,
-    borderWidth: 1,
+    backgroundColor: '#071823',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 1,
     shadowRadius: 28,
     elevation: 8,
+  },
+  headerGlowBlue: {
+    position: 'absolute',
+    top: -32,
+    right: -10,
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    backgroundColor: 'rgba(47,107,255,0.24)',
+  },
+  headerGlowOrange: {
+    position: 'absolute',
+    bottom: -42,
+    left: -22,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: 'rgba(243,111,33,0.2)',
+  },
+  headerGrid: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    width: 118,
+    height: 118,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -2191,21 +2293,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flexShrink: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
   rolePillText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },
-  headerActionButton: {
+  headerLogoutButton: {
     borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerLogoutText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  headerAccentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  headerAccentLine: {
+    width: 56,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#F36F21',
+  },
+  headerAccentDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#8DB4FF',
+  },
+  dashboardKicker: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 10,
   },
   dashboardTitle: {
+    color: '#FFFFFF',
     fontSize: 30,
     lineHeight: 36,
     fontWeight: '900',
     marginBottom: 8,
   },
   dashboardSubtitle: {
+    color: 'rgba(255,255,255,0.88)',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -2454,15 +2600,53 @@ const styles = StyleSheet.create({
   },
   bottomBarWrap: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 20,
+    right: 20,
+    bottom: 10,
   },
   bottomBar: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.08)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 10,
     overflow: 'hidden',
-    borderTopWidth: 1,
-    borderColor: 'rgba(243, 111, 33, 0.1)',
+  },
+  bottomBarScroll: {
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    alignItems: 'center',
+    gap: 8,
+  },
+  bottomTab: {
+    minWidth: 74,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  bottomTabActive: {
+    backgroundColor: 'rgba(47,107,255,0.1)',
+  },
+  bottomTabIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(148,163,184,0.12)',
+  },
+  bottomTabIconWrapActive: {
+    backgroundColor: '#F36F21',
+  },
+  bottomTabLabel: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

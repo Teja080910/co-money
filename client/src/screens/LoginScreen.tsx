@@ -20,7 +20,7 @@ import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage, getApiResponseError } from '../services/api';
-import { clearAuthenticatedUser, getPendingVerificationEmail, loginUser, savePendingVerificationEmail } from '../services/auth';
+import { getPendingVerificationEmail, loginUser, savePendingVerificationEmail } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 const logoSource = require('../../assets/auth/co-money-logo.png');
@@ -59,7 +59,6 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
   useEffect(() => {
     let active = true;
 
-    void clearAuthenticatedUser();
     void getPendingVerificationEmail().then(email => {
       if (active) {
         setPendingVerificationEmail(email);
