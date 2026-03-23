@@ -13,7 +13,8 @@ export const AppDataSource = new DataSource({
     type: 'postgres',
     url: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/comoney',
     synchronize: false, // We will use migrations instead
-    logging: true,
+    migrationsRun: true,
+    logging: ['error'],
     entities: [User, Shop, Wallet, WalletTransaction, Promotion, Event],
     migrations: ['src/migrations/**/*.ts'],
     subscribers: [],

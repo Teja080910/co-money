@@ -21,7 +21,7 @@ dotenv.config();
 
 async function seedDemoData(): Promise<void> {
     if (process.env.ALLOW_ROLE_USER_SEED !== 'true') {
-        throw new Error('Set ALLOW_ROLE_USER_SEED=true to run this script.');
+        throw new Error('Demo seed is disabled. Run it with ALLOW_ROLE_USER_SEED=true or use npm run seed:demo.');
     }
 
     await AppDataSource.initialize();

@@ -10,7 +10,7 @@ const fallbackApiUrl =
   Platform.OS === 'android' ? 'http://10.0.2.2:5008' : 'http://127.0.0.1:5008';
 
 function resolveApiUrl() {
-  const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/^['"]|['"]$/g, '');
 
   if (!configuredApiUrl) {
     return fallbackApiUrl;
@@ -26,7 +26,7 @@ function resolveApiUrl() {
 }
 
 export const apiClient = axios.create({
-  baseURL: 'https://modern-fawn-immensely.ngrok-free.app',
+  baseURL: resolveApiUrl(),
   timeout: 10000,
 });
 
