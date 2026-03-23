@@ -20,7 +20,7 @@
       "footerPrompt": "Don't have an account?",
       "footerAction": "Register",
       "errors": {
-        "submit": "Invalid credentials.",
+        "submit": "We couldn't sign you in. Please try again.",
         "identifierRequired": "Enter name or email.",
         "passwordRequired": "Password required."
       }
@@ -48,7 +48,7 @@
       "footerPrompt": "Already have an account?",
       "footerAction": "Login",
       "errors": {
-        "submit": "Registration error.",
+        "submit": "We couldn't complete your registration. Please try again.",
         "firstNameRequired": "Enter your first name.",
         "firstNameShort": "First name must be at least 2 characters.",
         "lastNameRequired": "Enter your last name.",
@@ -112,7 +112,11 @@
     "usernameRequired": "Enter a username.",
     "identifierRequired": "Enter username or email.",
     "invalidCredentials": "Invalid credentials.",
+    "emailNotFound": "We couldn't find an account with that email.",
+    "passwordIncorrect": "The password you entered is incorrect.",
     "verifyEmailFirst": "Verify your email first.",
-    "verificationEmailFailed": "We could not send the verification email right now."
+    "verificationEmailFailed": "We could not send the verification email right now.",
+    "networkUnavailable": "We couldn't reach the server. Check your internet connection and try again.",
+    "requestTimedOut": "The request took too long. Please try again."
   }
 }

@@ -163,13 +163,18 @@ export class AuthService {
     public async login(identifierInput: string, password: string, domain?: string) {
         const normalizedIdentifier = this.requireValue(identifierInput, 'Inserisci nome utente o email.').toLowerCase();
         const normalizedPassword = this.requireValue(password, 'Inserisci una password.');
+        const isEmailLogin = normalizedIdentifier.includes('@');
         const email = normalizedIdentifier.includes('@')
             ? normalizedIdentifier
             : this.buildEmail(normalizedIdentifier, domain);
 
         const user = await this.userRepository.findOneBy({ email });
-        if (!user || !verifyPassword(normalizedPassword, user.password)) {
-            throw new Error('Credenziali non valide.');
+        if (!user) {
+            throw new Error(isEmailLogin ? 'Email non trovata.' : 'Utente non trovato.');
+        }
+
+        if (!verifyPassword(normalizedPassword, user.password)) {
+            throw new Error('Password non corretta.');
         }
 
         if (!user.emailVerified) {

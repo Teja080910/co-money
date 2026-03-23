@@ -20,7 +20,7 @@
       "footerPrompt": "Non hai un account?",
       "footerAction": "Registrati",
       "errors": {
-        "submit": "Credenziali non valide.",
+        "submit": "Non siamo riusciti ad effettuare l'accesso. Riprova.",
         "identifierRequired": "Inserisci nome o email.",
         "passwordRequired": "Password richiesta."
       }
@@ -48,7 +48,7 @@
       "footerPrompt": "Hai gia un account?",
       "footerAction": "Accedi",
       "errors": {
-        "submit": "Errore registrazione.",
+        "submit": "Non siamo riusciti a completare la registrazione. Riprova.",
         "firstNameRequired": "Inserisci il tuo nome.",
         "firstNameShort": "Il nome deve avere almeno 2 caratteri.",
         "lastNameRequired": "Inserisci il tuo cognome.",
@@ -112,7 +112,11 @@
     "usernameRequired": "Inserisci nome utente.",
     "identifierRequired": "Inserisci nome utente o email.",
     "invalidCredentials": "Credenziali non valide.",
+    "emailNotFound": "Non abbiamo trovato un account con questa email.",
+    "passwordIncorrect": "La password inserita non e corretta.",
     "verifyEmailFirst": "Verifica prima la tua email.",
-    "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento."
+    "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento.",
+    "networkUnavailable": "Impossibile contattare il server. Controlla la connessione e riprova.",
+    "requestTimedOut": "La richiesta ha impiegato troppo tempo. Riprova."
   }
 }

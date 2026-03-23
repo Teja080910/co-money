@@ -71,6 +71,8 @@ const API_ERROR_KEY_BY_MESSAGE: Record<string, string> = {
   'Inserisci nome utente.': 'apiErrors.usernameRequired',
   'Inserisci nome utente o email.': 'apiErrors.identifierRequired',
   'Credenziali non valide.': 'apiErrors.invalidCredentials',
+  'Email non trovata.': 'apiErrors.emailNotFound',
+  'Password non corretta.': 'apiErrors.passwordIncorrect',
   'Verifica prima la tua email.': 'apiErrors.verifyEmailFirst',
   "Impossibile inviare l'email di verifica in questo momento.": 'apiErrors.verificationEmailFailed',
   'Inserisci la password attuale.': 'apiErrors.passwordRequired',
@@ -96,6 +98,16 @@ export function getApiErrorMessage(error: unknown, fallbackMessage: string): str
   if (responseMessage) {
     const translationKey = API_ERROR_KEY_BY_MESSAGE[responseMessage];
     return translationKey ? i18n.t(translationKey) : responseMessage;
+  }
+
+  if (axios.isAxiosError(error)) {
+    if (error.code === 'ECONNABORTED') {
+      return i18n.t('apiErrors.requestTimedOut');
+    }
+
+    if (!error.response) {
+      return i18n.t('apiErrors.networkUnavailable');
+    }
   }
 
   return fallbackMessage;
