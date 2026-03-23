@@ -10,6 +10,30 @@ export type RootStackParamList = {
   MerchantScan: undefined;
 };
 
+export type AppTabRoute = {
+  key: string;
+  title: string;
+  focusedIcon: string;
+  unfocusedIcon: string;
+};
+
+export type HomeTabParamList = {
+  home: undefined;
+  dashboard: undefined;
+  wallet: undefined;
+  reports: undefined;
+  'user-management': undefined;
+  'shop-management': undefined;
+  promotions: undefined;
+  events: undefined;
+  transactions: undefined;
+  customers: undefined;
+  'add-points': undefined;
+  merchants: undefined;
+  representatives: undefined;
+  profile: undefined;
+};
+
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
   RootStackParamList,
   T

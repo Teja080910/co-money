@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserRole } from '../constants/userRoles';
 import { apiClient } from './api';
 
 const PENDING_VERIFICATION_EMAIL_KEY = 'pending-verification-email';
@@ -11,7 +12,7 @@ export type AuthUser = {
   lastName: string | null;
   username: string;
   email: string;
-  role: 'CUSTOMER' | 'MERCHANT' | 'REPRESENTATIVE' | 'ADMIN';
+  role: UserRole;
   emailVerified: boolean;
 };
 

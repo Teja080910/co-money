@@ -1,6 +1,7 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Keyboard,
   Platform,
   Pressable,
   RefreshControl,
@@ -9,16 +10,28 @@ import {
   Text,
   View,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { ActivityIndicator, Button, Card, Chip, Divider, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Button, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CustomerDirectoryCard } from '../components/user-directory/CustomerDirectoryCard';
+import { UserRole } from '../constants/userRoles';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
-import { MerchantDirectoryCard } from '../components/user-directory/MerchantDirectoryCard';
-import { RepresentativeDirectoryCard } from '../components/user-directory/RepresentativeDirectoryCard';
-import type { ScreenProps } from '../navigation/types';
+import { AddPointsTab } from '../components/home-tabs/AddPointsTab';
+import { CustomersTab } from '../components/home-tabs/CustomersTab';
+import { HomeOverviewTab } from '../components/home-tabs/HomeOverviewTab';
+import {
+  AdminUserManagementSection,
+  EventsSection,
+  PromotionsSection,
+  RepresentativeUserManagementSection,
+  ShopManagementSection,
+  UserListSection,
+} from '../components/home-tabs/ManagementSections';
+import { ProfileTab } from '../components/home-tabs/ProfileTab';
+import { ReportsTab } from '../components/home-tabs/ReportsTab';
+import { TransactionsTab } from '../components/home-tabs/TransactionsTab';
+import { WalletTab } from '../components/home-tabs/WalletTab';
+import { BottomTabBar } from '../components/navigation/BottomTabBar';
+import { getRoutesForRole } from '../navigation/homeTabConfig';
+import type { HomeTabParamList, ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
 import { changePassword, clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
@@ -120,60 +133,17 @@ type EventItem = {
   isActive: boolean;
 };
 
-type NavRoute = {
-  key: string;
-  title: string;
-  focusedIcon: string;
-  unfocusedIcon: string;
-};
-
 const roleTitles: Record<AuthUser['role'], string> = {
-  CUSTOMER: 'Customer App',
-  MERCHANT: 'Merchant Console',
-  REPRESENTATIVE: 'Representative Workspace',
-  ADMIN: 'Admin Dashboard',
+  [UserRole.CUSTOMER]: 'Customer App',
+  [UserRole.MERCHANT]: 'Merchant Console',
+  [UserRole.REPRESENTATIVE]: 'Representative Workspace',
+  [UserRole.ADMIN]: 'Admin Dashboard',
 };
 
 const transactionTypeOptions = ['ALL', 'EARN', 'SPEND'];
 const transactionStatusOptions = ['ALL', 'SUCCESS', 'PENDING', 'FAILED'];
 const pointTypeOptions: Array<'STANDARD' | 'BONUS'> = ['STANDARD', 'BONUS'];
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function getRoutesForRole(role: AuthUser['role']): NavRoute[] {
-  switch (role) {
-    case 'CUSTOMER':
-      return [
-        { key: 'home', title: 'Home', focusedIcon: 'home', unfocusedIcon: 'home-outline' },
-        { key: 'wallet', title: 'Wallet', focusedIcon: 'wallet', unfocusedIcon: 'wallet-outline' },
-        { key: 'transactions', title: 'History', focusedIcon: 'history', unfocusedIcon: 'history' },
-        { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
-      ];
-    case 'MERCHANT':
-      return [
-        { key: 'home', title: 'Home', focusedIcon: 'store', unfocusedIcon: 'store-outline' },
-        { key: 'customers', title: 'Customers', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
-        { key: 'add-points', title: 'Add Points', focusedIcon: 'plus-circle', unfocusedIcon: 'plus-circle-outline' },
-        { key: 'transactions', title: 'Transactions', focusedIcon: 'receipt-text', unfocusedIcon: 'receipt-text-outline' },
-        { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
-      ];
-    case 'REPRESENTATIVE':
-      return [
-        { key: 'home', title: 'Home', focusedIcon: 'home-city', unfocusedIcon: 'home-city-outline' },
-        { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
-        { key: 'transactions', title: 'Transactions', focusedIcon: 'history', unfocusedIcon: 'history' },
-        { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
-      ];
-    case 'ADMIN':
-      return [
-        { key: 'dashboard', title: 'Dashboard', focusedIcon: 'view-dashboard', unfocusedIcon: 'view-dashboard-outline' },
-        { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
-        { key: 'shop-management', title: 'Shops', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
-        { key: 'promotions', title: 'Promotions', focusedIcon: 'tag-multiple', unfocusedIcon: 'tag-multiple-outline' },
-        { key: 'events', title: 'Events', focusedIcon: 'calendar-star', unfocusedIcon: 'calendar-star' },
-        { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
-      ];
-  }
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
@@ -215,7 +185,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [userSubmitting, setUserSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [routeIndex, setRouteIndex] = useState(0);
+  const [activeTabKey, setActiveTabKey] = useState<keyof HomeTabParamList>('home');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedShopId, setSelectedShopId] = useState('');
   const [points, setPoints] = useState('');
@@ -240,7 +210,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [eventLocation, setEventLocation] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
-  const [internalRole, setInternalRole] = useState<AuthUser['role']>('MERCHANT');
+  const [internalRole, setInternalRole] = useState<AuthUser['role']>(UserRole.MERCHANT);
   const [internalFirstName, setInternalFirstName] = useState('');
   const [internalLastName, setInternalLastName] = useState('');
   const [internalUsername, setInternalUsername] = useState('');
@@ -274,7 +244,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   >(null);
 
   const routes = useMemo(() => (authUser ? getRoutesForRole(authUser.role) : []), [authUser]);
-  const activeRouteKey = routes[routeIndex]?.key || 'home';
+  const activeRoute = useMemo(
+    () => routes.find(routeItem => routeItem.key === activeTabKey) || routes[0] || null,
+    [activeTabKey, routes],
+  );
 
   const displayName = useMemo(() => {
     if (!authUser) {
@@ -285,7 +258,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }, [authUser]);
 
   const customerUsers = useMemo(
-    () => customers.filter(customer => customer.role === 'CUSTOMER'),
+    () => customers.filter(customer => customer.role === UserRole.CUSTOMER),
     [customers],
   );
 
@@ -306,7 +279,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       return shops;
     }
 
-    if (authUser.role === 'MERCHANT') {
+    if (authUser.role === UserRole.MERCHANT) {
       return shops.filter(shop => shop.merchantId === authUser.id);
     }
 
@@ -318,11 +291,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       return [];
     }
 
-    if (authUser.role === 'MERCHANT') {
+    if (authUser.role === UserRole.MERCHANT) {
       return availableShops;
     }
 
-    if (authUser.role === 'REPRESENTATIVE') {
+    if (authUser.role === UserRole.REPRESENTATIVE) {
       return shops.filter(shop => shop.representativeId === authUser.id);
     }
 
@@ -358,12 +331,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       return [] as AuthUser['role'][];
     }
 
-    if (authUser.role === 'ADMIN') {
-      return ['REPRESENTATIVE', 'MERCHANT', 'CUSTOMER'] as AuthUser['role'][];
+    if (authUser.role === UserRole.ADMIN) {
+      return [UserRole.REPRESENTATIVE, UserRole.MERCHANT, UserRole.CUSTOMER] as AuthUser['role'][];
     }
 
-    if (authUser.role === 'REPRESENTATIVE') {
-      return ['MERCHANT', 'CUSTOMER'] as AuthUser['role'][];
+    if (authUser.role === UserRole.REPRESENTATIVE) {
+      return [UserRole.MERCHANT, UserRole.CUSTOMER] as AuthUser['role'][];
     }
 
     return [] as AuthUser['role'][];
@@ -388,7 +361,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     : undefined;
 
   const fetchSelectedCustomerWallet = useCallback(async (customerId: string) => {
-    if (!customerId.trim() || !authUser || authUser.role === 'CUSTOMER') {
+    if (!customerId.trim() || !authUser || authUser.role === UserRole.CUSTOMER) {
       setSelectedCustomerWallet(null);
       return;
     }
@@ -413,7 +386,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setAuthUser(storedUser);
 
     try {
-      if (storedUser.role === 'CUSTOMER') {
+      if (storedUser.role === UserRole.CUSTOMER) {
         const [walletResponse, transactionsResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
           apiClient.get<WalletResponse>('/api/wallet/me'),
           apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
@@ -440,12 +413,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           apiClient.get<EventItem[]>('/api/events'),
         ];
 
-        if (storedUser.role === 'REPRESENTATIVE' || storedUser.role === 'ADMIN') {
+        if (storedUser.role === UserRole.REPRESENTATIVE || storedUser.role === UserRole.ADMIN) {
           requests.push(apiClient.get<UserSummary[]>('/api/users/merchants'));
           requests.push(apiClient.get<ReportSummary>('/api/wallet/reports/summary'));
         }
 
-        if (storedUser.role === 'ADMIN') {
+        if (storedUser.role === UserRole.ADMIN) {
           requests.push(apiClient.get<UserSummary[]>('/api/users/representatives'));
         }
 
@@ -457,15 +430,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setShops(responses[2].data);
         setPromotions(responses[3].data);
         setEvents(responses[4].data);
-        setMerchants(storedUser.role === 'REPRESENTATIVE' || storedUser.role === 'ADMIN' ? responses[5].data : []);
+        setMerchants(storedUser.role === UserRole.REPRESENTATIVE || storedUser.role === UserRole.ADMIN ? responses[5].data : []);
         setReport(
-          storedUser.role === 'REPRESENTATIVE'
+          storedUser.role === UserRole.REPRESENTATIVE
             ? responses[6].data
-            : storedUser.role === 'ADMIN'
+            : storedUser.role === UserRole.ADMIN
               ? responses[6].data
               : null,
         );
-        setRepresentatives(storedUser.role === 'ADMIN' ? responses[7].data : []);
+        setRepresentatives(storedUser.role === UserRole.ADMIN ? responses[7].data : []);
       }
     } catch (loadError: any) {
       setError(loadError?.response?.data?.error || 'Unable to load dashboard data.');
@@ -484,7 +457,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }, [fetchSelectedCustomerWallet, selectedCustomerId]);
 
   useEffect(() => {
-    if (!selectedShopId && availableShops.length && authUser?.role === 'MERCHANT') {
+    if (!selectedShopId && availableShops.length && authUser?.role === UserRole.MERCHANT) {
       setSelectedShopId(availableShops[0].id);
     }
   }, [authUser?.role, availableShops, selectedShopId]);
@@ -493,7 +466,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     if (
       (!shopMerchantId || !merchants.some(merchant => merchant.id === shopMerchantId)) &&
       merchants.length &&
-      (authUser?.role === 'REPRESENTATIVE' || authUser?.role === 'ADMIN')
+      (authUser?.role === UserRole.REPRESENTATIVE || authUser?.role === UserRole.ADMIN)
     ) {
       setShopMerchantId(merchants[0].id);
     }
@@ -515,19 +488,27 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }, [allowedInternalRoles, internalRole]);
 
   useEffect(() => {
+    if (routes.length && !routes.some(routeItem => routeItem.key === activeTabKey)) {
+      const fallbackKey = routes[0].key as keyof HomeTabParamList;
+      setActiveTabKey(fallbackKey);
+    }
+  }, [activeTabKey, routes]);
+
+  useEffect(() => {
     if (route.params?.selectedCustomerId) {
       setSelectedCustomerId(route.params.selectedCustomerId);
       const addPointsIndex = routes.findIndex(item => item.key === 'add-points');
       const customersIndex = routes.findIndex(item => item.key === 'customers');
       const nextIndex = addPointsIndex >= 0 ? addPointsIndex : customersIndex >= 0 ? customersIndex : 0;
-      setRouteIndex(nextIndex);
+      const nextKey = (routes[nextIndex]?.key || routes[0]?.key || 'home') as keyof HomeTabParamList;
+      setActiveTabKey(nextKey);
     }
   }, [route.params?.selectedCustomerId, routes]);
 
   useEffect(() => {
     setError(null);
     setSuccessMessage(null);
-  }, [activeRouteKey]);
+  }, [activeTabKey]);
 
   const onLogout = async () => {
     await clearAuthenticatedUser();
@@ -576,7 +557,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       email: false,
       password: false,
     });
-    setInternalRole(allowedInternalRoles[0] || 'MERCHANT');
+    setInternalRole(allowedInternalRoles[0] || UserRole.MERCHANT);
   };
 
   const resetPasswordForm = () => {
@@ -1034,993 +1015,197 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     </View>
   );
 
-  const renderTransactionList = () => (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title="Transactions" subtitle="Track earn and spend activity" />
-      <Card.Content>
-        <View style={styles.filterRow}>
-          {transactionTypeOptions.map(option => (
-            <Chip
-              key={option}
-              mode={transactionTypeFilter === option ? 'flat' : 'outlined'}
-              selected={transactionTypeFilter === option}
-              onPress={() => setTransactionTypeFilter(option)}
-              style={styles.filterChip}
-            >
-              {option}
-            </Chip>
-          ))}
-        </View>
-        <View style={styles.filterRow}>
-          {transactionStatusOptions.map(option => (
-            <Chip
-              key={option}
-              mode={transactionStatusFilter === option ? 'flat' : 'outlined'}
-              selected={transactionStatusFilter === option}
-              onPress={() => setTransactionStatusFilter(option)}
-              style={styles.filterChip}
-            >
-              {option}
-            </Chip>
-          ))}
-        </View>
-
-        <Divider style={styles.divider} />
-
-        {filteredTransactions.length ? (
-          filteredTransactions.map(transaction => (
-            <View key={transaction.id} style={styles.listItem}>
-              <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
-                {transaction.type} {transaction.points} pts
-              </Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {transaction.pointType} • {transaction.status} • {new Date(transaction.createdAt).toLocaleString()}
-              </Text>
-              {transaction.purchaseAmount ? (
-                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                  Purchase: {transaction.purchaseAmount} | Discount: {transaction.discountAmount || 0} | Payable: {transaction.payableAmount || 0}
-                </Text>
-              ) : null}
-              {transaction.earnedPoints ? (
-                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                  Earned in settlement: {transaction.earnedPoints}
-                  {transaction.isFirstTransactionBonus ? ' • First-time bonus' : ''}
-                </Text>
-              ) : null}
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                From: {transaction.fromShopId || 'N/A'} | To: {transaction.toShopId || 'N/A'}
-              </Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                Balance: {transaction.balanceBefore} to {transaction.balanceAfter}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No transactions match the current filters.</Text>
-        )}
-      </Card.Content>
-    </Card>
-  );
-
-  const renderUserList = (title: string, subtitle: string, users: UserSummary[]) => (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title={title} subtitle={subtitle} />
-      <Card.Content>
-        {users.length ? (
-          users.map(user => (
-            <View key={user.id} style={styles.listItem}>
-              <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
-                {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
-              </Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{user.email}</Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {user.role}</Text>
-            </View>
-          ))
-        ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No records available.</Text>
-        )}
-      </Card.Content>
-    </Card>
-  );
-
-  const renderShopManagementContent = (title: string, subtitle: string) => (
-    <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title={title} subtitle={subtitle} />
-        <Card.Content>
-          <FloatingLabelInput
-            icon="store-outline"
-            label="Shop name"
-            helperText="Use the public-facing shop name customers will recognize."
-            value={shopName}
-            onChangeText={setShopName}
-            autoCapitalize="words"
-          />
-          <FloatingLabelInput
-            icon="map-marker-outline"
-            label="Location"
-            helperText="Add the branch area or address shown in the shop listing."
-            value={shopLocation}
-            onChangeText={setShopLocation}
-            autoCapitalize="words"
-          />
-          <FloatingLabelInput
-            icon="text-box-outline"
-            label="Description"
-            helperText="Write a short summary about what this shop offers."
-            value={shopDescription}
-            onChangeText={setShopDescription}
-            autoCapitalize="sentences"
-            multiline
-            numberOfLines={3}
-          />
-
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Merchant</Text>
-          <View style={styles.filterRow}>
-            {merchants.map(merchant => (
-              <Chip
-                key={merchant.id}
-                selected={shopMerchantId === merchant.id}
-                mode={shopMerchantId === merchant.id ? 'flat' : 'outlined'}
-                onPress={() => setShopMerchantId(merchant.id)}
-                style={styles.filterChip}
-              >
-                {[merchant.firstName, merchant.lastName].filter(Boolean).join(' ') || merchant.username}
-              </Chip>
-            ))}
-          </View>
-
-          <View style={styles.actionRow}>
-            <Button
-              mode="contained"
-              loading={shopSubmitting}
-              onPress={() => void handleSaveShop()}
-              style={styles.inlineActionButton}
-            >
-              {editingShopId ? 'Update Shop' : 'Add Shop'}
-            </Button>
-            {editingShopId ? (
-              <Button mode="outlined" onPress={resetShopForm} style={styles.inlineActionButton}>
-                Cancel
-              </Button>
-            ) : null}
-          </View>
-        </Card.Content>
-      </Card>
-
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Managed Shops" subtitle="Add, update, activate, or deactivate assigned shops" />
-        <Card.Content>
-          {shops.length ? (
-            shops.map(shop => (
-              <View key={shop.id} style={styles.shopRow}>
-                <View style={styles.shopRowBody}>
-                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{shop.name}</Text>
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{shop.location}</Text>
-                  {shop.description ? (
-                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{shop.description}</Text>
-                  ) : null}
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                    Merchant: {merchantNameMap[shop.merchantId] || shop.merchantId}
-                  </Text>
-                  <Text style={[styles.listMeta, { color: shop.isActive ? theme.custom.success : theme.custom.error }]}>
-                    Status: {shop.isActive ? 'Active' : 'Inactive'}
-                  </Text>
-                </View>
-                <View style={styles.shopActions}>
-                  <Button compact mode="outlined" onPress={() => handleEditShop(shop)}>
-                    Edit
-                  </Button>
-                  <Button
-                    compact
-                    mode="text"
-                    textColor={shop.isActive ? theme.custom.error : theme.custom.success}
-                    onPress={() => void handleToggleShopStatus(shop)}
-                  >
-                    {shop.isActive ? 'Deactivate' : 'Activate'}
-                  </Button>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No shops available yet.</Text>
-          )}
-        </Card.Content>
-      </Card>
-    </>
-  );
-
-  const renderShopDirectory = () => (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title="Shops List" subtitle="Participating local shops" />
-      <Card.Content>
-        {shops.length ? (
-          shops.map(shop => (
-            <View key={shop.id} style={styles.listItem}>
-              <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{shop.name}</Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{shop.location}</Text>
-              {shop.description ? (
-                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{shop.description}</Text>
-              ) : null}
-            </View>
-          ))
-        ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No shops are available yet.</Text>
-        )}
-      </Card.Content>
-    </Card>
-  );
-
-  const renderPromotionsContent = (editable: boolean) => (
-    <>
-      {editable ? (
-        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Promotions" subtitle="Create shop offers and bonus campaigns" />
-        <Card.Content>
-            <FloatingLabelInput
-              icon="tag-outline"
-              label="Promotion title"
-              helperText="Choose a clear campaign name customers can scan quickly."
-              value={promotionTitle}
-              onChangeText={setPromotionTitle}
-              autoCapitalize="sentences"
-            />
-            <FloatingLabelInput
-              icon="text-box-outline"
-              label="Description"
-              helperText="Explain the offer, reward, or eligibility in one short note."
-              value={promotionDescription}
-              onChangeText={setPromotionDescription}
-              autoCapitalize="sentences"
-              multiline
-              numberOfLines={3}
-            />
-            <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Shop</Text>
-            <View style={styles.filterRow}>
-              {manageablePromotionShops.map(shop => (
-                <Chip
-                  key={shop.id}
-                  selected={promotionShopId === shop.id}
-                  mode={promotionShopId === shop.id ? 'flat' : 'outlined'}
-                  onPress={() => setPromotionShopId(shop.id)}
-                  style={styles.filterChip}
-                >
-                  {shop.name}
-                </Chip>
-              ))}
-            </View>
-            <FloatingLabelInput
-              icon="star-four-points-outline"
-              label="Bonus points"
-              helperText="Enter the extra reward points granted by this promotion."
-              keyboardType="number-pad"
-              value={promotionBonusPoints}
-              onChangeText={setPromotionBonusPoints}
-            />
-            {renderDateField('Start date', promotionStartDate, 'promotion-start', 'Choose when this promotion should become active.')}
-            {renderDateField('End date', promotionEndDate, 'promotion-end', 'Choose the last day customers can use this promotion.')}
-            <View style={styles.actionRow}>
-              <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>
-                Save Promotion
-              </Button>
-              <Button mode="outlined" onPress={resetPromotionForm}>
-                Reset
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-      ) : null}
-
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Active Promotions" subtitle="Offers available across the network" />
-        <Card.Content>
-          {promotions.length ? (
-            promotions.map(promotion => (
-              <View key={promotion.id} style={styles.shopRow}>
-                <View style={styles.shopRowBody}>
-                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{promotion.title}</Text>
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                    {promotion.shopName} • {promotion.shopLocation}
-                  </Text>
-                  {promotion.description ? (
-                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{promotion.description}</Text>
-                  ) : null}
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                    Bonus: {promotion.bonusPoints} pts • Max discount: {promotion.maxDiscountPercent}%
-                  </Text>
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                    {formatDate(promotion.startsAt)} to {formatDate(promotion.endsAt)}
-                  </Text>
-                </View>
-                {editable ? (
-                  <View style={styles.shopActions}>
-                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeletePromotion(promotion.id)}>
-                      Delete
-                    </Button>
-                  </View>
-                ) : null}
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No promotions are available right now.</Text>
-          )}
-        </Card.Content>
-      </Card>
-    </>
-  );
-
-  const renderEventsContent = (editable: boolean) => (
-    <>
-      {editable ? (
-        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Events" subtitle="Plan community events and announcements" />
-        <Card.Content>
-            <FloatingLabelInput
-              icon="calendar-text-outline"
-              label="Event title"
-              helperText="Use the event name that should appear in announcements."
-              value={eventTitle}
-              onChangeText={setEventTitle}
-              autoCapitalize="sentences"
-            />
-            <FloatingLabelInput
-              icon="text-box-outline"
-              label="Description"
-              helperText="Add a short agenda, purpose, or event summary."
-              value={eventDescription}
-              onChangeText={setEventDescription}
-              autoCapitalize="sentences"
-              multiline
-              numberOfLines={3}
-            />
-            <FloatingLabelInput
-              icon="map-marker-outline"
-              label="Location"
-              helperText="Mention the venue, branch, or meetup point."
-              value={eventLocation}
-              onChangeText={setEventLocation}
-              autoCapitalize="words"
-            />
-            {renderDateField('Start date', eventStartDate, 'event-start', 'Pick the first day this event will be visible as active.')}
-            {renderDateField('End date', eventEndDate, 'event-end', 'Pick the final day for this event schedule.')}
-            <View style={styles.actionRow}>
-              <Button mode="contained" loading={eventSubmitting} onPress={() => void handleCreateEvent()}>
-                Save Event
-              </Button>
-              <Button mode="outlined" onPress={resetEventForm}>
-                Reset
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-      ) : null}
-
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Events" subtitle="Upcoming network activity" />
-        <Card.Content>
-          {events.length ? (
-            events.map(event => (
-              <View key={event.id} style={styles.shopRow}>
-                <View style={styles.shopRowBody}>
-                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{event.title}</Text>
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{event.location}</Text>
-                  {event.description ? (
-                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{event.description}</Text>
-                  ) : null}
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                    {formatDate(event.startsAt)} to {formatDate(event.endsAt)}
-                  </Text>
-                </View>
-                {editable ? (
-                  <View style={styles.shopActions}>
-                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteEvent(event.id)}>
-                      Delete
-                    </Button>
-                  </View>
-                ) : null}
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No events are scheduled yet.</Text>
-          )}
-        </Card.Content>
-      </Card>
-    </>
-  );
-
-  const renderInternalUserManagement = () => {
-    if (!allowedInternalRoles.length) {
-      return null;
-    }
-
-    return (
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="User Management" subtitle="Create internal and managed accounts" />
-        <Card.Content>
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Role</Text>
-          <View style={styles.filterRow}>
-            {allowedInternalRoles.map(role => (
-              <Chip
-                key={role}
-                selected={internalRole === role}
-                mode={internalRole === role ? 'flat' : 'outlined'}
-                onPress={() => setInternalRole(role)}
-                style={styles.filterChip}
-              >
-                {role}
-              </Chip>
-            ))}
-          </View>
-          <FloatingLabelInput
-            icon="account-outline"
-            label="First name"
-            helperText="Enter the user’s given name for their profile."
-            value={internalFirstName}
-            onChangeText={setInternalFirstName}
-            autoCapitalize="words"
-          />
-          <FloatingLabelInput
-            icon="badge-account-outline"
-            label="Last name"
-            helperText="Enter the surname used for reporting and account records."
-            value={internalLastName}
-            onChangeText={setInternalLastName}
-            autoCapitalize="words"
-          />
-          <FloatingLabelInput
-            icon="account-circle-outline"
-            label="Username"
-            helperText="Use a unique sign-in name without spaces."
-            valid={Boolean(trimmedInternalUsername)}
-            value={internalUsername}
-            onChangeText={text => {
-              setInternalUsername(text);
-              setInternalTouched(current => ({ ...current, username: true }));
-            }}
-            autoCapitalize="none"
-          />
-          <FloatingLabelInput
-            icon="email-outline"
-            label="Email"
-            error={internalEmailError}
-            helperText={!internalEmailError ? 'Add the email address used for login and notifications.' : undefined}
-            valid={Boolean(trimmedInternalEmail) && !internalEmailError}
-            value={internalEmail}
-            onChangeText={text => {
-              setInternalEmail(text);
-              setInternalTouched(current => ({ ...current, email: true }));
-            }}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <FloatingLabelInput
-            icon="lock-outline"
-            label="Password"
-            error={internalPasswordError}
-            helperText={!internalPasswordError ? 'Set a temporary password with at least 8 characters.' : undefined}
-            onToggleSecureEntry={() => setInternalPasswordVisible(current => !current)}
-            secureTextEntry={!internalPasswordVisible}
-            valid={internalPassword.length >= 8}
-            value={internalPassword}
-            onChangeText={text => {
-              setInternalPassword(text);
-              setInternalTouched(current => ({ ...current, password: true }));
-            }}
-          />
-          <View style={styles.actionRow}>
-            <Button mode="contained" loading={userSubmitting} onPress={() => void handleCreateInternalUser()}>
-              Create User
-            </Button>
-            <Button mode="outlined" onPress={resetInternalUserForm}>
-              Reset
-            </Button>
-          </View>
-        </Card.Content>
-      </Card>
-    );
+  const tabContext = {
+    theme,
+    styles,
+    navigation,
+    authUser,
+    displayName,
+    wallet,
+    report,
+    selectedCustomer,
+    selectedCustomerId,
+    setSelectedCustomerId,
+    selectedCustomerWallet,
+    selectedShopId,
+    setSelectedShopId,
+    availableShops,
+    filteredCustomers,
+    customerSearch,
+    setCustomerSearch,
+    pointTypeOptions,
+    pointType,
+    setPointType,
+    points,
+    setPoints,
+    description,
+    setDescription,
+    purchaseAmount,
+    setPurchaseAmount,
+    spendPoints,
+    setSpendPoints,
+    spendDescription,
+    setSpendDescription,
+    submitting,
+    handleAddPoints,
+    handleSpendPoints,
+    onLogout,
+    currentPasswordError,
+    newPasswordError,
+    confirmPasswordError,
+    passwordVisibility,
+    setPasswordVisibility,
+    currentPassword,
+    setCurrentPassword,
+    newPassword,
+    setNewPassword,
+    confirmPassword,
+    setConfirmPassword,
+    setPasswordTouched,
+    passwordSubmitting,
+    handleChangePassword,
+    resetPasswordForm,
+    transactionTypeOptions,
+    transactionStatusOptions,
+    transactionTypeFilter,
+    setTransactionTypeFilter,
+    transactionStatusFilter,
+    setTransactionStatusFilter,
+    filteredTransactions,
+    shops,
+    merchants,
+    customers,
+    representatives,
+    shopName,
+    setShopName,
+    shopLocation,
+    setShopLocation,
+    shopDescription,
+    setShopDescription,
+    shopMerchantId,
+    setShopMerchantId,
+    shopSubmitting,
+    handleSaveShop,
+    editingShopId,
+    resetShopForm,
+    merchantNameMap,
+    handleEditShop,
+    handleToggleShopStatus,
+    promotionTitle,
+    setPromotionTitle,
+    promotionDescription,
+    setPromotionDescription,
+    manageablePromotionShops,
+    promotionShopId,
+    setPromotionShopId,
+    promotionBonusPoints,
+    setPromotionBonusPoints,
+    renderDateField,
+    promotionStartDate,
+    promotionEndDate,
+    promotionSubmitting,
+    handleCreatePromotion,
+    resetPromotionForm,
+    promotions,
+    handleDeletePromotion,
+    eventTitle,
+    setEventTitle,
+    eventDescription,
+    setEventDescription,
+    eventLocation,
+    setEventLocation,
+    eventStartDate,
+    eventEndDate,
+    eventSubmitting,
+    handleCreateEvent,
+    resetEventForm,
+    events,
+    handleDeleteEvent,
+    formatDate,
+    allowedInternalRoles,
+    internalRole,
+    setInternalRole,
+    internalFirstName,
+    setInternalFirstName,
+    internalLastName,
+    setInternalLastName,
+    trimmedInternalUsername,
+    internalUsername,
+    setInternalUsername,
+    internalEmailError,
+    trimmedInternalEmail,
+    internalEmail,
+    setInternalEmail,
+    internalPasswordError,
+    internalPasswordVisible,
+    setInternalPasswordVisible,
+    internalPassword,
+    setInternalPassword,
+    userSubmitting,
+    handleCreateInternalUser,
+    resetInternalUserForm,
+    customerUsers,
+    renderSummaryMetric,
   };
 
-  const renderAdminDashboardContent = () => (
-    <>
-      <View style={styles.metricGrid}>
-        {renderSummaryMetric('Representatives', representatives.length)}
-        {renderSummaryMetric('Merchants', merchants.length)}
-        {renderSummaryMetric('Customers', customers.length)}
-        {renderSummaryMetric('Transactions', transactions.length)}
-      </View>
-
-      {report ? (
-        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title="Executive Summary" subtitle="Admin reporting" />
-          <Card.Content>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-              Customers: {report.totalCustomers} | Shops: {report.totalShops}
-            </Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-              Issued: {report.totalPointsIssued} | Spent: {report.totalPointsSpent}
-            </Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-              Active Balance: {report.activeBalance}
-            </Text>
-          </Card.Content>
-        </Card>
-      ) : null}
-
-      {renderUserList('Recent Representatives', 'Latest internal representative accounts', representatives.slice(0, 4))}
-      {renderUserList('Recent Merchants', 'Managed merchant accounts', merchants.slice(0, 4))}
-      {renderUserList('Recent Customers', 'Newest customer accounts in the network', customers.slice(0, 4))}
-    </>
+  const activeRouteIndex = useMemo(
+    () => routes.findIndex(routeItem => routeItem.key === activeTabKey),
+    [activeTabKey, routes],
   );
 
-  const renderAdminUserManagementContent = () => (
-    <>
-      {renderInternalUserManagement()}
-      <RepresentativeDirectoryCard users={representatives} />
-      <MerchantDirectoryCard users={merchants} />
-      <CustomerDirectoryCard users={customers} />
-    </>
-  );
-
-  const renderRepresentativeUserManagementContent = () => (
-    <>
-      {renderInternalUserManagement()}
-      <MerchantDirectoryCard users={merchants} />
-      <CustomerDirectoryCard users={customers} />
-      {renderCustomersContent()}
-    </>
-  );
-
-  const renderHomeContent = () => {
-    if (!authUser) {
-      return null;
-    }
-
-    if (authUser.role === 'CUSTOMER') {
-      return (
-        <>
-          <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-            <Card.Content>
-              <Text style={[styles.heroEyebrow, { color: theme.custom.textSecondary }]}>Welcome back</Text>
-              <Text style={[styles.heroTitle, { color: theme.custom.textPrimary }]}>{displayName}</Text>
-              <Text style={[styles.heroSubtitle, { color: theme.custom.textSecondary }]}>
-                Your wallet is ready for earning and spending across local shops.
-              </Text>
-              <Button mode="contained" onPress={() => navigation.navigate('CustomerQr')} style={styles.primaryAction}>
-                Show My QR Code
-              </Button>
-            </Card.Content>
-          </Card>
-          <View style={styles.metricGrid}>
-            {renderSummaryMetric('Current Balance', wallet?.balance ?? 0)}
-            {renderSummaryMetric('Transactions', transactions.length)}
-          </View>
-          {renderPromotionsContent(false)}
-          {renderShopDirectory()}
-          {renderEventsContent(false)}
-        </>
-      );
-    }
-
-    if (authUser.role === 'MERCHANT') {
-      return (
-        <>
-          <View style={styles.metricGrid}>
-            {renderSummaryMetric('Customers', customerUsers.length)}
-            {renderSummaryMetric('My Shops', availableShops.length)}
-            {renderSummaryMetric('Transactions', transactions.length)}
-          </View>
-          <Button mode="contained" onPress={() => navigation.navigate('MerchantScan')} style={styles.primaryAction}>
-            Scan Customer QR
-          </Button>
-          {renderUserList('Recent Customers', 'Customers available for point assignment', filteredCustomers.slice(0, 5))}
-          {renderPromotionsContent(true)}
-          {renderEventsContent(false)}
-        </>
-      );
-    }
-
-    if (authUser.role === 'REPRESENTATIVE') {
-      return (
-        <>
-          <View style={styles.metricGrid}>
-            {renderSummaryMetric('Merchants', merchants.length)}
-            {renderSummaryMetric('Customers', customers.length)}
-            {renderSummaryMetric('Transactions', transactions.length)}
-            {renderSummaryMetric('Shops', shops.length)}
-          </View>
-          {renderShopManagementContent('Shop Management', 'Representatives can add, update, activate, and deactivate shop records')}
-          {renderPromotionsContent(true)}
-          {report ? (
-            <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-              <Card.Title title="Operational Snapshot" subtitle="Representative reporting" />
-              <Card.Content>
-                <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-                  Total points issued: {report.totalPointsIssued}
-                </Text>
-                <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-                  Total points spent: {report.totalPointsSpent}
-                </Text>
-                <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-                  Active balance: {report.activeBalance}
-                </Text>
-              </Card.Content>
-            </Card>
-          ) : null}
-        </>
-      );
-    }
-
-    return (
-      renderAdminDashboardContent()
-    );
-  };
-
-  const renderWalletContent = () => (
-    <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Wallet" subtitle="Current point balance" />
-        <Card.Content>
-          <Text style={[styles.walletBalanceValue, { color: theme.custom.brandStrong }]}>{wallet?.balance ?? 0}</Text>
-          <Text style={[styles.walletBalanceLabel, { color: theme.custom.textSecondary }]}>Total available points</Text>
-        </Card.Content>
-      </Card>
-
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Points Breakdown" subtitle="Supported point types" />
-        <Card.Content>
-          {wallet?.pointsBreakdown?.length ? (
-            wallet.pointsBreakdown.map(item => (
-              <View key={item.pointType} style={styles.listItem}>
-                <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{item.pointType}</Text>
-                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{item.balance} pts</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No point types recorded yet.</Text>
-          )}
-        </Card.Content>
-      </Card>
-    </>
-  );
-
-  const renderCustomersContent = () => (
-    <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Customers" subtitle="Customer-role accounts available for point assignment" />
-        <Card.Content>
-          <FloatingLabelInput
-            icon="magnify"
-            label="Search by name, username, or email"
-            helperText="Filter the customer list to find the right wallet faster."
-            value={customerSearch}
-            onChangeText={setCustomerSearch}
-            autoCapitalize="none"
-          />
-          {filteredCustomers.length ? (
-            filteredCustomers.map(customer => {
-              const selected = selectedCustomerId === customer.id;
-              const customerName = [customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username;
-
-              return (
-                <Pressable
-                  key={customer.id}
-                  onPress={() => setSelectedCustomerId(customer.id)}
-                  style={[
-                    styles.customerRow,
-                    {
-                      backgroundColor: selected ? 'rgba(47,107,255,0.08)' : theme.custom.surfaceStrong,
-                      borderColor: selected ? theme.custom.brand : theme.custom.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.customerRowBody}>
-                    <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{customerName}</Text>
-                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{customer.email}</Text>
-                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {customer.role}</Text>
-                  </View>
-                  <Chip selected={selected} mode={selected ? 'flat' : 'outlined'}>
-                    {selected ? 'Selected' : 'Select'}
-                  </Chip>
-                </Pressable>
-              );
-            })
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No customer-role users match your search.</Text>
-          )}
-        </Card.Content>
-      </Card>
-
-      {selectedCustomerWallet ? (
-        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title="Selected Customer Wallet" subtitle={selectedCustomerWallet.customer.email} />
-          <Card.Content>
-            <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
-              Balance: {selectedCustomerWallet.balance} pts
-            </Text>
-            {selectedCustomerWallet.pointsBreakdown.map(item => (
-              <Text key={item.pointType} style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {item.pointType}: {item.balance}
-              </Text>
-            ))}
-          </Card.Content>
-        </Card>
-      ) : null}
-    </>
-  );
-
-  const renderAddPointsContent = () => (
-    <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Add Points" subtitle="Merchant earn transaction for a customer" />
-        <Card.Content>
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Selected Customer</Text>
-          {selectedCustomer ? (
-            <View style={[styles.selectionCard, { borderColor: theme.custom.border }]}>
-              <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
-                {[selectedCustomer.firstName, selectedCustomer.lastName].filter(Boolean).join(' ') || selectedCustomer.username}
-              </Text>
-              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{selectedCustomer.email}</Text>
-            </View>
-          ) : (
-            <Text style={[styles.selectedValue, { color: theme.custom.textPrimary }]}>
-              Choose a customer below or from the Customers tab.
-            </Text>
-          )}
-          <Button mode="outlined" onPress={() => navigation.navigate('MerchantScan')} style={styles.secondaryAction}>
-            Scan Customer QR
-          </Button>
-
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Choose Customer</Text>
-          <View style={styles.filterRow}>
-            {filteredCustomers.slice(0, 8).map(customer => (
-              <Chip
-                key={customer.id}
-                selected={selectedCustomerId === customer.id}
-                mode={selectedCustomerId === customer.id ? 'flat' : 'outlined'}
-                onPress={() => setSelectedCustomerId(customer.id)}
-                style={styles.filterChip}
-              >
-                {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username}
-              </Chip>
-            ))}
-          </View>
-
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Point Type</Text>
-          <View style={styles.filterRow}>
-            {pointTypeOptions.map(option => (
-              <Chip
-                key={option}
-                selected={pointType === option}
-                mode={pointType === option ? 'flat' : 'outlined'}
-                onPress={() => setPointType(option)}
-                style={styles.filterChip}
-              >
-                {option}
-              </Chip>
-            ))}
-          </View>
-
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>Select Shop</Text>
-          {availableShops.length ? (
-            <View style={styles.filterRow}>
-              {availableShops.map(shop => (
-                <Chip
-                  key={shop.id}
-                  selected={selectedShopId === shop.id}
-                  mode={selectedShopId === shop.id ? 'flat' : 'outlined'}
-                  onPress={() => setSelectedShopId(shop.id)}
-                  style={styles.filterChip}
-                >
-                  {shop.name}
-                </Chip>
-              ))}
-            </View>
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>
-              No merchant shop is available for point assignment.
-            </Text>
-          )}
-
-          <FloatingLabelInput
-            icon="plus-circle-outline"
-            label="Points"
-            helperText="Enter how many points should be added to the customer wallet."
-            keyboardType="number-pad"
-            value={points}
-            onChangeText={setPoints}
-          />
-          <FloatingLabelInput
-            icon="text-box-outline"
-            label="Description"
-            helperText="Add an optional note explaining why these points were issued."
-            value={description}
-            onChangeText={setDescription}
-            autoCapitalize="sentences"
-            multiline
-            numberOfLines={3}
-          />
-          <Button
-            mode="contained"
-            disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !points.trim()}
-            loading={submitting}
-            onPress={() => void handleAddPoints()}
-          >
-            Submit Earn Transaction
-          </Button>
-        </Card.Content>
-      </Card>
-
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Accept Points" subtitle="Settle a purchase with discount, payable amount, and new points" />
-        <Card.Content>
-          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-            Same-shop restriction is enforced automatically and discounts are capped at 30% of the purchase.
-          </Text>
-          <FloatingLabelInput
-            icon="cash-multiple"
-            label="Purchase amount"
-            helperText="Enter the bill total before discounts are applied."
-            keyboardType="number-pad"
-            value={purchaseAmount}
-            onChangeText={setPurchaseAmount}
-          />
-          <FloatingLabelInput
-            icon="ticket-percent-outline"
-            label="Requested points to use"
-            helperText="Enter how many customer points should be redeemed."
-            keyboardType="number-pad"
-            value={spendPoints}
-            onChangeText={setSpendPoints}
-          />
-          <FloatingLabelInput
-            icon="text-box-outline"
-            label="Settlement description"
-            helperText="Add an optional note for the purchase or redemption context."
-            value={spendDescription}
-            onChangeText={setSpendDescription}
-            autoCapitalize="sentences"
-            multiline
-            numberOfLines={3}
-          />
-          <Button
-            mode="contained"
-            disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()}
-            loading={submitting}
-            onPress={() => void handleSpendPoints()}
-          >
-            Submit Purchase Settlement
-          </Button>
-        </Card.Content>
-      </Card>
-    </>
-  );
-
-  const renderProfileContent = () => (
-    <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Profile" subtitle="Current authenticated account" />
-        <Card.Content>
-          <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{displayName}</Text>
-          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{authUser?.email}</Text>
-          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>Role: {authUser?.role}</Text>
-          <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-            Username: {authUser?.username}
-          </Text>
-          <Button mode="outlined" onPress={() => void onLogout()} style={styles.logoutButton}>
-            Logout
-          </Button>
-        </Card.Content>
-      </Card>
-
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title="Change Password" subtitle="Update your sign-in password from the profile section" />
-        <Card.Content>
-          <FloatingLabelInput
-            icon="lock-outline"
-            label="Current password"
-            error={currentPasswordError}
-            helperText={!currentPasswordError ? 'Enter your existing password before choosing a new one.' : undefined}
-            onToggleSecureEntry={() => setPasswordVisibility(current => ({ ...current, current: !current.current }))}
-            secureTextEntry={!passwordVisibility.current}
-            value={currentPassword}
-            onChangeText={text => {
-              setCurrentPassword(text);
-              setPasswordTouched(current => ({ ...current, current: true }));
-            }}
-          />
-          <FloatingLabelInput
-            icon="lock-reset"
-            label="New password"
-            error={newPasswordError}
-            helperText={!newPasswordError ? 'Use at least 8 characters for the new password.' : undefined}
-            onToggleSecureEntry={() => setPasswordVisibility(current => ({ ...current, next: !current.next }))}
-            secureTextEntry={!passwordVisibility.next}
-            valid={newPassword.trim().length >= 8}
-            value={newPassword}
-            onChangeText={text => {
-              setNewPassword(text);
-              setPasswordTouched(current => ({ ...current, next: true }));
-            }}
-          />
-          <FloatingLabelInput
-            icon="shield-check-outline"
-            label="Confirm new password"
-            error={confirmPasswordError}
-            helperText={!confirmPasswordError ? 'Re-enter the new password to confirm the change.' : undefined}
-            onToggleSecureEntry={() => setPasswordVisibility(current => ({ ...current, confirm: !current.confirm }))}
-            secureTextEntry={!passwordVisibility.confirm}
-            valid={Boolean(confirmPassword.trim()) && confirmPassword === newPassword}
-            value={confirmPassword}
-            onChangeText={text => {
-              setConfirmPassword(text);
-              setPasswordTouched(current => ({ ...current, confirm: true }));
-            }}
-          />
-          <View style={styles.actionRow}>
-            <Button mode="contained" loading={passwordSubmitting} onPress={() => void handleChangePassword()}>
-              Update Password
-            </Button>
-            <Button mode="outlined" onPress={resetPasswordForm}>
-              Reset
-            </Button>
-          </View>
-        </Card.Content>
-      </Card>
-    </>
-  );
-
-  const renderReportsContent = () => (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title="Reports" subtitle="Role-based reporting summary" />
-      <Card.Content>
-        {report ? (
-          <>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Customers: {report.totalCustomers}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Shops: {report.totalShops}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Issued: {report.totalPointsIssued}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Spent: {report.totalPointsSpent}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>Active Balance: {report.activeBalance}</Text>
-          </>
-        ) : (
-          <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>No report data available.</Text>
-        )}
-      </Card.Content>
-    </Card>
-  );
-
-  const renderScene = () => {
-    switch (activeRouteKey) {
+  const renderActiveTabContent = () => {
+    switch (activeTabKey) {
       case 'home':
       case 'dashboard':
-        return renderHomeContent();
+        return <HomeOverviewTab context={tabContext} />;
       case 'wallet':
-        return renderWalletContent();
+        return <WalletTab context={tabContext} />;
       case 'reports':
-        return renderReportsContent();
+        return <ReportsTab context={tabContext} />;
       case 'user-management':
-        return authUser?.role === 'REPRESENTATIVE'
-          ? renderRepresentativeUserManagementContent()
-          : renderAdminUserManagementContent();
+        return authUser?.role === UserRole.REPRESENTATIVE
+          ? <RepresentativeUserManagementSection context={tabContext} />
+          : <AdminUserManagementSection context={tabContext} />;
       case 'shop-management':
-        return renderShopManagementContent('Shop Management', 'Admins can add, update, activate, and deactivate shop records');
+        return (
+          <ShopManagementSection
+            context={tabContext}
+            title="Shop Management"
+            subtitle="Admins can add, update, activate, and deactivate shop records"
+          />
+        );
       case 'promotions':
-        return renderPromotionsContent(true);
+        return <PromotionsSection context={tabContext} editable />;
       case 'events':
-        return renderEventsContent(true);
+        return <EventsSection context={tabContext} editable />;
       case 'transactions':
-        return renderTransactionList();
+        return <TransactionsTab context={tabContext} />;
       case 'customers':
-        return renderCustomersContent();
+        return <CustomersTab context={tabContext} />;
       case 'add-points':
-        return renderAddPointsContent();
+        return <AddPointsTab context={tabContext} />;
       case 'merchants':
-        return renderUserList('Merchants', 'Managed merchant accounts', merchants);
+        return (
+          <UserListSection
+            context={tabContext}
+            title="Merchants"
+            subtitle="Managed merchant accounts"
+            users={merchants}
+          />
+        );
       case 'representatives':
-        return renderUserList('Representatives', 'Internal representative accounts', representatives);
+        return (
+          <UserListSection
+            context={tabContext}
+            title="Representatives"
+            subtitle="Internal representative accounts"
+            users={representatives}
+          />
+        );
       case 'profile':
-        return renderProfileContent();
+        return <ProfileTab context={tabContext} />;
       default:
-        return renderHomeContent();
+        return <HomeOverviewTab context={tabContext} />;
     }
   };
 
@@ -2032,159 +1217,134 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         <View style={styles.backdropGlowOrange} />
         <View style={styles.backdropGrid} />
       </View>
-      <View style={styles.contentFrame}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.contentFrame,
+          {
+            paddingTop: Math.max(insets.top + 16, 24),
+            paddingBottom: Math.max(insets.bottom + 140, 148),
+          },
+        ]}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
           <View style={styles.loaderWrap}>
             <ActivityIndicator animating size="large" style={styles.loader} />
           </View>
         ) : (
           <>
-            <ScrollView
-              contentContainerStyle={[
-                styles.content,
+            <View
+              style={[
+                styles.headerCard,
                 {
-                  paddingTop: Math.max(insets.top + 16, 24),
-                  paddingBottom: Math.max(insets.bottom + 112, 132),
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  shadowColor: theme.custom.shadow,
                 },
               ]}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              onScrollBeginDrag={Keyboard.dismiss}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-              showsVerticalScrollIndicator={false}
             >
-              <View
-                style={[
-                  styles.headerCard,
-                  {
-                    shadowColor: theme.custom.shadow,
-                  },
-                ]}
-              >
-                <View style={styles.headerGlowBlue} />
-                <View style={styles.headerGlowOrange} />
-                <View style={styles.headerGrid} />
-                <View style={styles.headerTopRow}>
-                  <View style={styles.rolePill}>
-                    <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.rolePillText}>
-                      {authUser ? roleTitles[authUser.role] : 'Co-Money'}
-                    </Text>
-                  </View>
-                  <View style={styles.headerActions}>
-                    <LanguageSwitcher tone="light" />
-                    <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
-                      <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
-                      <Text style={styles.headerLogoutText}>Logout</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                <View style={styles.headerAccentRow}>
-                  <View style={styles.headerAccentLine} />
-                  <View style={styles.headerAccentDot} />
-                </View>
-                <Text style={styles.dashboardKicker}>{routes[routeIndex]?.title || 'Overview'}</Text>
-                <Text style={styles.dashboardTitle}>
-                  {displayName ? `Welcome back, ${displayName}` : 'Co-Money'}
-                </Text>
-                <Text style={styles.dashboardSubtitle}>
-                  {routes[routeIndex]?.title || 'Overview'} for your wallet, transactions, and daily actions.
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.sheet,
-                  {
-                    backgroundColor: theme.custom.surfaceStrong,
-                    borderColor: 'rgba(243, 111, 33, 0.12)',
-                  },
-                ]}
-              >
-                <View style={styles.sheetHeader}>
-                  <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
-                    {routes[routeIndex]?.title || 'Overview'}
-                  </Text>
-                  <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-                    Role-aware wallet and transaction workspace.
+              <View style={styles.headerGlowBlue} />
+              <View style={styles.headerGlowOrange} />
+              <View style={styles.headerGrid} />
+              <View style={styles.headerTopRow}>
+                <View style={styles.rolePill}>
+                  <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.rolePillText}>
+                    {authUser ? roleTitles[authUser.role] : 'Co-Money'}
                   </Text>
                 </View>
-
-                {error ? <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text> : null}
-                {successMessage ? <Text style={[styles.message, { color: theme.custom.success }]}>{successMessage}</Text> : null}
-                {renderScene()}
-                {activeDatePicker ? (
-                  <View style={styles.datePickerWrap}>
-                    <DateTimePicker
-                      value={
-                        activeDatePicker === 'promotion-start'
-                          ? getPickerDate(promotionStartDate)
-                          : activeDatePicker === 'promotion-end'
-                            ? getPickerDate(promotionEndDate)
-                            : activeDatePicker === 'event-start'
-                              ? getPickerDate(eventStartDate)
-                              : getPickerDate(eventEndDate)
-                      }
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                      onChange={handleDateChange}
-                    />
-                    {Platform.OS === 'ios' ? (
-                      <Button mode="text" onPress={() => setActiveDatePicker(null)}>
-                        Done
-                      </Button>
-                    ) : null}
-                  </View>
-                ) : null}
-              </View>
-            </ScrollView>
-
-            {routes.length ? (
-              <View style={styles.bottomBarWrap}>
-                <View style={styles.bottomBar}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={[styles.bottomBarScroll, { paddingBottom: Math.max(insets.bottom, 10) }]}
-                  >
-                    {routes.map((navRoute, index) => {
-                      const focused = index === routeIndex;
-
-                      return (
-                        <Pressable
-                          key={navRoute.key}
-                          onPress={() => setRouteIndex(index)}
-                          style={[
-                            styles.bottomTab,
-                            focused ? styles.bottomTabActive : null,
-                          ]}
-                        >
-                          <View style={[styles.bottomTabIconWrap, focused ? styles.bottomTabIconWrapActive : null]}>
-                            <MaterialCommunityIcons
-                              name={(focused ? navRoute.focusedIcon : navRoute.unfocusedIcon) as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
-                              size={20}
-                              color={focused ? '#FFFFFF' : theme.custom.textSecondary}
-                            />
-                          </View>
-                          <Text
-                            style={[
-                              styles.bottomTabLabel,
-                              { color: focused ? theme.custom.brandStrong : theme.custom.textSecondary },
-                            ]}
-                          >
-                            {navRoute.title}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
+                <View style={styles.headerActions}>
+                  <LanguageSwitcher tone="light" />
+                  <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
+                    <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
+                    <Text style={styles.headerLogoutText}>Logout</Text>
+                  </Pressable>
                 </View>
               </View>
-            ) : null}
+
+              <View style={styles.headerAccentRow}>
+                <View style={styles.headerAccentLine} />
+                <View style={styles.headerAccentDot} />
+              </View>
+              <Text style={styles.dashboardKicker}>{activeRoute?.title || 'Overview'}</Text>
+              <Text style={styles.dashboardTitle}>
+                {displayName ? `Welcome back, ${displayName}` : 'Co-Money'}
+              </Text>
+              <Text style={styles.dashboardSubtitle}>
+                {activeRoute?.title || 'Overview'} for your wallet, transactions, and daily actions.
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.sheet,
+                {
+                  backgroundColor: theme.custom.surfaceStrong,
+                  borderColor: 'rgba(243, 111, 33, 0.12)',
+                },
+              ]}
+            >
+              <View style={styles.sheetHeader}>
+                <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
+                  {activeRoute?.title || 'Overview'}
+                </Text>
+                <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                  Role-aware wallet and transaction workspace.
+                </Text>
+              </View>
+
+              {error ? <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text> : null}
+              {successMessage ? <Text style={[styles.message, { color: theme.custom.success }]}>{successMessage}</Text> : null}
+              <View style={styles.tabNavigatorShell}>
+                <View style={styles.tabSceneContent}>
+                  {renderActiveTabContent()}
+                </View>
+              </View>
+              {activeDatePicker ? (
+                <View style={styles.datePickerWrap}>
+                  <DateTimePicker
+                    value={
+                      activeDatePicker === 'promotion-start'
+                        ? getPickerDate(promotionStartDate)
+                        : activeDatePicker === 'promotion-end'
+                          ? getPickerDate(promotionEndDate)
+                          : activeDatePicker === 'event-start'
+                            ? getPickerDate(eventStartDate)
+                            : getPickerDate(eventEndDate)
+                    }
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={handleDateChange}
+                  />
+                  {Platform.OS === 'ios' ? (
+                    <Button mode="text" onPress={() => setActiveDatePicker(null)}>
+                      Done
+                    </Button>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+
           </>
         )}
-      </View>
+      </ScrollView>
+      {!loading && routes.length ? (
+        <View style={styles.bottomBarOverlay}>
+          <BottomTabBar
+            routes={routes}
+            routeIndex={activeRouteIndex >= 0 ? activeRouteIndex : 0}
+            onSelectRoute={index => {
+              const target = routes[index];
+              if (target?.key) {
+                setActiveTabKey(target.key as keyof HomeTabParamList);
+              }
+            }}
+            bottomInset={insets.bottom}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -2229,7 +1389,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(15,23,42,0.05)',
   },
   contentFrame: {
-    flex: 1,
+    paddingHorizontal: 0,
   },
   headerActions: {
     flexDirection: 'row',
@@ -2245,6 +1405,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 18,
     backgroundColor: '#071823',
+    borderWidth: 1,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 1,
     shadowRadius: 28,
@@ -2357,10 +1518,11 @@ const styles = StyleSheet.create({
   },
   sheet: {
     marginHorizontal: 16,
+    marginBottom: 0,
     borderRadius: 30,
     paddingHorizontal: 18,
     paddingTop: 24,
-    paddingBottom: 20,
+    paddingBottom: 8,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 18 },
     shadowOpacity: 1,
@@ -2381,20 +1543,16 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   loaderWrap: {
-    flex: 1,
     marginHorizontal: 16,
     marginTop: 24,
     marginBottom: 24,
     borderRadius: 30,
     justifyContent: 'center',
+    minHeight: 360,
   },
   loader: {
     flex: 1,
     justifyContent: 'center',
-  },
-  content: {
-    paddingTop: 0,
-    paddingBottom: 28,
   },
   card: {
     marginBottom: 14,
@@ -2552,6 +1710,19 @@ const styles = StyleSheet.create({
   datePickerWrap: {
     marginTop: 12,
   },
+  tabNavigatorShell: {
+    position: 'relative',
+  },
+  tabSceneContent: {
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  bottomBarOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 12,
+  },
   selectionCard: {
     borderWidth: 1,
     borderRadius: 18,
@@ -2597,56 +1768,5 @@ const styles = StyleSheet.create({
   logoutButton: {
     marginTop: 18,
     alignSelf: 'flex-start',
-  },
-  bottomBarWrap: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 10,
-  },
-  bottomBar: {
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.08)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  bottomBarScroll: {
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    alignItems: 'center',
-    gap: 8,
-  },
-  bottomTab: {
-    minWidth: 74,
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  bottomTabActive: {
-    backgroundColor: 'rgba(47,107,255,0.1)',
-  },
-  bottomTabIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(148,163,184,0.12)',
-  },
-  bottomTabIconWrapActive: {
-    backgroundColor: '#F36F21',
-  },
-  bottomTabLabel: {
-    fontSize: 11,
-    fontWeight: '700',
   },
 });
