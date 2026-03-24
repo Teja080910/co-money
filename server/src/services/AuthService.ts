@@ -173,6 +173,10 @@ export class AuthService {
             throw new Error(isEmailLogin ? 'Email non trovata.' : 'Utente non trovato.');
         }
 
+        if (!user.isActive || user.deletedAt) {
+            throw new Error('Account non attivo.');
+        }
+
         if (!verifyPassword(normalizedPassword, user.password)) {
             throw new Error('Password non corretta.');
         }
@@ -199,6 +203,32 @@ export class AuthService {
                 role: user.role,
                 emailVerified: user.emailVerified,
             },
+        };
+    }
+
+    public async getProfile(authenticatedUser: AuthenticatedUser) {
+        const user = await this.userRepository.findOneBy({ id: authenticatedUser.id });
+        if (!user || !user.isActive || user.deletedAt) {
+            throw new Error('Utente non trovato.');
+        }
+
+        return {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            emailVerified: user.emailVerified,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+    }
+
+    public async logout(_authenticatedUser: AuthenticatedUser) {
+        return {
+            message: 'Logout effettuato con successo.',
         };
     }
 

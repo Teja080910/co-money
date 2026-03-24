@@ -25,15 +25,19 @@ export class EventService {
             order: { startsAt: 'ASC', createdAt: 'DESC' },
         });
 
-        if ([UserRole.ADMIN, UserRole.REPRESENTATIVE].includes(currentUser.role)) {
+        if (currentUser.role === UserRole.ADMIN) {
             return events;
+        }
+
+        if (currentUser.role === UserRole.REPRESENTATIVE) {
+            return events.filter(event => event.createdByUserId === currentUser.id);
         }
 
         return events.filter(event => event.isActive && event.endsAt >= now);
     }
 
     public async createEvent(currentUser: CurrentUser, input: EventInput) {
-        if (currentUser.role !== UserRole.ADMIN) {
+        if (![UserRole.ADMIN, UserRole.REPRESENTATIVE].includes(currentUser.role)) {
             throw new Error('You do not have permission to manage events.');
         }
 
@@ -67,14 +71,71 @@ export class EventService {
         return this.eventRepository.save(event);
     }
 
-    public async deleteEvent(currentUser: CurrentUser, eventId: string) {
-        if (currentUser.role !== UserRole.ADMIN) {
+    public async updateEvent(currentUser: CurrentUser, eventId: string, input: EventInput) {
+        if (![UserRole.ADMIN, UserRole.REPRESENTATIVE].includes(currentUser.role)) {
             throw new Error('You do not have permission to manage events.');
         }
 
         const event = await this.eventRepository.findOneBy({ id: eventId.trim() });
         if (!event) {
             throw new Error('Event not found.');
+        }
+
+        if (currentUser.role === UserRole.REPRESENTATIVE && event.createdByUserId !== currentUser.id) {
+            throw new Error('You do not have permission to manage this event.');
+        }
+
+        if (input.title !== undefined) {
+            const title = input.title.trim();
+            if (!title) {
+                throw new Error('Event title is required.');
+            }
+            event.title = title;
+        }
+
+        if (input.description !== undefined) {
+            event.description = input.description?.trim() || null;
+        }
+
+        if (input.location !== undefined) {
+            const location = input.location.trim();
+            if (!location) {
+                throw new Error('Event location is required.');
+            }
+            event.location = location;
+        }
+
+        if (input.startsAt !== undefined) {
+            event.startsAt = this.parseDate(input.startsAt, 'Event start date is required.');
+        }
+
+        if (input.endsAt !== undefined) {
+            event.endsAt = this.parseDate(input.endsAt, 'Event end date is required.');
+        }
+
+        if (event.endsAt < event.startsAt) {
+            throw new Error('Event end date must be after the start date.');
+        }
+
+        if (typeof input.isActive === 'boolean') {
+            event.isActive = input.isActive;
+        }
+
+        return this.eventRepository.save(event);
+    }
+
+    public async deleteEvent(currentUser: CurrentUser, eventId: string) {
+        if (![UserRole.ADMIN, UserRole.REPRESENTATIVE].includes(currentUser.role)) {
+            throw new Error('You do not have permission to manage events.');
+        }
+
+        const event = await this.eventRepository.findOneBy({ id: eventId.trim() });
+        if (!event) {
+            throw new Error('Event not found.');
+        }
+
+        if (currentUser.role === UserRole.REPRESENTATIVE && event.createdByUserId !== currentUser.id) {
+            throw new Error('You do not have permission to manage this event.');
         }
 
         await this.eventRepository.remove(event);

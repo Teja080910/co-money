@@ -1,11 +1,11 @@
 import { Controller, Delete, Get, Post, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/requireRole';
-import { EventService } from '../services/EventService';
+import { CategoryService } from '../services/CategoryService';
 
-@Controller('api/events')
-export class EventController {
-    private eventService = new EventService();
+@Controller('api/categories')
+export class CategoryController {
+    private categoryService = new CategoryService();
 
     @Get('')
     private async list(req: Request, res: Response) {
@@ -15,8 +15,9 @@ export class EventController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const events = await this.eventService.listEvents(authenticatedUser);
-            return res.status(200).json(events);
+            const shopId = typeof req.query.shopId === 'string' ? req.query.shopId : undefined;
+            const categories = await this.categoryService.listCategories(authenticatedUser, shopId);
+            return res.status(200).json(categories);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -30,8 +31,8 @@ export class EventController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const event = await this.eventService.createEvent(authenticatedUser, req.body);
-            return res.status(201).json(event);
+            const category = await this.categoryService.createCategory(authenticatedUser, req.body);
+            return res.status(201).json(category);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -45,8 +46,8 @@ export class EventController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const event = await this.eventService.updateEvent(authenticatedUser, req.params.id as string, req.body);
-            return res.status(200).json(event);
+            const category = await this.categoryService.updateCategory(authenticatedUser, req.params.id as string, req.body);
+            return res.status(200).json(category);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -60,7 +61,7 @@ export class EventController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const result = await this.eventService.deleteEvent(authenticatedUser, req.params.id as string);
+            const result = await this.categoryService.deleteCategory(authenticatedUser, req.params.id as string);
             return res.status(200).json(result);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });

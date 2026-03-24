@@ -132,4 +132,19 @@ export class WalletController {
             return res.status(400).json({ error: error.message });
         }
     }
+
+    @Post('preview')
+    private async previewSettlement(req: Request, res: Response) {
+        try {
+            const authenticatedUser = (req as AuthenticatedRequest).authenticatedUser;
+            if (!authenticatedUser) {
+                return res.status(401).json({ error: 'Authentication required.' });
+            }
+
+            const result = await this.walletService.previewSettlement(authenticatedUser, req.body);
+            return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(400).json({ error: error.message });
+        }
+    }
 }

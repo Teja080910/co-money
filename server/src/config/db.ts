@@ -6,6 +6,9 @@ import { WalletTransaction } from '../models/WalletTransaction';
 import { Promotion } from '../models/Promotion';
 import { PromotionClaim } from '../models/PromotionClaim';
 import { Event } from '../models/Event';
+import { ShopCategory } from '../models/ShopCategory';
+import { SystemConfig } from '../models/SystemConfig';
+import { UserManagementAudit } from '../models/UserManagementAudit';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -16,7 +19,7 @@ export const AppDataSource = new DataSource({
     synchronize: false, // We will use migrations instead
     migrationsRun: true,
     logging: ['error'],
-    entities: [User, Shop, Wallet, WalletTransaction, Promotion, PromotionClaim, Event],
+    entities: [User, Shop, Wallet, WalletTransaction, Promotion, PromotionClaim, Event, ShopCategory, SystemConfig, UserManagementAudit],
     migrations: ['src/migrations/**/*.ts'],
     subscribers: [],
 });

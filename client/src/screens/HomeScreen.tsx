@@ -20,10 +20,12 @@ import { CustomersTab } from '../components/home-tabs/CustomersTab';
 import { HomeOverviewTab } from '../components/home-tabs/HomeOverviewTab';
 import {
   AdminUserManagementSection,
+  CategorySettingsSection,
   EventsSection,
   PromotionsSection,
   RepresentativeUserManagementSection,
   ShopManagementSection,
+  SystemConfigurationSection,
   UserListSection,
 } from '../components/home-tabs/ManagementSections';
 import { ProfileTab } from '../components/home-tabs/ProfileTab';
@@ -34,7 +36,7 @@ import { BottomTabBar } from '../components/navigation/BottomTabBar';
 import { getRoutesForRole } from '../navigation/homeTabConfig';
 import type { HomeTabParamList, ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
-import { changePassword, clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
+import { changePassword, fetchAuthenticatedProfile, getAuthenticatedUser, logoutUser, type AuthUser } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 type WalletTransaction = {
@@ -99,6 +101,10 @@ type UserSummary = {
   email: string;
   role: AuthUser['role'];
   emailVerified: boolean;
+  isActive?: boolean;
+  status?: 'ACTIVE' | 'INACTIVE' | 'DELETED';
+  deactivatedAt?: string | null;
+  deletedAt?: string | null;
 };
 
 type ReportSummary = {
@@ -107,6 +113,16 @@ type ReportSummary = {
   totalPointsIssued: number;
   totalPointsSpent: number;
   activeBalance: number;
+  monthlyPointsIssued?: number;
+  monthlyPointsSpent?: number;
+  topShops?: Array<{
+    id: string;
+    name: string;
+    location: string;
+    transactionCount: number;
+    pointsIssued: number;
+    pointsSpent: number;
+  }>;
 };
 
 type Promotion = {
@@ -133,6 +149,45 @@ type EventItem = {
   startsAt: string;
   endsAt: string;
   isActive: boolean;
+};
+
+type ShopCategory = {
+  id: string;
+  shopId: string;
+  shopName: string;
+  name: string;
+  formattedName: string;
+  discountPercent: number;
+  isDefault: boolean;
+  isActive: boolean;
+};
+
+type SystemConfig = {
+  id?: string;
+  version: number;
+  welcomeBonusPoints: number;
+  pointExpirationDays: number;
+  maxPointsPerTransaction: number;
+  defaultMaxDiscountPercent: number;
+  updatedByUserId: string;
+  changeReason: string | null;
+  createdAt: string | Date;
+};
+
+type SettlementPreview = {
+  customerId: string;
+  shopId: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  availablePoints: number;
+  requestedPoints: number;
+  usedPoints: number;
+  maxDiscountPoints: number;
+  maxDiscountPercent: number;
+  payableAmount: number | null;
+  earnedPoints: number | null;
+  bonusPoints: number;
+  predictedBalance: number;
 };
 
 const roleTitles: Record<AuthUser['role'], string> = {
@@ -179,14 +234,24 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [report, setReport] = useState<ReportSummary | null>(null);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
+  const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
+  const [systemConfigHistory, setSystemConfigHistory] = useState<SystemConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [shopSubmitting, setShopSubmitting] = useState(false);
   const [promotionSubmitting, setPromotionSubmitting] = useState(false);
   const [claimingPromotionId, setClaimingPromotionId] = useState('');
   const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [userSubmitting, setUserSubmitting] = useState(false);
+  const [configSubmitting, setConfigSubmitting] = useState(false);
+  const [userActionLoadingState, setUserActionLoadingState] = useState<{
+    userId: string;
+    action: 'activate' | 'deactivate' | 'delete';
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTabKey, setActiveTabKey] = useState<keyof HomeTabParamList>('home');
@@ -198,6 +263,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [spendPoints, setSpendPoints] = useState('');
   const [spendDescription, setSpendDescription] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [settlementPreview, setSettlementPreview] = useState<SettlementPreview | null>(null);
   const [shopName, setShopName] = useState('');
   const [shopLocation, setShopLocation] = useState('');
   const [shopDescription, setShopDescription] = useState('');
@@ -209,11 +276,23 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [promotionStartDate, setPromotionStartDate] = useState('');
   const [promotionEndDate, setPromotionEndDate] = useState('');
   const [promotionShopId, setPromotionShopId] = useState('');
+  const [editingPromotionId, setEditingPromotionId] = useState('');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
+  const [editingEventId, setEditingEventId] = useState('');
+  const [categoryShopId, setCategoryShopId] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryDiscountPercent, setCategoryDiscountPercent] = useState('');
+  const [categoryIsDefault, setCategoryIsDefault] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState('');
+  const [configWelcomeBonusPoints, setConfigWelcomeBonusPoints] = useState('');
+  const [configPointExpirationDays, setConfigPointExpirationDays] = useState('');
+  const [configMaxPointsPerTransaction, setConfigMaxPointsPerTransaction] = useState('');
+  const [configDefaultMaxDiscountPercent, setConfigDefaultMaxDiscountPercent] = useState('');
+  const [configChangeReason, setConfigChangeReason] = useState('');
   const [internalRole, setInternalRole] = useState<AuthUser['role']>(UserRole.MERCHANT);
   const [internalFirstName, setInternalFirstName] = useState('');
   const [internalLastName, setInternalLastName] = useState('');
@@ -287,6 +366,28 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }, {});
   }, [merchants]);
 
+  const shopNameMap = useMemo(() => {
+    return shops.reduce<Record<string, string>>((acc, shop) => {
+      acc[shop.id] = shop.name;
+      return acc;
+    }, {});
+  }, [shops]);
+
+  const userDisplayNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+
+    const allUsers = [...customers, ...merchants, ...representatives];
+    allUsers.forEach(user => {
+      map[user.id] = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+    });
+
+    if (authUser) {
+      map[authUser.id] = [authUser.firstName, authUser.lastName].filter(Boolean).join(' ') || authUser.username;
+    }
+
+    return map;
+  }, [authUser, customers, merchants, representatives]);
+
   const availableShops = useMemo(() => {
     if (!authUser) {
       return shops;
@@ -294,6 +395,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
     if (authUser.role === UserRole.MERCHANT) {
       return shops.filter(shop => shop.merchantId === authUser.id);
+    }
+
+    if (authUser.role === UserRole.REPRESENTATIVE) {
+      return shops.filter(shop => shop.representativeId === authUser.id);
     }
 
     return shops;
@@ -314,6 +419,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
     return shops;
   }, [authUser, availableShops, shops]);
+
+  const visibleCategories = useMemo(() => {
+    if (!selectedShopId.trim()) {
+      return categories;
+    }
+
+    return categories.filter(category => category.shopId === selectedShopId);
+  }, [categories, selectedShopId]);
+
+  const manageableCategories = useMemo(() => {
+    if (!categoryShopId.trim()) {
+      return categories;
+    }
+
+    return categories.filter(category => category.shopId === categoryShopId);
+  }, [categories, categoryShopId]);
 
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) {
@@ -399,7 +520,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setAuthUser(storedUser);
 
     try {
-      if (storedUser.role === UserRole.CUSTOMER) {
+      const authenticatedProfile = await fetchAuthenticatedProfile();
+      setAuthUser(authenticatedProfile);
+
+      if (authenticatedProfile.role === UserRole.CUSTOMER) {
         const [walletResponse, transactionsResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
           apiClient.get<WalletResponse>('/api/wallet/me'),
           apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
@@ -413,6 +537,9 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setShops(shopsResponse.data);
         setPromotions(promotionsResponse.data);
         setEvents(eventsResponse.data);
+        setCategories([]);
+        setSystemConfig(null);
+        setSystemConfigHistory([]);
         setCustomers([]);
         setMerchants([]);
         setRepresentatives([]);
@@ -424,14 +551,17 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           apiClient.get<Shop[]>('/api/shops'),
           apiClient.get<Promotion[]>('/api/promotions'),
           apiClient.get<EventItem[]>('/api/events'),
+          apiClient.get<ShopCategory[]>('/api/categories'),
         ];
 
-        if (storedUser.role === UserRole.REPRESENTATIVE || storedUser.role === UserRole.ADMIN) {
+        if (authenticatedProfile.role === UserRole.REPRESENTATIVE || authenticatedProfile.role === UserRole.ADMIN) {
           requests.push(apiClient.get<UserSummary[]>('/api/users/merchants'));
           requests.push(apiClient.get<ReportSummary>('/api/wallet/reports/summary'));
         }
 
-        if (storedUser.role === UserRole.ADMIN) {
+        if (authenticatedProfile.role === UserRole.ADMIN) {
+          requests.push(apiClient.get<SystemConfig>('/api/system-config'));
+          requests.push(apiClient.get<SystemConfig[]>('/api/system-config/history'));
           requests.push(apiClient.get<UserSummary[]>('/api/users/representatives'));
         }
 
@@ -443,17 +573,32 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setShops(responses[2].data);
         setPromotions(responses[3].data);
         setEvents(responses[4].data);
-        setMerchants(storedUser.role === UserRole.REPRESENTATIVE || storedUser.role === UserRole.ADMIN ? responses[5].data : []);
+        setCategories(responses[5].data);
+        setMerchants(authenticatedProfile.role === UserRole.REPRESENTATIVE || authenticatedProfile.role === UserRole.ADMIN ? responses[6].data : []);
         setReport(
-          storedUser.role === UserRole.REPRESENTATIVE
-            ? responses[6].data
-            : storedUser.role === UserRole.ADMIN
-              ? responses[6].data
+          authenticatedProfile.role === UserRole.REPRESENTATIVE
+            ? responses[7].data
+            : authenticatedProfile.role === UserRole.ADMIN
+              ? responses[7].data
               : null,
         );
-        setRepresentatives(storedUser.role === UserRole.ADMIN ? responses[7].data : []);
+        if (authenticatedProfile.role === UserRole.ADMIN) {
+          setSystemConfig(responses[8].data);
+          setSystemConfigHistory(responses[9].data);
+          setRepresentatives(responses[10].data);
+        } else {
+          setSystemConfig(null);
+          setSystemConfigHistory([]);
+          setRepresentatives([]);
+        }
       }
     } catch (loadError: any) {
+      if (loadError?.response?.status === 401) {
+        await logoutUser();
+        navigation.replace('Login');
+        return;
+      }
+
       setError(loadError?.response?.data?.error || 'Unable to load dashboard data.');
     } finally {
       setLoading(false);
@@ -495,6 +640,36 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }, [manageablePromotionShops, promotionShopId]);
 
   useEffect(() => {
+    if (visibleCategories.length && !visibleCategories.some(category => category.id === selectedCategoryId)) {
+      const defaultCategory = visibleCategories.find(category => category.isDefault) || visibleCategories[0];
+      setSelectedCategoryId(defaultCategory?.id || '');
+    }
+
+    if (!visibleCategories.length) {
+      setSelectedCategoryId('');
+    }
+  }, [selectedCategoryId, visibleCategories]);
+
+  useEffect(() => {
+    if (
+      availableShops.length &&
+      (!categoryShopId || !availableShops.some(shop => shop.id === categoryShopId))
+    ) {
+      setCategoryShopId(availableShops[0].id);
+    }
+  }, [availableShops, categoryShopId]);
+
+  useEffect(() => {
+    if (systemConfig) {
+      setConfigWelcomeBonusPoints(String(systemConfig.welcomeBonusPoints));
+      setConfigPointExpirationDays(String(systemConfig.pointExpirationDays));
+      setConfigMaxPointsPerTransaction(String(systemConfig.maxPointsPerTransaction));
+      setConfigDefaultMaxDiscountPercent(String(systemConfig.defaultMaxDiscountPercent));
+      setConfigChangeReason('');
+    }
+  }, [systemConfig]);
+
+  useEffect(() => {
     if (allowedInternalRoles.length && !allowedInternalRoles.includes(internalRole)) {
       setInternalRole(allowedInternalRoles[0]);
     }
@@ -523,8 +698,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSuccessMessage(null);
   }, [activeTabKey]);
 
+  useEffect(() => {
+    setSettlementPreview(null);
+  }, [selectedCustomerId, selectedShopId, selectedCategoryId, purchaseAmount, spendPoints]);
+
   const onLogout = async () => {
-    await clearAuthenticatedUser();
+    await logoutUser();
     navigation.replace('Login');
   };
 
@@ -542,6 +721,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   };
 
   const resetPromotionForm = () => {
+    setEditingPromotionId('');
     setPromotionTitle('');
     setPromotionDescription('');
     setPromotionBonusPoints('');
@@ -551,11 +731,20 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   };
 
   const resetEventForm = () => {
+    setEditingEventId('');
     setEventTitle('');
     setEventDescription('');
     setEventLocation('');
     setEventStartDate('');
     setEventEndDate('');
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCategoryId('');
+    setCategoryName('');
+    setCategoryDiscountPercent('');
+    setCategoryIsDefault(false);
+    setCategoryShopId(availableShops[0]?.id || '');
   };
 
   const resetInternalUserForm = () => {
@@ -719,6 +908,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         shopId: selectedShopId.trim(),
         points: Number(spendPoints),
         purchaseAmount: Number(purchaseAmount),
+        categoryId: selectedCategoryId.trim() || undefined,
         description: spendDescription.trim() || undefined,
       });
 
@@ -729,12 +919,38 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setPurchaseAmount('');
       setSpendPoints('');
       setSpendDescription('');
+      setSettlementPreview(null);
       await loadDashboard();
       await fetchSelectedCustomerWallet(selectedCustomerId);
     } catch (submitError: any) {
       setError(submitError?.response?.data?.error || 'Unable to settle the purchase.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePreviewSettlement = async () => {
+    if (!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()) {
+      setError('Select customer, shop, purchase amount, and points before previewing.');
+      return;
+    }
+
+    setPreviewLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.post<SettlementPreview>('/api/wallet/preview', {
+        customerId: selectedCustomerId.trim(),
+        shopId: selectedShopId.trim(),
+        points: Number(spendPoints),
+        purchaseAmount: Number(purchaseAmount),
+        categoryId: selectedCategoryId.trim() || undefined,
+      });
+      setSettlementPreview(response.data);
+    } catch (previewError: any) {
+      setError(previewError?.response?.data?.error || 'Unable to preview settlement.');
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -833,16 +1049,23 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSuccessMessage(null);
 
     try {
-      await apiClient.post('/api/promotions', {
+      const payload = {
         title: promotionTitle.trim(),
         description: promotionDescription.trim() || undefined,
         shopId: promotionShopId.trim(),
         bonusPoints: promotionBonusPoints.trim() ? Number(promotionBonusPoints) : 0,
         startsAt: `${promotionStartDate.trim()}T00:00:00.000Z`,
         endsAt: `${promotionEndDate.trim()}T23:59:59.000Z`,
-      });
+      };
 
-      setSuccessMessage('Promotion created successfully.');
+      if (editingPromotionId) {
+        await apiClient.put(`/api/promotions/${editingPromotionId}`, payload);
+        setSuccessMessage('Promotion updated successfully.');
+      } else {
+        await apiClient.post('/api/promotions', payload);
+        setSuccessMessage('Promotion created successfully.');
+      }
+
       resetPromotionForm();
       await loadDashboard();
     } catch (submitError: any) {
@@ -863,6 +1086,36 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       await loadDashboard();
     } catch (deleteError: any) {
       setError(deleteError?.response?.data?.error || 'Unable to delete promotion.');
+    } finally {
+      setPromotionSubmitting(false);
+    }
+  };
+
+  const handleEditPromotion = (promotion: Promotion) => {
+    setEditingPromotionId(promotion.id);
+    setPromotionTitle(promotion.title);
+    setPromotionDescription(promotion.description || '');
+    setPromotionBonusPoints(String(promotion.bonusPoints));
+    setPromotionStartDate(promotion.startsAt.split('T')[0] || '');
+    setPromotionEndDate(promotion.endsAt.split('T')[0] || '');
+    setPromotionShopId(promotion.shopId);
+    setError(null);
+    setSuccessMessage(null);
+  };
+
+  const handleTogglePromotionStatus = async (promotion: Promotion) => {
+    setPromotionSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.put(`/api/promotions/${promotion.id}`, {
+        isActive: !promotion.isActive,
+      });
+      setSuccessMessage(`Promotion ${promotion.isActive ? 'deactivated' : 'activated'} successfully.`);
+      await loadDashboard();
+    } catch (updateError: any) {
+      setError(updateError?.response?.data?.error || 'Unable to update promotion.');
     } finally {
       setPromotionSubmitting(false);
     }
@@ -910,15 +1163,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSuccessMessage(null);
 
     try {
-      await apiClient.post('/api/events', {
+      const payload = {
         title: eventTitle.trim(),
         description: eventDescription.trim() || undefined,
         location: eventLocation.trim(),
         startsAt: `${eventStartDate.trim()}T00:00:00.000Z`,
         endsAt: `${eventEndDate.trim()}T23:59:59.000Z`,
-      });
+      };
 
-      setSuccessMessage('Event created successfully.');
+      if (editingEventId) {
+        await apiClient.put(`/api/events/${editingEventId}`, payload);
+        setSuccessMessage('Event updated successfully.');
+      } else {
+        await apiClient.post('/api/events', payload);
+        setSuccessMessage('Event created successfully.');
+      }
+
       resetEventForm();
       await loadDashboard();
     } catch (submitError: any) {
@@ -941,6 +1201,156 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setError(deleteError?.response?.data?.error || 'Unable to delete event.');
     } finally {
       setEventSubmitting(false);
+    }
+  };
+
+  const handleEditEvent = (event: EventItem) => {
+    setEditingEventId(event.id);
+    setEventTitle(event.title);
+    setEventDescription(event.description || '');
+    setEventLocation(event.location);
+    setEventStartDate(event.startsAt.split('T')[0] || '');
+    setEventEndDate(event.endsAt.split('T')[0] || '');
+    setError(null);
+    setSuccessMessage(null);
+  };
+
+  const handleToggleEventStatus = async (event: EventItem) => {
+    setEventSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.put(`/api/events/${event.id}`, {
+        isActive: !event.isActive,
+      });
+      setSuccessMessage(`Event ${event.isActive ? 'deactivated' : 'activated'} successfully.`);
+      await loadDashboard();
+    } catch (updateError: any) {
+      setError(updateError?.response?.data?.error || 'Unable to update event.');
+    } finally {
+      setEventSubmitting(false);
+    }
+  };
+
+  const handleEditCategory = (category: ShopCategory) => {
+    setEditingCategoryId(category.id);
+    setCategoryShopId(category.shopId);
+    setCategoryName(category.formattedName || category.name);
+    setCategoryDiscountPercent(String(category.discountPercent));
+    setCategoryIsDefault(category.isDefault);
+    setError(null);
+    setSuccessMessage(null);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryShopId.trim()) {
+      setError('Select a shop for the category.');
+      return;
+    }
+
+    if (!categoryName.trim()) {
+      setError('Category name is required.');
+      return;
+    }
+
+    if (!categoryDiscountPercent.trim() || Number(categoryDiscountPercent) < 0) {
+      setError('Enter a valid category discount percent.');
+      return;
+    }
+
+    setCategorySubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    const payload = {
+      shopId: categoryShopId.trim(),
+      name: categoryName.trim(),
+      discountPercent: Number(categoryDiscountPercent),
+      isDefault: categoryIsDefault,
+    };
+
+    try {
+      if (editingCategoryId) {
+        await apiClient.put(`/api/categories/${editingCategoryId}`, payload);
+        setSuccessMessage('Category updated successfully.');
+      } else {
+        await apiClient.post('/api/categories', payload);
+        setSuccessMessage('Category created successfully.');
+      }
+
+      resetCategoryForm();
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to save category.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleToggleCategoryStatus = async (category: ShopCategory) => {
+    setCategorySubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.put(`/api/categories/${category.id}`, {
+        isActive: !category.isActive,
+      });
+      setSuccessMessage(`Category ${category.isActive ? 'deactivated' : 'activated'} successfully.`);
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to update category.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    setCategorySubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.delete(`/api/categories/${categoryId}`);
+      setSuccessMessage('Category deleted successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to delete category.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleSaveConfiguration = async () => {
+    if (
+      !configWelcomeBonusPoints.trim() ||
+      !configPointExpirationDays.trim() ||
+      !configMaxPointsPerTransaction.trim() ||
+      !configDefaultMaxDiscountPercent.trim()
+    ) {
+      setError('Complete all configuration fields before saving.');
+      return;
+    }
+
+    setConfigSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post<SystemConfig>('/api/system-config', {
+        welcomeBonusPoints: Number(configWelcomeBonusPoints),
+        pointExpirationDays: Number(configPointExpirationDays),
+        maxPointsPerTransaction: Number(configMaxPointsPerTransaction),
+        defaultMaxDiscountPercent: Number(configDefaultMaxDiscountPercent),
+        changeReason: configChangeReason.trim() || undefined,
+      });
+      setSuccessMessage('System configuration updated successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to save system configuration.');
+    } finally {
+      setConfigSubmitting(false);
     }
   };
 
@@ -988,6 +1398,54 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setError(submitError?.response?.data?.error || 'Unable to create user.');
     } finally {
       setUserSubmitting(false);
+    }
+  };
+
+  const handleActivateUser = async (user: UserSummary) => {
+    setUserActionLoadingState({ userId: user.id, action: 'activate' });
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post(`/api/users/${user.id}/activate`, {});
+      setSuccessMessage('User activated successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to activate user.');
+    } finally {
+      setUserActionLoadingState(null);
+    }
+  };
+
+  const handleDeactivateUser = async (user: UserSummary) => {
+    setUserActionLoadingState({ userId: user.id, action: 'deactivate' });
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post(`/api/users/${user.id}/deactivate`, {});
+      setSuccessMessage('User deactivated successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to deactivate user.');
+    } finally {
+      setUserActionLoadingState(null);
+    }
+  };
+
+  const handleDeleteUser = async (user: UserSummary) => {
+    setUserActionLoadingState({ userId: user.id, action: 'delete' });
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post(`/api/users/${user.id}/delete`, {});
+      setSuccessMessage('User deleted successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to delete user.');
+    } finally {
+      setUserActionLoadingState(null);
     }
   };
 
@@ -1080,6 +1538,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSpendPoints,
     spendDescription,
     setSpendDescription,
+    previewCategories: visibleCategories,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    previewLoading,
+    settlementPreview,
+    handlePreviewSettlement,
     submitting,
     handleAddPoints,
     handleSpendPoints,
@@ -1123,6 +1587,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     editingShopId,
     resetShopForm,
     merchantNameMap,
+    shopNameMap,
+    userDisplayNameMap,
     handleEditShop,
     handleToggleShopStatus,
     promotionTitle,
@@ -1134,6 +1600,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setPromotionShopId,
     promotionBonusPoints,
     setPromotionBonusPoints,
+    editingPromotionId,
     renderDateField,
     promotionStartDate,
     promotionEndDate,
@@ -1142,6 +1609,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     handleCreatePromotion,
     resetPromotionForm,
     promotions,
+    handleEditPromotion,
+    handleTogglePromotionStatus,
     handleDeletePromotion,
     handleClaimPromotion,
     eventTitle,
@@ -1152,12 +1621,45 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setEventLocation,
     eventStartDate,
     eventEndDate,
+    editingEventId,
     eventSubmitting,
     handleCreateEvent,
     resetEventForm,
     events,
+    handleEditEvent,
+    handleToggleEventStatus,
     handleDeleteEvent,
     formatDate,
+    categoryShopId,
+    setCategoryShopId,
+    categoryName,
+    setCategoryName,
+    categoryDiscountPercent,
+    setCategoryDiscountPercent,
+    categoryIsDefault,
+    setCategoryIsDefault,
+    categorySubmitting,
+    editingCategoryId,
+    categories: manageableCategories,
+    handleEditCategory,
+    handleSaveCategory,
+    handleToggleCategoryStatus,
+    handleDeleteCategory,
+    resetCategoryForm,
+    systemConfig,
+    systemConfigHistory,
+    configWelcomeBonusPoints,
+    setConfigWelcomeBonusPoints,
+    configPointExpirationDays,
+    setConfigPointExpirationDays,
+    configMaxPointsPerTransaction,
+    setConfigMaxPointsPerTransaction,
+    configDefaultMaxDiscountPercent,
+    setConfigDefaultMaxDiscountPercent,
+    configChangeReason,
+    setConfigChangeReason,
+    configSubmitting,
+    handleSaveConfiguration,
     allowedInternalRoles,
     internalRole,
     setInternalRole,
@@ -1178,7 +1680,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     internalPassword,
     setInternalPassword,
     userSubmitting,
+    userActionLoadingState,
     handleCreateInternalUser,
+    handleActivateUser,
+    handleDeactivateUser,
+    handleDeleteUser,
     resetInternalUserForm,
     customerUsers,
     renderSummaryMetric,
@@ -1210,6 +1716,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             subtitle={t('management.admin.shopManagementSubtitle')}
           />
         );
+      case 'category-settings':
+        return <CategorySettingsSection context={tabContext} />;
+      case 'configuration':
+        return <SystemConfigurationSection context={tabContext} />;
       case 'promotions':
         return <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />;
       case 'events':

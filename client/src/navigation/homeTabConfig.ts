@@ -16,13 +16,17 @@ export function getRoutesForRole(role: UserRole): AppTabRoute[] {
         { key: 'home', title: 'Home', focusedIcon: 'store', unfocusedIcon: 'store-outline' },
         { key: 'customers', title: 'Customers', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
         { key: 'add-points', title: 'Add Points', focusedIcon: 'plus-circle', unfocusedIcon: 'plus-circle-outline' },
+        { key: 'promotions', title: 'Promotions', focusedIcon: 'tag-multiple', unfocusedIcon: 'tag-multiple-outline' },
+        { key: 'category-settings', title: 'Categories', focusedIcon: 'shape-outline', unfocusedIcon: 'shape-outline' },
         { key: 'transactions', title: 'Transactions', focusedIcon: 'receipt-text', unfocusedIcon: 'receipt-text-outline' },
         { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
       ];
     case UserRole.REPRESENTATIVE:
       return [
         { key: 'home', title: 'Home', focusedIcon: 'home-city', unfocusedIcon: 'home-city-outline' },
+        { key: 'events', title: 'Events', focusedIcon: 'calendar-star', unfocusedIcon: 'calendar-star' },
         { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
+        { key: 'category-settings', title: 'Categories', focusedIcon: 'shape-outline', unfocusedIcon: 'shape-outline' },
         { key: 'transactions', title: 'Transactions', focusedIcon: 'history', unfocusedIcon: 'history' },
         { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
       ];
@@ -31,6 +35,8 @@ export function getRoutesForRole(role: UserRole): AppTabRoute[] {
         { key: 'dashboard', title: 'Dashboard', focusedIcon: 'view-dashboard', unfocusedIcon: 'view-dashboard-outline' },
         { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
         { key: 'shop-management', title: 'Shops', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
+        { key: 'category-settings', title: 'Categories', focusedIcon: 'shape-outline', unfocusedIcon: 'shape-outline' },
+        { key: 'configuration', title: 'Config', focusedIcon: 'cog-outline', unfocusedIcon: 'cog-outline' },
         { key: 'promotions', title: 'Promotions', focusedIcon: 'tag-multiple', unfocusedIcon: 'tag-multiple-outline' },
         { key: 'events', title: 'Events', focusedIcon: 'calendar-star', unfocusedIcon: 'calendar-star' },
         { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },

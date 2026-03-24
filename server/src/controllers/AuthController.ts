@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Controller, Get, Post } from '@overnightjs/core';
 import { AuthService } from '../services/AuthService';
+import { getAuthenticatedUser } from '../middleware/requireRole';
 
 @Controller('auth')
 export class AuthController {
@@ -66,9 +67,9 @@ export class AuthController {
     @Post('change-password')
     private async changePassword(req: Request, res: Response) {
         try {
-            const authenticatedUser = (req as import('../middleware/requireRole').AuthenticatedRequest).authenticatedUser;
+            const authenticatedUser = getAuthenticatedUser(req, res);
             if (!authenticatedUser) {
-                return res.status(401).json({ error: 'Authentication required.' });
+                return;
             }
 
             const { currentPassword, newPassword, confirmPassword } = req.body;
@@ -83,6 +84,36 @@ export class AuthController {
         } catch (error: any) {
             const statusCode = error.message === 'Authentication required.' ? 401 : 400;
             return res.status(statusCode).json({ error: error.message });
+        }
+    }
+
+    @Get('profilo')
+    private async profile(req: Request, res: Response) {
+        try {
+            const authenticatedUser = getAuthenticatedUser(req, res);
+            if (!authenticatedUser) {
+                return;
+            }
+
+            const profile = await this.authService.getProfile(authenticatedUser);
+            return res.status(200).json(profile);
+        } catch (error: any) {
+            return res.status(404).json({ error: error.message });
+        }
+    }
+
+    @Post('logout')
+    private async logout(req: Request, res: Response) {
+        try {
+            const authenticatedUser = getAuthenticatedUser(req, res);
+            if (!authenticatedUser) {
+                return;
+            }
+
+            const result = await this.authService.logout(authenticatedUser);
+            return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(400).json({ error: error.message });
         }
     }
 

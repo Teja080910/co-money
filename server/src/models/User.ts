@@ -27,6 +27,15 @@ export class User {
     @Column({ type: 'boolean', default: false })
     emailVerified!: boolean;
 
+    @Column({ type: 'boolean', default: true })
+    isActive!: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    deactivatedAt!: Date | null;
+
+    @Column({ type: 'timestamp', nullable: true })
+    deletedAt!: Date | null;
+
     @Column({ type: 'varchar', length: 6, nullable: true })
     verificationCode!: string | null;
 

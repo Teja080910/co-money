@@ -156,7 +156,7 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
 
 export function PromotionsSection({ context, editable }: Props & { editable: boolean }) {
   const { t } = useTranslation();
-  const { theme, styles, authUser, promotionTitle, setPromotionTitle, promotionDescription, setPromotionDescription, manageablePromotionShops, promotionShopId, setPromotionShopId, promotionBonusPoints, setPromotionBonusPoints, renderDateField, promotionStartDate, promotionEndDate, promotionSubmitting, claimingPromotionId, handleCreatePromotion, resetPromotionForm, promotions, handleDeletePromotion, handleClaimPromotion, formatDate } = context;
+  const { theme, styles, authUser, promotionTitle, setPromotionTitle, promotionDescription, setPromotionDescription, manageablePromotionShops, promotionShopId, setPromotionShopId, promotionBonusPoints, setPromotionBonusPoints, renderDateField, promotionStartDate, promotionEndDate, promotionSubmitting, claimingPromotionId, handleCreatePromotion, resetPromotionForm, promotions, handleDeletePromotion, handleClaimPromotion, formatDate, handleEditPromotion, editingPromotionId, handleTogglePromotionStatus } = context;
   const safePromotionShops = manageablePromotionShops ?? [];
   const safePromotions = promotions ?? [];
   const isCustomerView = authUser?.role === UserRole.CUSTOMER;
@@ -181,7 +181,9 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
             {renderDateField(t('common.startDate'), promotionStartDate, 'promotion-start', t('management.promotions.startHelper'))}
             {renderDateField(t('common.endDate'), promotionEndDate, 'promotion-end', t('management.promotions.endHelper'))}
             <View style={styles.actionRow}>
-              <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>{t('management.promotions.save')}</Button>
+              <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>
+                {editingPromotionId ? t('management.promotions.update') : t('management.promotions.save')}
+              </Button>
               <Button mode="outlined" onPress={resetPromotionForm}>{t('common.reset')}</Button>
             </View>
           </Card.Content>
@@ -203,6 +205,10 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
                 </View>
                 {editable ? (
                   <View style={styles.shopActions}>
+                    <Button compact mode="outlined" onPress={() => handleEditPromotion(promotion)}>{t('common.edit')}</Button>
+                    <Button compact mode="text" onPress={() => void handleTogglePromotionStatus(promotion)}>
+                      {promotion.isActive ? t('common.deactivate') : t('common.activate')}
+                    </Button>
                     <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeletePromotion(promotion.id)}>{t('common.delete')}</Button>
                   </View>
                 ) : isCustomerView ? (
@@ -231,7 +237,7 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
 
 export function EventsSection({ context, editable }: Props & { editable: boolean }) {
   const { t } = useTranslation();
-  const { theme, styles, eventTitle, setEventTitle, eventDescription, setEventDescription, eventLocation, setEventLocation, renderDateField, eventStartDate, eventEndDate, eventSubmitting, handleCreateEvent, resetEventForm, events, handleDeleteEvent, formatDate } = context;
+  const { theme, styles, eventTitle, setEventTitle, eventDescription, setEventDescription, eventLocation, setEventLocation, renderDateField, eventStartDate, eventEndDate, eventSubmitting, handleCreateEvent, resetEventForm, events, handleDeleteEvent, formatDate, handleEditEvent, editingEventId, handleToggleEventStatus } = context;
   const safeEvents = events ?? [];
 
   return (
@@ -246,7 +252,9 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
             {renderDateField(t('common.startDate'), eventStartDate, 'event-start', t('management.events.startHelper'))}
             {renderDateField(t('common.endDate'), eventEndDate, 'event-end', t('management.events.endHelper'))}
             <View style={styles.actionRow}>
-              <Button mode="contained" loading={eventSubmitting} onPress={() => void handleCreateEvent()}>{t('management.events.save')}</Button>
+              <Button mode="contained" loading={eventSubmitting} onPress={() => void handleCreateEvent()}>
+                {editingEventId ? t('management.events.update') : t('management.events.save')}
+              </Button>
               <Button mode="outlined" onPress={resetEventForm}>{t('common.reset')}</Button>
             </View>
           </Card.Content>
@@ -267,6 +275,10 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
                 </View>
                 {editable ? (
                   <View style={styles.shopActions}>
+                    <Button compact mode="outlined" onPress={() => handleEditEvent(event)}>{t('common.edit')}</Button>
+                    <Button compact mode="text" onPress={() => void handleToggleEventStatus(event)}>
+                      {event.isActive ? t('common.deactivate') : t('common.activate')}
+                    </Button>
                     <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteEvent(event.id)}>{t('common.delete')}</Button>
                   </View>
                 ) : null}
@@ -274,6 +286,164 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
             ))
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.events.empty')}</Text>
+          )}
+        </Card.Content>
+      </Card>
+    </>
+  );
+}
+
+export function CategorySettingsSection({ context }: Props) {
+  const { t } = useTranslation();
+  const {
+    theme,
+    styles,
+    availableShops,
+    categoryShopId,
+    setCategoryShopId,
+    categoryName,
+    setCategoryName,
+    categoryDiscountPercent,
+    setCategoryDiscountPercent,
+    categoryIsDefault,
+    setCategoryIsDefault,
+    categorySubmitting,
+    handleSaveCategory,
+    resetCategoryForm,
+    editingCategoryId,
+    categories,
+    handleEditCategory,
+    handleToggleCategoryStatus,
+    handleDeleteCategory,
+  } = context;
+  const safeShops = availableShops ?? [];
+  const safeCategories = categories ?? [];
+
+  return (
+    <>
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title={t('management.categories.title')} subtitle={t('management.categories.subtitle')} />
+        <Card.Content>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('management.categories.shop')}</Text>
+          <View style={styles.filterRow}>
+            {safeShops.map((shop: any) => (
+              <Chip
+                key={shop.id}
+                selected={categoryShopId === shop.id}
+                mode={categoryShopId === shop.id ? 'flat' : 'outlined'}
+                onPress={() => setCategoryShopId(shop.id)}
+                style={styles.filterChip}
+              >
+                {shop.name}
+              </Chip>
+            ))}
+          </View>
+          <FloatingLabelInput icon="shape-outline" label={t('management.categories.nameLabel')} helperText={t('management.categories.nameHelper')} value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
+          <FloatingLabelInput icon="percent-outline" label={t('management.categories.discountLabel')} helperText={t('management.categories.discountHelper')} value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
+          <View style={styles.filterRow}>
+            <Chip selected={categoryIsDefault} mode={categoryIsDefault ? 'flat' : 'outlined'} onPress={() => setCategoryIsDefault((current: boolean) => !current)} style={styles.filterChip}>
+              {t('management.categories.defaultLabel')}
+            </Chip>
+          </View>
+          <View style={styles.actionRow}>
+            <Button mode="contained" loading={categorySubmitting} onPress={() => void handleSaveCategory()}>
+              {editingCategoryId ? t('management.categories.update') : t('management.categories.save')}
+            </Button>
+            <Button mode="outlined" onPress={resetCategoryForm}>{t('common.reset')}</Button>
+          </View>
+        </Card.Content>
+      </Card>
+
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title={t('management.categories.title')} subtitle={t('management.categories.subtitle')} />
+        <Card.Content>
+          {safeCategories.length ? (
+            safeCategories.map((category: any) => (
+              <View key={category.id} style={styles.shopRow}>
+                <View style={styles.shopRowBody}>
+                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{category.formattedName || category.name}</Text>
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{category.shopName}</Text>
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{category.discountPercent}%</Text>
+                  <Text style={[styles.listMeta, { color: category.isActive ? theme.custom.success : theme.custom.error }]}>
+                    {t('common.status')}: {category.isActive ? t('statuses.active') : t('statuses.inactive')}
+                  </Text>
+                </View>
+                <View style={styles.shopActions}>
+                  <Button compact mode="outlined" onPress={() => handleEditCategory(category)}>{t('common.edit')}</Button>
+                  <Button compact mode="text" onPress={() => void handleToggleCategoryStatus(category)}>
+                    {category.isActive ? t('common.deactivate') : t('common.activate')}
+                  </Button>
+                  {!category.isDefault ? (
+                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteCategory(category.id)}>
+                      {t('common.delete')}
+                    </Button>
+                  ) : null}
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.categories.empty')}</Text>
+          )}
+        </Card.Content>
+      </Card>
+    </>
+  );
+}
+
+export function SystemConfigurationSection({ context }: Props) {
+  const { t } = useTranslation();
+  const {
+    theme,
+    styles,
+    configWelcomeBonusPoints,
+    setConfigWelcomeBonusPoints,
+    configPointExpirationDays,
+    setConfigPointExpirationDays,
+    configMaxPointsPerTransaction,
+    setConfigMaxPointsPerTransaction,
+    configDefaultMaxDiscountPercent,
+    setConfigDefaultMaxDiscountPercent,
+    configChangeReason,
+    setConfigChangeReason,
+    configSubmitting,
+    handleSaveConfiguration,
+    systemConfigHistory,
+  } = context;
+  const safeHistory = systemConfigHistory ?? [];
+
+  return (
+    <>
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title={t('management.configuration.title')} subtitle={t('management.configuration.subtitle')} />
+        <Card.Content>
+          <FloatingLabelInput icon="gift-outline" label={t('management.configuration.welcomeBonusLabel')} helperText={t('management.configuration.welcomeBonusHelper')} value={configWelcomeBonusPoints} onChangeText={setConfigWelcomeBonusPoints} keyboardType="number-pad" />
+          <FloatingLabelInput icon="calendar-clock-outline" label={t('management.configuration.expirationLabel')} helperText={t('management.configuration.expirationHelper')} value={configPointExpirationDays} onChangeText={setConfigPointExpirationDays} keyboardType="number-pad" />
+          <FloatingLabelInput icon="counter" label={t('management.configuration.maxPointsLabel')} helperText={t('management.configuration.maxPointsHelper')} value={configMaxPointsPerTransaction} onChangeText={setConfigMaxPointsPerTransaction} keyboardType="number-pad" />
+          <FloatingLabelInput icon="percent-outline" label={t('management.configuration.defaultDiscountLabel')} helperText={t('management.configuration.defaultDiscountHelper')} value={configDefaultMaxDiscountPercent} onChangeText={setConfigDefaultMaxDiscountPercent} keyboardType="number-pad" />
+          <FloatingLabelInput icon="text-box-outline" label={t('management.configuration.reasonLabel')} helperText={t('management.configuration.reasonHelper')} value={configChangeReason} onChangeText={setConfigChangeReason} autoCapitalize="sentences" multiline numberOfLines={3} />
+          <Button mode="contained" loading={configSubmitting} onPress={() => void handleSaveConfiguration()}>
+            {t('management.configuration.save')}
+          </Button>
+        </Card.Content>
+      </Card>
+
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title={t('management.configuration.historyTitle')} />
+        <Card.Content>
+          {safeHistory.length ? (
+            safeHistory.map((entry: any) => (
+              <View key={entry.id || entry.version} style={styles.listItem}>
+                <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>v{entry.version}</Text>
+                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                  {entry.welcomeBonusPoints} / {entry.pointExpirationDays} / {entry.maxPointsPerTransaction} / {entry.defaultMaxDiscountPercent}%
+                </Text>
+                {entry.changeReason ? (
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{entry.changeReason}</Text>
+                ) : null}
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.configuration.historyEmpty')}</Text>
           )}
         </Card.Content>
       </Card>
@@ -317,14 +487,14 @@ export function InternalUserManagementSection({ context }: Props) {
 }
 
 export function AdminUserManagementSection({ context }: Props) {
-  const { representatives, merchants, customers } = context;
+  const { representatives, merchants, customers, handleActivateUser, handleDeactivateUser, handleDeleteUser, userActionLoadingState } = context;
 
   return (
     <>
       <InternalUserManagementSection context={context} />
-      <RepresentativeDirectoryCard users={representatives} />
-      <MerchantDirectoryCard users={merchants} />
-      <CustomerDirectoryCard users={customers} />
+      <RepresentativeDirectoryCard users={representatives} showStatus onActivate={handleActivateUser} onDeactivate={handleDeactivateUser} onDelete={handleDeleteUser} actionLoadingState={userActionLoadingState} />
+      <MerchantDirectoryCard users={merchants} showStatus onActivate={handleActivateUser} onDeactivate={handleDeactivateUser} onDelete={handleDeleteUser} actionLoadingState={userActionLoadingState} />
+      <CustomerDirectoryCard users={customers} showStatus onActivate={handleActivateUser} onDeactivate={handleDeactivateUser} onDelete={handleDeleteUser} actionLoadingState={userActionLoadingState} />
     </>
   );
 }

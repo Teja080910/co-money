@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Post } from '@overnightjs/core';
+import { Controller, Delete, Get, Post, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/requireRole';
 import { PromotionService } from '../services/PromotionService';
@@ -32,6 +32,21 @@ export class PromotionController {
 
             const promotion = await this.promotionService.createPromotion(authenticatedUser, req.body);
             return res.status(201).json(promotion);
+        } catch (error: any) {
+            return res.status(400).json({ error: error.message });
+        }
+    }
+
+    @Put(':id')
+    private async update(req: Request, res: Response) {
+        try {
+            const authenticatedUser = (req as AuthenticatedRequest).authenticatedUser;
+            if (!authenticatedUser) {
+                return res.status(401).json({ error: 'Authentication required.' });
+            }
+
+            const promotion = await this.promotionService.updatePromotion(authenticatedUser, req.params.id as string, req.body);
+            return res.status(200).json(promotion);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }

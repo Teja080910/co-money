@@ -19,10 +19,27 @@ export function TransactionsTab({ context }: Props) {
     setTransactionTypeFilter,
     setTransactionStatusFilter,
     filteredTransactions,
+    shopNameMap,
+    userDisplayNameMap,
   } = context;
 
   const translateTypeFilter = (option: string) => t(`transactions.filters.type.${option.toLowerCase()}`);
   const translateStatusFilter = (option: string) => t(`transactions.filters.status.${option.toLowerCase()}`);
+  const resolveShopLabel = (shopId?: string | null) => {
+    if (!shopId) {
+      return t('wallet.title');
+    }
+
+    return shopNameMap?.[shopId] || shopId;
+  };
+
+  const resolveUserLabel = (userId?: string | null) => {
+    if (!userId) {
+      return t('common.na');
+    }
+
+    return userDisplayNameMap?.[userId] || userId;
+  };
 
   return (
     <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
@@ -78,7 +95,10 @@ export function TransactionsTab({ context }: Props) {
                 </Text>
               ) : null}
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {t('transactions.from')}: {transaction.fromShopId || t('common.na')} | {t('transactions.to')}: {transaction.toShopId || t('common.na')}
+                {t('transactions.from')}: {resolveShopLabel(transaction.fromShopId)} | {t('transactions.to')}: {resolveShopLabel(transaction.toShopId)}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('transactions.customer')}: {resolveUserLabel(transaction.customerId)} | {t('transactions.merchant')}: {resolveUserLabel(transaction.merchantId)}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
                 {t('common.balance')}: {transaction.balanceBefore} {t('common.to')} {transaction.balanceAfter}

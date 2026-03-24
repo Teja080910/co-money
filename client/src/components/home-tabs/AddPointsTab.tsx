@@ -34,6 +34,12 @@ export function AddPointsTab({ context }: Props) {
     setSpendPoints,
     spendDescription,
     setSpendDescription,
+    previewCategories,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    previewLoading,
+    settlementPreview,
+    handlePreviewSettlement,
     submitting,
     handleAddPoints,
     handleSpendPoints,
@@ -112,6 +118,25 @@ export function AddPointsTab({ context }: Props) {
             </Text>
           )}
 
+          {previewCategories?.length ? (
+            <>
+              <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.category')}</Text>
+              <View style={styles.filterRow}>
+                {previewCategories.map((category: any) => (
+                  <Chip
+                    key={category.id}
+                    selected={selectedCategoryId === category.id}
+                    mode={selectedCategoryId === category.id ? 'flat' : 'outlined'}
+                    onPress={() => setSelectedCategoryId(category.id)}
+                    style={styles.filterChip}
+                  >
+                    {category.formattedName || category.name}
+                  </Chip>
+                ))}
+              </View>
+            </>
+          ) : null}
+
           <FloatingLabelInput
             icon="plus-circle-outline"
             label={t('addPoints.fields.pointsLabel')}
@@ -173,6 +198,41 @@ export function AddPointsTab({ context }: Props) {
             multiline
             numberOfLines={3}
           />
+          <Button
+            mode="outlined"
+            disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()}
+            loading={previewLoading}
+            onPress={() => void handlePreviewSettlement()}
+            style={styles.secondaryAction}
+          >
+            {t('addPoints.preview.action')}
+          </Button>
+          {settlementPreview ? (
+            <View style={[styles.selectionCard, { borderColor: theme.custom.border }]}>
+              <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{t('addPoints.preview.title')}</Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.usedPoints')}: {settlementPreview.usedPoints}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.maxDiscount')}: {settlementPreview.maxDiscountPoints} ({settlementPreview.maxDiscountPercent}%)
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.payableAmount')}: {settlementPreview.payableAmount ?? 0}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.earnedPoints')}: {settlementPreview.earnedPoints ?? 0}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.bonusPoints')}: {settlementPreview.bonusPoints}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.predictedBalance')}: {settlementPreview.predictedBalance}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.category')}: {settlementPreview.categoryName || t('addPoints.preview.categoryFallback')}
+              </Text>
+            </View>
+          ) : null}
           <Button
             mode="contained"
             disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()}

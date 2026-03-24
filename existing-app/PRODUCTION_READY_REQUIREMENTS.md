@@ -446,7 +446,7 @@ The rebuilt or migrated application must support:
 - version configuration changes and record who changed them
 - ensure changes do not silently corrupt historical transaction semantics
 
-## 7. Reconstructed Screen Inventory
+  ## 7. Reconstructed Screen Inventory
 
 ### 7.1 Verified screen paths
 

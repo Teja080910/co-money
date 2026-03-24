@@ -13,7 +13,7 @@ import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { CustomerQrScreen } from './src/screens/CustomerQrScreen';
 import { MerchantScanScreen } from './src/screens/MerchantScanScreen';
 import { RootStackParamList } from './src/navigation/types';
-import { getAuthenticatedToken, getAuthenticatedUser } from './src/services/auth';
+import { clearAuthenticatedUser, fetchAuthenticatedProfile, getAuthenticatedToken, getAuthenticatedUser } from './src/services/auth';
 import { getTheme } from './src/theme/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -37,7 +37,23 @@ export default function App() {
           return;
         }
 
-        setInitialRouteName(storedUser && storedToken ? 'Home' : 'Register');
+        if (storedUser && storedToken) {
+          try {
+            await fetchAuthenticatedProfile();
+
+            if (active) {
+              setInitialRouteName('Home');
+            }
+          } catch {
+            await clearAuthenticatedUser();
+
+            if (active) {
+              setInitialRouteName('Login');
+            }
+          }
+        } else {
+          setInitialRouteName('Register');
+        }
       } finally {
         if (active) {
           setAuthReady(true);
