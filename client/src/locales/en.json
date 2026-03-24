@@ -93,10 +93,10 @@
     "fetchWarning": "Could not fetch users, make sure backend is running"
   },
   "roles": {
-    "customer": "Customer App",
-    "merchant": "Merchant Console",
-    "representative": "Representative Workspace",
-    "admin": "Admin Dashboard"
+    "customer": "Customer",
+    "merchant": "Merchant",
+    "representative": "Representative",
+    "admin": "Admin"
   },
   "navigation": {
     "tabs": {
@@ -230,7 +230,7 @@
     "discount": "Discount",
     "payable": "Payable",
     "earnedInSettlement": "Earned in settlement",
-    "firstTimeBonus": "First-time bonus",
+    "firstTimeBonus": "Welcome bonus",
     "from": "From",
     "to": "To",
     "customer": "Customer",
@@ -365,7 +365,7 @@
       "title": "System Configuration",
       "subtitle": "Adjust global limits and rewards using the current admin workspace.",
       "welcomeBonusLabel": "Welcome bonus points",
-      "welcomeBonusHelper": "Bonus granted on the first eligible settlement.",
+      "welcomeBonusHelper": "Bonus granted after registration is verified.",
       "expirationLabel": "Point expiration days",
       "expirationHelper": "Number of days before points expire.",
       "maxPointsLabel": "Max points per transaction",
@@ -447,6 +447,10 @@
     "lookupError": "Unable to search for customers."
   },
   "addPoints": {
+    "customerCard": {
+      "title": "Choose Customer",
+      "subtitle": "Select or scan the customer before running any wallet action."
+    },
     "selectedCustomer": "Selected Customer",
     "chooseCustomerHint": "Choose a customer below or from the Customers tab.",
     "scanQr": "Scan Customer QR",
@@ -461,6 +465,7 @@
       "action": "Preview Settlement",
       "usedPoints": "Used points",
       "maxDiscount": "Max discount",
+      "discountAmount": "Discount amount",
       "payableAmount": "Payable amount",
       "earnedPoints": "Earned points",
       "bonusPoints": "Bonus points",
@@ -515,6 +520,8 @@
     "passwordIncorrect": "The password you entered is incorrect.",
     "verifyEmailFirst": "Verify your email first.",
     "verificationEmailFailed": "We could not send the verification email right now.",
+    "pointsNotRedeemableForShop": "Points cannot be redeemed for this shop.",
+    "requestedPointsExceedWalletBalance": "Requested points exceed the customer wallet balance.",
     "networkUnavailable": "We couldn't reach the server. Check your internet connection and try again.",
     "requestTimedOut": "The request took too long. Please try again."
   }

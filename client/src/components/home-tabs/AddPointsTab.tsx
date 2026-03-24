@@ -39,16 +39,23 @@ export function AddPointsTab({ context }: Props) {
     setSelectedCategoryId,
     previewLoading,
     settlementPreview,
+    error,
+    successMessage,
     handlePreviewSettlement,
     submitting,
     handleAddPoints,
     handleSpendPoints,
   } = context;
 
+  const resolvedPayableAmount =
+    settlementPreview && purchaseAmount.trim()
+      ? Number(purchaseAmount) - settlementPreview.usedPoints
+      : settlementPreview?.payableAmount ?? 0;
+
   return (
     <>
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title={t('addPoints.earn.title')} subtitle={t('addPoints.earn.subtitle')} />
+        <Card.Title title={t('addPoints.customerCard.title')} subtitle={t('addPoints.customerCard.subtitle')} />
         <Card.Content>
           <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.selectedCustomer')}</Text>
           {selectedCustomer ? (
@@ -81,7 +88,12 @@ export function AddPointsTab({ context }: Props) {
               </Chip>
             ))}
           </View>
+        </Card.Content>
+      </Card>
 
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title={t('addPoints.earn.title')} subtitle={t('addPoints.earn.subtitle')} />
+        <Card.Content>
           <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.pointType')}</Text>
           <View style={styles.filterRow}>
             {pointTypeOptions.map((option: string) => (
@@ -198,6 +210,16 @@ export function AddPointsTab({ context }: Props) {
             multiline
             numberOfLines={3}
           />
+          {error ? (
+            <Text style={[styles.message, { color: theme.custom.error }]}>
+              {error}
+            </Text>
+          ) : null}
+          {!error && successMessage ? (
+            <Text style={[styles.message, { color: theme.custom.success }]}>
+              {successMessage}
+            </Text>
+          ) : null}
           <Button
             mode="outlined"
             disabled={!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()}
@@ -217,7 +239,10 @@ export function AddPointsTab({ context }: Props) {
                 {t('addPoints.preview.maxDiscount')}: {settlementPreview.maxDiscountPoints} ({settlementPreview.maxDiscountPercent}%)
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                {t('addPoints.preview.payableAmount')}: {settlementPreview.payableAmount ?? 0}
+                {t('addPoints.preview.discountAmount')}: {settlementPreview.usedPoints}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('addPoints.preview.payableAmount')}: {resolvedPayableAmount}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
                 {t('addPoints.preview.earnedPoints')}: {settlementPreview.earnedPoints ?? 0}

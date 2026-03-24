@@ -93,10 +93,10 @@
     "fetchWarning": "Impossibile caricare gli utenti, assicurati che il backend sia attivo"
   },
   "roles": {
-    "customer": "App Cliente",
-    "merchant": "Console Esercente",
-    "representative": "Workspace Rappresentante",
-    "admin": "Dashboard Admin"
+    "customer": " Cliente",
+    "merchant": "Esercente",
+    "representative": "Rappresentante",
+    "admin": "Admin"
   },
   "navigation": {
     "tabs": {
@@ -230,7 +230,7 @@
     "discount": "Sconto",
     "payable": "Da pagare",
     "earnedInSettlement": "Guadagnati nel regolamento",
-    "firstTimeBonus": "Bonus primo utilizzo",
+    "firstTimeBonus": "Bonus benvenuto",
     "from": "Da",
     "to": "A",
     "customer": "Cliente",
@@ -365,7 +365,7 @@
       "title": "Configurazione Sistema",
       "subtitle": "Regola limiti e premi globali usando l'attuale workspace admin.",
       "welcomeBonusLabel": "Punti bonus benvenuto",
-      "welcomeBonusHelper": "Bonus assegnato al primo regolamento idoneo.",
+      "welcomeBonusHelper": "Bonus assegnato dopo la verifica della registrazione.",
       "expirationLabel": "Giorni scadenza punti",
       "expirationHelper": "Numero di giorni prima della scadenza dei punti.",
       "maxPointsLabel": "Massimo punti per transazione",
@@ -447,6 +447,10 @@
     "lookupError": "Impossibile cercare i clienti."
   },
   "addPoints": {
+    "customerCard": {
+      "title": "Scegli Cliente",
+      "subtitle": "Seleziona o scansiona il cliente prima di eseguire qualsiasi operazione sul portafoglio."
+    },
     "selectedCustomer": "Cliente Selezionato",
     "chooseCustomerHint": "Scegli un cliente qui sotto o dalla scheda Clienti.",
     "scanQr": "Scansiona QR Cliente",
@@ -461,6 +465,7 @@
       "action": "Anteprima Regolamento",
       "usedPoints": "Punti usati",
       "maxDiscount": "Sconto massimo",
+      "discountAmount": "Importo sconto",
       "payableAmount": "Importo dovuto",
       "earnedPoints": "Punti guadagnati",
       "bonusPoints": "Punti bonus",
@@ -515,6 +520,8 @@
     "passwordIncorrect": "La password inserita non e corretta.",
     "verifyEmailFirst": "Verifica prima la tua email.",
     "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento.",
+    "pointsNotRedeemableForShop": "I punti non possono essere riscattati per questo negozio.",
+    "requestedPointsExceedWalletBalance": "I punti richiesti superano il saldo del portafoglio del cliente.",
     "networkUnavailable": "Impossibile contattare il server. Controlla la connessione e riprova.",
     "requestTimedOut": "La richiesta ha impiegato troppo tempo. Riprova."
   }

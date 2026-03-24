@@ -128,7 +128,7 @@ export class WalletService {
             });
 
             return this.applyTransactionFilters(
-                transactions.filter(transaction => ownedShopIds.includes(transaction.shopId)),
+                transactions.filter(transaction => !!transaction.shopId && ownedShopIds.includes(transaction.shopId)),
                 type,
                 status,
             );
@@ -203,6 +203,9 @@ export class WalletService {
         const availablePoints = await this.getSpendablePointsForShop(customer.id, shop.id);
         const pointType = this.normalizePointType(input.pointType);
         const purchaseAmount = input.purchaseAmount === undefined ? null : this.normalizeCurrencyAmount(input.purchaseAmount);
+
+        this.assertRequestedPointsAreSpendable(requestedPoints, wallet.balance, availablePoints);
+
         const preview = await this.previewSettlement(currentUser, input);
 
         if (!purchaseAmount) {
@@ -253,13 +256,11 @@ export class WalletService {
 
         const payableAmount = preview.payableAmount ?? 0;
         const earnedPoints = preview.earnedPoints ?? 0;
-        const bonusPoints = preview.bonusPoints;
         const balanceBefore = wallet.balance;
         const balanceAfterSpend = balanceBefore - pointsToUse;
         const balanceAfterEarn = balanceAfterSpend + earnedPoints;
-        const finalBalance = balanceAfterEarn + bonusPoints;
 
-        wallet.balance = finalBalance;
+        wallet.balance = balanceAfterEarn;
         await this.walletRepository.save(wallet);
 
         const spendTransaction = this.walletTransactionRepository.create({
@@ -277,7 +278,7 @@ export class WalletService {
             purchaseAmount,
             discountAmount: pointsToUse,
             payableAmount,
-            earnedPoints: earnedPoints + bonusPoints,
+            earnedPoints,
             isFirstTransactionBonus: false,
             balanceBefore,
             balanceAfter: balanceAfterSpend,
@@ -308,32 +309,6 @@ export class WalletService {
 
         const transactionsToSave = [spendTransaction, earnTransaction];
 
-        if (bonusPoints > 0) {
-            transactionsToSave.push(
-                this.walletTransactionRepository.create({
-                    walletId: wallet.id,
-                    customerId: customer.id,
-                    merchantId: shop.merchantId,
-                    performedByUserId: currentUser.id,
-                    shopId: shop.id,
-                    fromShopId: null,
-                    toShopId: shop.id,
-                    type: WalletTransactionType.EARN,
-                    pointType: WalletPointType.BONUS,
-                    status: WalletTransactionStatus.SUCCESS,
-                    points: bonusPoints,
-                    purchaseAmount,
-                    discountAmount: pointsToUse,
-                    payableAmount,
-                    earnedPoints: bonusPoints,
-                    isFirstTransactionBonus: true,
-                    balanceBefore: balanceAfterEarn,
-                    balanceAfter: finalBalance,
-                    description: 'First-time bonus awarded',
-                }),
-            );
-        }
-
         await this.walletTransactionRepository.save(transactionsToSave);
 
         return {
@@ -342,7 +317,7 @@ export class WalletService {
             maxDiscountPoints,
             payableAmount,
             earnedPoints,
-            bonusPoints,
+            bonusPoints: 0,
             transactions: transactionsToSave,
         };
     }
@@ -358,6 +333,8 @@ export class WalletService {
         const purchaseAmount = input.purchaseAmount === undefined ? null : this.normalizeCurrencyAmount(input.purchaseAmount);
         const currentConfig = await this.systemConfigService.getCurrentConfig();
         const applicableCategory = await this.categoryService.getCategoryForShop(shop.id, input.categoryId);
+
+        this.assertRequestedPointsAreSpendable(requestedPoints, wallet.balance, availablePoints);
 
         if (!purchaseAmount) {
             return {
@@ -383,9 +360,6 @@ export class WalletService {
         const usedPoints = Math.min(requestedPoints, maxDiscountPoints, spendableBalance);
         const payableAmount = purchaseAmount - usedPoints;
         const earnedPoints = payableAmount;
-        const isFirstSettlement = await this.isFirstSettlement(customer.id);
-        const bonusPoints = isFirstSettlement ? currentConfig.welcomeBonusPoints : 0;
-
         return {
             customerId: customer.id,
             shopId: shop.id,
@@ -398,8 +372,8 @@ export class WalletService {
             maxDiscountPercent: configuredMaxDiscountPercent,
             payableAmount,
             earnedPoints,
-            bonusPoints,
-            predictedBalance: wallet.balance - usedPoints + earnedPoints + bonusPoints,
+            bonusPoints: 0,
+            predictedBalance: wallet.balance - usedPoints + earnedPoints,
         };
     }
 
@@ -420,7 +394,7 @@ export class WalletService {
             : shops;
         const scopedShopIds = new Set(scopedShops.map(shop => shop.id));
         const scopedTransactions = currentUser.role === UserRole.REPRESENTATIVE
-            ? transactions.filter(transaction => scopedShopIds.has(transaction.shopId))
+            ? transactions.filter(transaction => !!transaction.shopId && scopedShopIds.has(transaction.shopId))
             : transactions;
         const now = new Date();
         const currentMonthTransactions = scopedTransactions.filter(transaction => {
@@ -546,18 +520,6 @@ export class WalletService {
         return Math.max(earnedFromCurrentShop - spentFromCurrentShop, 0);
     }
 
-    private async isFirstSettlement(customerId: string) {
-        const earnCount = await this.walletTransactionRepository.count({
-            where: {
-                customerId,
-                type: WalletTransactionType.EARN,
-                status: WalletTransactionStatus.SUCCESS,
-            },
-        });
-
-        return earnCount === 0;
-    }
-
     private assertStaffCanUpdateWallet(role: UserRole): void {
         if (![UserRole.MERCHANT, UserRole.ADMIN].includes(role)) {
             throw new Error('You do not have permission to update wallet points.');
@@ -578,6 +540,20 @@ export class WalletService {
         }
 
         return amount;
+    }
+
+    private assertRequestedPointsAreSpendable(requestedPoints: number, walletBalance: number, availablePoints: number) {
+        if (availablePoints <= 0) {
+            throw new Error('Points cannot be redeemed for this shop.');
+        }
+
+        if (requestedPoints > availablePoints) {
+            throw new Error('Requested points exceed the points available for this shop.');
+        }
+
+        if (requestedPoints > walletBalance) {
+            throw new Error('Requested points exceed the customer wallet balance.');
+        }
     }
 
     private normalizePointType(pointType?: string): WalletPointType {

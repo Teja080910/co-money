@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Button, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Button, Portal, Snackbar, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserRole } from '../constants/userRoles';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -35,7 +35,7 @@ import { WalletTab } from '../components/home-tabs/WalletTab';
 import { BottomTabBar } from '../components/navigation/BottomTabBar';
 import { getRoutesForRole } from '../navigation/homeTabConfig';
 import type { HomeTabParamList, ScreenProps } from '../navigation/types';
-import { apiClient } from '../services/api';
+import { apiClient, getApiErrorMessage } from '../services/api';
 import { changePassword, fetchAuthenticatedProfile, getAuthenticatedUser, logoutUser, type AuthUser } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
@@ -43,9 +43,9 @@ type WalletTransaction = {
   id: string;
   walletId: string;
   customerId: string;
-  merchantId: string;
+  merchantId: string | null;
   performedByUserId: string;
-  shopId: string;
+  shopId: string | null;
   fromShopId: string | null;
   toShopId: string | null;
   type: 'EARN' | 'SPEND' | 'ADJUSTMENT';
@@ -325,6 +325,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [activeDatePicker, setActiveDatePicker] = useState<
     'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
   >(null);
+
+  const notificationVisible = Boolean(error || successMessage);
 
   const routes = useMemo(() => {
     if (!authUser) {
@@ -937,6 +939,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
     setPreviewLoading(true);
     setError(null);
+    setSuccessMessage(null);
+    setSettlementPreview(null);
 
     try {
       const response = await apiClient.post<SettlementPreview>('/api/wallet/preview', {
@@ -948,7 +952,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       });
       setSettlementPreview(response.data);
     } catch (previewError: any) {
-      setError(previewError?.response?.data?.error || 'Unable to preview settlement.');
+      setError(getApiErrorMessage(previewError, 'Unable to preview settlement.'));
     } finally {
       setPreviewLoading(false);
     }
@@ -1543,6 +1547,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSelectedCategoryId,
     previewLoading,
     settlementPreview,
+    error,
+    successMessage,
     handlePreviewSettlement,
     submitting,
     handleAddPoints,
@@ -1763,6 +1769,42 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         <View style={styles.backdropGlowOrange} />
         <View style={styles.backdropGrid} />
       </View>
+      <Portal>
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.toastOverlay,
+            {
+              top: Math.max(insets.top + 8, 16),
+            },
+          ]}
+        >
+          <Snackbar
+            visible={notificationVisible}
+            onDismiss={() => {
+              setError(null);
+              setSuccessMessage(null);
+            }}
+            duration={3200}
+            style={[
+              styles.snackbar,
+              {
+                backgroundColor: error ? theme.custom.error : theme.custom.success,
+              },
+            ]}
+            action={{
+              label: 'Dismiss',
+              textColor: '#FFFFFF',
+              onPress: () => {
+                setError(null);
+                setSuccessMessage(null);
+              },
+            }}
+          >
+            {error || successMessage || ''}
+          </Snackbar>
+        </View>
+      </Portal>
       <ScrollView
         contentContainerStyle={[
           styles.contentFrame,
@@ -1841,16 +1883,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 </Text>
               </View>
 
-              {error ? <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text> : null}
-              {successMessage ? <Text style={[styles.message, { color: theme.custom.success }]}>{successMessage}</Text> : null}
-              <View style={styles.tabNavigatorShell}>
-                <View style={styles.tabSceneContent}>
-                  {renderActiveTabContent()}
-                </View>
-              </View>
-              {activeDatePicker ? (
-                <View style={styles.datePickerWrap}>
-                  <DateTimePicker
+	              <View style={styles.tabNavigatorShell}>
+	                <View style={styles.tabSceneContent}>
+	                  {renderActiveTabContent()}
+		            </View>
+	              </View>
+	              {activeDatePicker ? (
+	                <View style={styles.datePickerWrap}>
+	                  <DateTimePicker
                     value={
                       activeDatePicker === 'promotion-start'
                         ? getPickerDate(promotionStartDate)
@@ -2152,6 +2192,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  snackbar: {
+    borderRadius: 16,
+    elevation: 8,
+  },
+  toastOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    elevation: 20,
   },
   filterRow: {
     flexDirection: 'row',
