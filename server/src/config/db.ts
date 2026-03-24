@@ -4,6 +4,7 @@ import { Shop } from '../models/Shop';
 import { Wallet } from '../models/Wallet';
 import { WalletTransaction } from '../models/WalletTransaction';
 import { Promotion } from '../models/Promotion';
+import { PromotionClaim } from '../models/PromotionClaim';
 import { Event } from '../models/Event';
 import dotenv from 'dotenv';
 
@@ -15,7 +16,7 @@ export const AppDataSource = new DataSource({
     synchronize: false, // We will use migrations instead
     migrationsRun: true,
     logging: ['error'],
-    entities: [User, Shop, Wallet, WalletTransaction, Promotion, Event],
+    entities: [User, Shop, Wallet, WalletTransaction, Promotion, PromotionClaim, Event],
     migrations: ['src/migrations/**/*.ts'],
     subscribers: [],
 });

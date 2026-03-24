@@ -328,6 +328,8 @@
       "activeSubtitle": "Offers available across the network",
       "bonus": "Bonus",
       "maxDiscount": "Max discount",
+      "claim": "Claim",
+      "claimed": "Claimed",
       "empty": "No promotions are available right now."
     },
     "events": {

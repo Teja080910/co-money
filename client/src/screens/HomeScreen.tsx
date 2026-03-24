@@ -122,6 +122,7 @@ type Promotion = {
   startsAt: string;
   endsAt: string;
   isActive: boolean;
+  isClaimed?: boolean;
 };
 
 type EventItem = {
@@ -183,6 +184,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [submitting, setSubmitting] = useState(false);
   const [shopSubmitting, setShopSubmitting] = useState(false);
   const [promotionSubmitting, setPromotionSubmitting] = useState(false);
+  const [claimingPromotionId, setClaimingPromotionId] = useState('');
   const [eventSubmitting, setEventSubmitting] = useState(false);
   const [userSubmitting, setUserSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -866,6 +868,27 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }
   };
 
+  const handleClaimPromotion = async (promotionId: string) => {
+    if (!promotionId.trim()) {
+      return;
+    }
+
+    setClaimingPromotionId(promotionId);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiClient.post<{ bonusPoints: number; balance: number }>(`/api/promotions/${promotionId}/claim`);
+      const result = response.data;
+      setSuccessMessage(`Promotion claimed successfully. ${result.bonusPoints} bonus points were added to your wallet.`);
+      await loadDashboard();
+    } catch (claimError: any) {
+      setError(claimError?.response?.data?.error || 'Unable to claim promotion.');
+    } finally {
+      setClaimingPromotionId('');
+    }
+  };
+
   const handleCreateEvent = async () => {
     if (!eventTitle.trim()) {
       setError('Event title is required.');
@@ -1115,10 +1138,12 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     promotionStartDate,
     promotionEndDate,
     promotionSubmitting,
+    claimingPromotionId,
     handleCreatePromotion,
     resetPromotionForm,
     promotions,
     handleDeletePromotion,
+    handleClaimPromotion,
     eventTitle,
     setEventTitle,
     eventDescription,
@@ -1186,7 +1211,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           />
         );
       case 'promotions':
-        return <PromotionsSection context={tabContext} editable />;
+        return <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />;
       case 'events':
         return <EventsSection context={tabContext} editable />;
       case 'transactions':

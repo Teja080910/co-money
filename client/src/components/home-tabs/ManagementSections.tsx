@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { Button, Card, Chip } from 'react-native-paper';
+import { UserRole } from '../../constants/userRoles';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
 import { CustomerDirectoryCard } from '../user-directory/CustomerDirectoryCard';
 import { MerchantDirectoryCard } from '../user-directory/MerchantDirectoryCard';
@@ -155,9 +156,10 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
 
 export function PromotionsSection({ context, editable }: Props & { editable: boolean }) {
   const { t } = useTranslation();
-  const { theme, styles, promotionTitle, setPromotionTitle, promotionDescription, setPromotionDescription, manageablePromotionShops, promotionShopId, setPromotionShopId, promotionBonusPoints, setPromotionBonusPoints, renderDateField, promotionStartDate, promotionEndDate, promotionSubmitting, handleCreatePromotion, resetPromotionForm, promotions, handleDeletePromotion, formatDate } = context;
+  const { theme, styles, authUser, promotionTitle, setPromotionTitle, promotionDescription, setPromotionDescription, manageablePromotionShops, promotionShopId, setPromotionShopId, promotionBonusPoints, setPromotionBonusPoints, renderDateField, promotionStartDate, promotionEndDate, promotionSubmitting, claimingPromotionId, handleCreatePromotion, resetPromotionForm, promotions, handleDeletePromotion, handleClaimPromotion, formatDate } = context;
   const safePromotionShops = manageablePromotionShops ?? [];
   const safePromotions = promotions ?? [];
+  const isCustomerView = authUser?.role === UserRole.CUSTOMER;
 
   return (
     <>
@@ -202,6 +204,18 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
                 {editable ? (
                   <View style={styles.shopActions}>
                     <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeletePromotion(promotion.id)}>{t('common.delete')}</Button>
+                  </View>
+                ) : isCustomerView ? (
+                  <View style={styles.shopActions}>
+                    <Button
+                      compact
+                      mode={promotion.isClaimed ? 'outlined' : 'contained'}
+                      disabled={Boolean(promotion.isClaimed) || claimingPromotionId === promotion.id}
+                      loading={claimingPromotionId === promotion.id}
+                      onPress={() => void handleClaimPromotion(promotion.id)}
+                    >
+                      {promotion.isClaimed ? t('management.promotions.claimed') : t('management.promotions.claim')}
+                    </Button>
                   </View>
                 ) : null}
               </View>

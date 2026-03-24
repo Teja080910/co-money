@@ -37,6 +37,21 @@ export class PromotionController {
         }
     }
 
+    @Post(':id/claim')
+    private async claim(req: Request, res: Response) {
+        try {
+            const authenticatedUser = (req as AuthenticatedRequest).authenticatedUser;
+            if (!authenticatedUser) {
+                return res.status(401).json({ error: 'Authentication required.' });
+            }
+
+            const result = await this.promotionService.claimPromotion(authenticatedUser, req.params.id as string);
+            return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(400).json({ error: error.message });
+        }
+    }
+
     @Delete(':id')
     private async remove(req: Request, res: Response) {
         try {

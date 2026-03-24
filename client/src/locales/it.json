@@ -328,6 +328,8 @@
       "activeSubtitle": "Offerte disponibili nella rete",
       "bonus": "Bonus",
       "maxDiscount": "Sconto max",
+      "claim": "Riscatta",
+      "claimed": "Riscattata",
       "empty": "Nessuna promozione disponibile al momento."
     },
     "events": {

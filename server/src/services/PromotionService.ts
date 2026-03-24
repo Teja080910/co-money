@@ -1,7 +1,13 @@
 import { AppDataSource } from '../config/db';
+import { WalletPointType } from '../constants/walletPointTypes';
+import { WalletTransactionStatus } from '../constants/walletTransactionStatuses';
+import { WalletTransactionType } from '../constants/walletTransactionTypes';
 import { UserRole } from '../constants/userRoles';
 import { Promotion } from '../models/Promotion';
+import { PromotionClaim } from '../models/PromotionClaim';
 import { Shop } from '../models/Shop';
+import { Wallet } from '../models/Wallet';
+import { WalletTransaction } from '../models/WalletTransaction';
 
 type CurrentUser = {
     id: string;
@@ -21,7 +27,10 @@ type PromotionInput = {
 
 export class PromotionService {
     private promotionRepository = AppDataSource.getRepository(Promotion);
+    private promotionClaimRepository = AppDataSource.getRepository(PromotionClaim);
     private shopRepository = AppDataSource.getRepository(Shop);
+    private walletRepository = AppDataSource.getRepository(Wallet);
+    private walletTransactionRepository = AppDataSource.getRepository(WalletTransaction);
 
     public async listPromotions(currentUser: CurrentUser) {
         const promotions = await this.promotionRepository.find({
@@ -31,10 +40,15 @@ export class PromotionService {
         const shopMap = new Map(shops.map(shop => [shop.id, shop]));
         const now = new Date();
 
+        const customerClaims = currentUser.role === UserRole.CUSTOMER
+            ? await this.promotionClaimRepository.findBy({ customerId: currentUser.id })
+            : [];
+        const claimedPromotionIds = new Set(customerClaims.map(claim => claim.promotionId));
+
         return promotions
             .filter(promotion => {
                 if (currentUser.role === UserRole.CUSTOMER) {
-                    return promotion.isActive && promotion.endsAt >= now;
+                    return promotion.isActive && promotion.startsAt <= now && promotion.endsAt >= now;
                 }
 
                 if (currentUser.role === UserRole.MERCHANT) {
@@ -47,6 +61,7 @@ export class PromotionService {
                 ...promotion,
                 shopName: shopMap.get(promotion.shopId)?.name || 'Unknown shop',
                 shopLocation: shopMap.get(promotion.shopId)?.location || '',
+                isClaimed: claimedPromotionIds.has(promotion.id),
             }));
     }
 
@@ -100,6 +115,82 @@ export class PromotionService {
         return { id: promotion.id };
     }
 
+    public async claimPromotion(currentUser: CurrentUser, promotionId: string) {
+        if (currentUser.role !== UserRole.CUSTOMER) {
+            throw new Error('Only customers can claim promotions.');
+        }
+
+        const promotion = await this.promotionRepository.findOneBy({ id: promotionId.trim() });
+        if (!promotion) {
+            throw new Error('Promotion not found.');
+        }
+
+        const shop = await this.shopRepository.findOneBy({ id: promotion.shopId });
+        if (!shop || !shop.isActive) {
+            throw new Error('Promotion shop is not available.');
+        }
+
+        const now = new Date();
+        if (!promotion.isActive || promotion.startsAt > now || promotion.endsAt < now) {
+            throw new Error('This promotion is not active right now.');
+        }
+
+        const existingClaim = await this.promotionClaimRepository.findOneBy({
+            promotionId: promotion.id,
+            customerId: currentUser.id,
+        });
+        if (existingClaim) {
+            throw new Error('You have already claimed this promotion.');
+        }
+
+        const wallet = await this.getOrCreateWallet(currentUser.id);
+        const balanceBefore = wallet.balance;
+        wallet.balance += promotion.bonusPoints;
+
+        return AppDataSource.transaction(async manager => {
+            await manager.save(Wallet, wallet);
+
+            const claimTransaction = manager.create(WalletTransaction, {
+                walletId: wallet.id,
+                customerId: currentUser.id,
+                merchantId: promotion.merchantId,
+                performedByUserId: currentUser.id,
+                shopId: promotion.shopId,
+                fromShopId: null,
+                toShopId: promotion.shopId,
+                type: WalletTransactionType.EARN,
+                pointType: WalletPointType.BONUS,
+                status: WalletTransactionStatus.SUCCESS,
+                points: promotion.bonusPoints,
+                purchaseAmount: null,
+                discountAmount: null,
+                payableAmount: null,
+                earnedPoints: promotion.bonusPoints,
+                isFirstTransactionBonus: false,
+                balanceBefore,
+                balanceAfter: wallet.balance,
+                description: `Promotion claimed: ${promotion.title}`,
+            });
+
+            const savedTransaction = await manager.save(WalletTransaction, claimTransaction);
+            await manager.save(
+                PromotionClaim,
+                manager.create(PromotionClaim, {
+                    promotionId: promotion.id,
+                    customerId: currentUser.id,
+                    walletTransactionId: savedTransaction.id,
+                }),
+            );
+
+            return {
+                promotionId: promotion.id,
+                bonusPoints: promotion.bonusPoints,
+                balance: wallet.balance,
+                transactionId: savedTransaction.id,
+            };
+        });
+    }
+
     private async getManageableShop(currentUser: CurrentUser, shopId: string) {
         const shop = await this.shopRepository.findOneBy({ id: shopId });
         if (!shop) {
@@ -130,6 +221,20 @@ export class PromotionService {
         }
 
         return parsed;
+    }
+
+    private async getOrCreateWallet(customerId: string): Promise<Wallet> {
+        const existingWallet = await this.walletRepository.findOneBy({ customerId });
+        if (existingWallet) {
+            return existingWallet;
+        }
+
+        const wallet = this.walletRepository.create({
+            customerId,
+            balance: 0,
+        });
+
+        return this.walletRepository.save(wallet);
     }
 
     private normalizeNonNegativeInteger(value: number | undefined, fallback: number) {

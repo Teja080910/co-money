@@ -7,6 +7,7 @@ export function getRoutesForRole(role: UserRole): AppTabRoute[] {
       return [
         { key: 'home', title: 'Home', focusedIcon: 'home', unfocusedIcon: 'home-outline' },
         { key: 'wallet', title: 'Wallet', focusedIcon: 'wallet', unfocusedIcon: 'wallet-outline' },
+        { key: 'promotions', title: 'Promotions', focusedIcon: 'tag-multiple', unfocusedIcon: 'tag-multiple-outline' },
         { key: 'transactions', title: 'History', focusedIcon: 'history', unfocusedIcon: 'history' },
         { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
       ];
