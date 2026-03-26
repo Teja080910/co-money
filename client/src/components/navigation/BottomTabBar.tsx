@@ -86,7 +86,7 @@ export function BottomTabBar({ routes, routeIndex, onSelectRoute, bottomInset }:
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
-    marginTop: 18,
+    marginTop: 0,
   },
   bar: {
     borderRadius: 24,

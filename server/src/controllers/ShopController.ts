@@ -2,6 +2,7 @@ import { Controller, Delete, Get, Post, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/requireRole';
 import { ShopService } from '../services/ShopService';
+import { getPaginationParams, paginateItems } from '../utils/pagination';
 
 @Controller('api/shops')
 export class ShopController {
@@ -16,7 +17,10 @@ export class ShopController {
             }
 
             const shops = await this.shopService.listShops(authenticatedUser);
-            return res.status(200).json(shops);
+            const pagination = getPaginationParams(req.query);
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(shops, pagination) : shops,
+            );
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }

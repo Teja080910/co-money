@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
-import { Card, Chip, Divider } from 'react-native-paper';
+import { ActivityIndicator, Card, Chip, Divider, IconButton } from 'react-native-paper';
 
 type Props = {
   context: any;
@@ -19,6 +19,11 @@ export function TransactionsTab({ context }: Props) {
     setTransactionTypeFilter,
     setTransactionStatusFilter,
     filteredTransactions,
+    transactionLoading,
+    transactionPage,
+    transactionTotalPages,
+    transactionTotalItems,
+    handleTransactionPageChange,
     shopNameMap,
     userDisplayNameMap,
   } = context;
@@ -74,7 +79,9 @@ export function TransactionsTab({ context }: Props) {
 
         <Divider style={styles.divider} />
 
-        {filteredTransactions.length ? (
+        {transactionLoading ? (
+          <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+        ) : filteredTransactions.length ? (
           filteredTransactions.map((transaction: any) => (
             <View key={transaction.id} style={styles.listItem}>
               <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
@@ -108,6 +115,33 @@ export function TransactionsTab({ context }: Props) {
         ) : (
           <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('transactions.empty')}</Text>
         )}
+
+        {transactionTotalItems > 0 ? (
+          <View style={[styles.actionRow, { justifyContent: 'space-between', alignItems: 'center' }]}>
+            <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+              {t('transactions.pagination.summary', {
+                page: transactionPage,
+                totalPages: Math.max(transactionTotalPages, 1),
+              })}
+            </Text>
+            <View style={[styles.filterRow, { flexWrap: 'nowrap', justifyContent: 'flex-end' }]}>
+              <IconButton
+                icon="chevron-left"
+                mode="outlined"
+                disabled={transactionPage <= 1 || transactionLoading}
+                onPress={() => void handleTransactionPageChange(transactionPage - 1)}
+                style={styles.inlineActionButton}
+              />
+              <IconButton
+                icon="chevron-right"
+                mode="outlined"
+                disabled={transactionPage >= transactionTotalPages || transactionLoading || transactionTotalPages === 0}
+                onPress={() => void handleTransactionPageChange(transactionPage + 1)}
+                style={styles.inlineActionButton}
+              />
+            </View>
+          </View>
+        ) : null}
       </Card.Content>
     </Card>
   );

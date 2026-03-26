@@ -2,6 +2,7 @@ import { Controller, Get, Post } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/requireRole';
 import { WalletService } from '../services/WalletService';
+import { getPaginationParams, paginateItems } from '../utils/pagination';
 
 @Controller('api/wallet')
 export class WalletController {
@@ -66,7 +67,10 @@ export class WalletController {
             const type = typeof req.query.type === 'string' ? req.query.type : undefined;
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
             const transactions = await this.walletService.getTransactions(authenticatedUser, customerId, shopId, type, status);
-            return res.status(200).json(transactions);
+            const pagination = getPaginationParams(req.query);
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(transactions, pagination) : transactions,
+            );
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }

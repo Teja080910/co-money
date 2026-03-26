@@ -2,6 +2,7 @@ import { Controller, Delete, Get, Post, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/requireRole';
 import { CategoryService } from '../services/CategoryService';
+import { getPaginationParams, paginateItems } from '../utils/pagination';
 
 @Controller('api/categories')
 export class CategoryController {
@@ -17,7 +18,10 @@ export class CategoryController {
 
             const shopId = typeof req.query.shopId === 'string' ? req.query.shopId : undefined;
             const categories = await this.categoryService.listCategories(authenticatedUser, shopId);
-            return res.status(200).json(categories);
+            const pagination = getPaginationParams(req.query);
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(categories, pagination) : categories,
+            );
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }

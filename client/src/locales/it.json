@@ -258,6 +258,11 @@
         "pending": "In attesa",
         "failed": "Fallita"
       }
+    },
+    "pagination": {
+      "previous": "Precedente",
+      "next": "Successiva",
+      "summary": "Pagina {{page}} di {{totalPages}}"
     }
   },
   "wallet": {
@@ -454,6 +459,7 @@
     "selectedCustomer": "Cliente Selezionato",
     "chooseCustomerHint": "Scegli un cliente qui sotto o dalla scheda Clienti.",
     "scanQr": "Scansiona QR Cliente",
+    "recentCustomers": "Clienti Recenti",
     "chooseCustomer": "Scegli Cliente",
     "pointType": "Tipo Punti",
     "selectShop": "Seleziona Negozio",

@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
-import { Button, Card, Chip } from 'react-native-paper';
+import { Button, Card } from 'react-native-paper';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
+import { SelectField } from '../common/SelectField';
 
 type Props = {
   context: any;
@@ -41,6 +42,7 @@ export function AddPointsTab({ context }: Props) {
     settlementPreview,
     error,
     successMessage,
+    walletActionFeedback,
     handlePreviewSettlement,
     submitting,
     handleAddPoints,
@@ -51,6 +53,7 @@ export function AddPointsTab({ context }: Props) {
     settlementPreview && purchaseAmount.trim()
       ? Number(purchaseAmount) - settlementPreview.usedPoints
       : settlementPreview?.payableAmount ?? 0;
+  const recentCustomers = filteredCustomers.slice(0, 3);
 
   return (
     <>
@@ -70,60 +73,49 @@ export function AddPointsTab({ context }: Props) {
               {t('addPoints.chooseCustomerHint')}
             </Text>
           )}
-          <Button mode="outlined" onPress={() => navigation.navigate('MerchantScan')} style={styles.secondaryAction}>
+          <Button mode="outlined" onPress={() => navigation.navigate('MerchantScan')}  style={[styles.secondaryAction, { marginBottom: 2 }]}>
             {t('addPoints.scanQr')}
           </Button>
 
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.chooseCustomer')}</Text>
-          <View style={styles.filterRow}>
-            {filteredCustomers.slice(0, 8).map((customer: any) => (
-              <Chip
-                key={customer.id}
-                selected={selectedCustomerId === customer.id}
-                mode={selectedCustomerId === customer.id ? 'flat' : 'outlined'}
-                onPress={() => setSelectedCustomerId(customer.id)}
-                style={styles.filterChip}
-              >
-                {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username}
-              </Chip>
-            ))}
-          </View>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary, marginTop: 4 }]}>
+            {t('addPoints.recentCustomers')}
+          </Text>
+          <SelectField
+            label={t('addPoints.chooseCustomer')}
+            value={selectedCustomerId}
+            onSelect={setSelectedCustomerId}
+            options={recentCustomers.map((customer: any) => ({
+              value: customer.id,
+              label: [customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username,
+            }))}
+            placeholder={t('addPoints.chooseCustomerHint')}
+          />
         </Card.Content>
       </Card>
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('addPoints.earn.title')} subtitle={t('addPoints.earn.subtitle')} />
         <Card.Content>
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.pointType')}</Text>
-          <View style={styles.filterRow}>
-            {pointTypeOptions.map((option: string) => (
-              <Chip
-                key={option}
-                selected={pointType === option}
-                mode={pointType === option ? 'flat' : 'outlined'}
-                onPress={() => setPointType(option)}
-                style={styles.filterChip}
-              >
-                {option}
-              </Chip>
-            ))}
-          </View>
+          <SelectField
+            label={t('addPoints.pointType')}
+            value={pointType}
+            onSelect={setPointType}
+            options={pointTypeOptions.map((option: string) => ({
+              value: option,
+              label: option,
+            }))}
+          />
 
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.selectShop')}</Text>
           {availableShops.length ? (
-            <View style={styles.filterRow}>
-              {availableShops.map((shop: any) => (
-                <Chip
-                  key={shop.id}
-                  selected={selectedShopId === shop.id}
-                  mode={selectedShopId === shop.id ? 'flat' : 'outlined'}
-                  onPress={() => setSelectedShopId(shop.id)}
-                  style={styles.filterChip}
-                >
-                  {shop.name}
-                </Chip>
-              ))}
-            </View>
+            <SelectField
+              label={t('addPoints.selectShop')}
+              value={selectedShopId}
+              onSelect={setSelectedShopId}
+              options={availableShops.map((shop: any) => ({
+                value: shop.id,
+                label: shop.name,
+              }))}
+            />
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>
               {t('addPoints.noShops')}
@@ -131,22 +123,15 @@ export function AddPointsTab({ context }: Props) {
           )}
 
           {previewCategories?.length ? (
-            <>
-              <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('addPoints.category')}</Text>
-              <View style={styles.filterRow}>
-                {previewCategories.map((category: any) => (
-                  <Chip
-                    key={category.id}
-                    selected={selectedCategoryId === category.id}
-                    mode={selectedCategoryId === category.id ? 'flat' : 'outlined'}
-                    onPress={() => setSelectedCategoryId(category.id)}
-                    style={styles.filterChip}
-                  >
-                    {category.formattedName || category.name}
-                  </Chip>
-                ))}
-              </View>
-            </>
+            <SelectField
+              label={t('addPoints.category')}
+              value={selectedCategoryId}
+              onSelect={setSelectedCategoryId}
+              options={previewCategories.map((category: any) => ({
+                value: category.id,
+                label: category.formattedName || category.name,
+              }))}
+            />
           ) : null}
 
           <FloatingLabelInput
@@ -175,6 +160,16 @@ export function AddPointsTab({ context }: Props) {
           >
             {t('addPoints.earn.submit')}
           </Button>
+          {walletActionFeedback === 'earn' && error ? (
+            <Text style={[styles.message, { color: theme.custom.error }]}>
+              {error}
+            </Text>
+          ) : null}
+          {walletActionFeedback === 'earn' && !error && successMessage ? (
+            <Text style={[styles.message, { color: theme.custom.success }]}>
+              {successMessage}
+            </Text>
+          ) : null}
         </Card.Content>
       </Card>
 
@@ -210,12 +205,12 @@ export function AddPointsTab({ context }: Props) {
             multiline
             numberOfLines={3}
           />
-          {error ? (
+          {(walletActionFeedback === 'spend' || walletActionFeedback === 'preview') && error ? (
             <Text style={[styles.message, { color: theme.custom.error }]}>
               {error}
             </Text>
           ) : null}
-          {!error && successMessage ? (
+          {(walletActionFeedback === 'spend' || walletActionFeedback === 'preview') && !error && successMessage ? (
             <Text style={[styles.message, { color: theme.custom.success }]}>
               {successMessage}
             </Text>

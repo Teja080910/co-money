@@ -15,6 +15,7 @@ export type AppTabRoute = {
   title: string;
   focusedIcon: string;
   unfocusedIcon: string;
+  showWelcomeHeader?: boolean;
 };
 
 export type HomeTabParamList = {

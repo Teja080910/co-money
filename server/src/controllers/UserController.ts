@@ -3,6 +3,7 @@ import { Controller, Get, Post } from '@overnightjs/core';
 import { UserRole, isUserRole } from '../constants/userRoles';
 import { getAuthenticatedUser } from '../middleware/requireRole';
 import { UserService } from '../services/UserService';
+import { getPaginationParams, paginateItems } from '../utils/pagination';
 
 @Controller('api/users')
 export class UserController {
@@ -25,7 +26,12 @@ export class UserController {
                 : undefined;
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
             const users = await this.userService.getAllUsers({ role, status });
-            return res.status(200).json(this.userService.sanitizeUsers(users));
+            const sanitizedUsers = this.userService.sanitizeUsers(users);
+            const pagination = getPaginationParams(req.query);
+
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(sanitizedUsers, pagination) : sanitizedUsers,
+            );
         } catch (error: any) {
             return res.status(500).json({ error: error.message });
         }
@@ -47,7 +53,12 @@ export class UserController {
 
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
             const users = await this.userService.getAllUsers({ role: UserRole.CUSTOMER, status });
-            return res.status(200).json(this.userService.sanitizeUsers(users));
+            const sanitizedUsers = this.userService.sanitizeUsers(users);
+            const pagination = getPaginationParams(req.query);
+
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(sanitizedUsers, pagination) : sanitizedUsers,
+            );
         } catch (error: any) {
             return res.status(500).json({ error: error.message });
         }
@@ -63,7 +74,12 @@ export class UserController {
 
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
             const users = await this.userService.getAllUsers({ role: UserRole.MERCHANT, status });
-            return res.status(200).json(this.userService.sanitizeUsers(users));
+            const sanitizedUsers = this.userService.sanitizeUsers(users);
+            const pagination = getPaginationParams(req.query);
+
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(sanitizedUsers, pagination) : sanitizedUsers,
+            );
         } catch (error: any) {
             return res.status(500).json({ error: error.message });
         }
@@ -79,7 +95,12 @@ export class UserController {
 
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
             const users = await this.userService.getAllUsers({ role: UserRole.REPRESENTATIVE, status });
-            return res.status(200).json(this.userService.sanitizeUsers(users));
+            const sanitizedUsers = this.userService.sanitizeUsers(users);
+            const pagination = getPaginationParams(req.query);
+
+            return res.status(200).json(
+                pagination.enabled ? paginateItems(sanitizedUsers, pagination) : sanitizedUsers,
+            );
         } catch (error: any) {
             return res.status(500).json({ error: error.message });
         }

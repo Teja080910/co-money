@@ -15,6 +15,8 @@ import { ActivityIndicator, Button, Portal, Snackbar, useTheme } from 'react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserRole } from '../constants/userRoles';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
+import { SelectField } from '../components/common/SelectField';
 import { AddPointsTab } from '../components/home-tabs/AddPointsTab';
 import { CustomersTab } from '../components/home-tabs/CustomersTab';
 import { HomeOverviewTab } from '../components/home-tabs/HomeOverviewTab';
@@ -190,6 +192,21 @@ type SettlementPreview = {
   predictedBalance: number;
 };
 
+type PaginatedResponse<T> = {
+  items: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+};
+
+type ActiveEditSheet = 'shop' | 'promotion' | 'event' | 'category' | null;
+type WalletActionFeedback = 'earn' | 'spend' | 'preview' | null;
+
 const roleTitles: Record<AuthUser['role'], string> = {
   [UserRole.CUSTOMER]: 'roles.customer',
   [UserRole.MERCHANT]: 'roles.merchant',
@@ -227,6 +244,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
   const [selectedCustomerWallet, setSelectedCustomerWallet] = useState<WalletResponse | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionPageSize] = useState(10);
+  const [transactionTotalItems, setTransactionTotalItems] = useState(0);
+  const [transactionTotalPages, setTransactionTotalPages] = useState(0);
+  const [transactionLoading, setTransactionLoading] = useState(false);
   const [shops, setShops] = useState<Shop[]>([]);
   const [customers, setCustomers] = useState<UserSummary[]>([]);
   const [merchants, setMerchants] = useState<UserSummary[]>([]);
@@ -254,6 +276,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [walletActionFeedback, setWalletActionFeedback] = useState<WalletActionFeedback>(null);
   const [activeTabKey, setActiveTabKey] = useState<keyof HomeTabParamList>('home');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedShopId, setSelectedShopId] = useState('');
@@ -288,6 +311,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [categoryDiscountPercent, setCategoryDiscountPercent] = useState('');
   const [categoryIsDefault, setCategoryIsDefault] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState('');
+  const [activeEditSheet, setActiveEditSheet] = useState<ActiveEditSheet>(null);
   const [configWelcomeBonusPoints, setConfigWelcomeBonusPoints] = useState('');
   const [configPointExpirationDays, setConfigPointExpirationDays] = useState('');
   const [configMaxPointsPerTransaction, setConfigMaxPointsPerTransaction] = useState('');
@@ -342,6 +366,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     () => routes.find(routeItem => routeItem.key === activeTabKey) || routes[0] || null,
     [activeTabKey, routes],
   );
+  const showWelcomeHeader = Boolean(activeRoute?.showWelcomeHeader);
 
   const displayName = useMemo(() => {
     if (!authUser) {
@@ -454,14 +479,6 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     });
   }, [customerSearch, customerUsers]);
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(transaction => {
-      const matchesType = transactionTypeFilter === 'ALL' ? true : transaction.type === transactionTypeFilter;
-      const matchesStatus = transactionStatusFilter === 'ALL' ? true : transaction.status === transactionStatusFilter;
-      return matchesType && matchesStatus;
-    });
-  }, [transactionStatusFilter, transactionTypeFilter, transactions]);
-
   const allowedInternalRoles = useMemo(() => {
     if (!authUser) {
       return [] as AuthUser['role'][];
@@ -526,16 +543,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setAuthUser(authenticatedProfile);
 
       if (authenticatedProfile.role === UserRole.CUSTOMER) {
-        const [walletResponse, transactionsResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
+        const [walletResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
           apiClient.get<WalletResponse>('/api/wallet/me'),
-          apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
           apiClient.get<Shop[]>('/api/shops'),
           apiClient.get<Promotion[]>('/api/promotions'),
           apiClient.get<EventItem[]>('/api/events'),
         ]);
 
         setWallet(walletResponse.data);
-        setTransactions(transactionsResponse.data);
         setShops(shopsResponse.data);
         setPromotions(promotionsResponse.data);
         setEvents(eventsResponse.data);
@@ -548,7 +563,6 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setReport(null);
       } else {
         const requests: Array<Promise<any>> = [
-          apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
           apiClient.get<UserSummary[]>('/api/users/customers'),
           apiClient.get<Shop[]>('/api/shops'),
           apiClient.get<Promotion[]>('/api/promotions'),
@@ -570,30 +584,43 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         const responses = await Promise.all(requests);
 
         setWallet(null);
-        setTransactions(responses[0].data);
-        setCustomers(responses[1].data);
-        setShops(responses[2].data);
-        setPromotions(responses[3].data);
-        setEvents(responses[4].data);
-        setCategories(responses[5].data);
-        setMerchants(authenticatedProfile.role === UserRole.REPRESENTATIVE || authenticatedProfile.role === UserRole.ADMIN ? responses[6].data : []);
+        setCustomers(responses[0].data);
+        setShops(responses[1].data);
+        setPromotions(responses[2].data);
+        setEvents(responses[3].data);
+        setCategories(responses[4].data);
+        setMerchants(authenticatedProfile.role === UserRole.REPRESENTATIVE || authenticatedProfile.role === UserRole.ADMIN ? responses[5].data : []);
         setReport(
           authenticatedProfile.role === UserRole.REPRESENTATIVE
-            ? responses[7].data
+            ? responses[6].data
             : authenticatedProfile.role === UserRole.ADMIN
-              ? responses[7].data
+              ? responses[6].data
               : null,
         );
         if (authenticatedProfile.role === UserRole.ADMIN) {
-          setSystemConfig(responses[8].data);
-          setSystemConfigHistory(responses[9].data);
-          setRepresentatives(responses[10].data);
+          setSystemConfig(responses[7].data);
+          setSystemConfigHistory(responses[8].data);
+          setRepresentatives(responses[9].data);
         } else {
           setSystemConfig(null);
           setSystemConfigHistory([]);
           setRepresentatives([]);
         }
       }
+
+      const transactionsResponse = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+        params: {
+          page: transactionPage,
+          pageSize: transactionPageSize,
+          type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
+          status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
+        },
+      });
+
+      setTransactions(transactionsResponse.data.items);
+      setTransactionPage(transactionsResponse.data.pagination.page);
+      setTransactionTotalItems(transactionsResponse.data.pagination.totalItems);
+      setTransactionTotalPages(transactionsResponse.data.pagination.totalPages);
     } catch (loadError: any) {
       if (loadError?.response?.status === 401) {
         await logoutUser();
@@ -606,7 +633,35 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [navigation]);
+  }, [navigation, transactionPage, transactionPageSize, transactionStatusFilter, transactionTypeFilter]);
+
+  const loadTransactions = useCallback(async (nextPage = transactionPage) => {
+    if (!authUser) {
+      return;
+    }
+
+    setTransactionLoading(true);
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+        params: {
+          page: nextPage,
+          pageSize: transactionPageSize,
+          type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
+          status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
+        },
+      });
+
+      setTransactions(response.data.items);
+      setTransactionPage(response.data.pagination.page);
+      setTransactionTotalItems(response.data.pagination.totalItems);
+      setTransactionTotalPages(response.data.pagination.totalPages);
+    } catch (loadError) {
+      setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+    } finally {
+      setTransactionLoading(false);
+    }
+  }, [authUser, transactionPage, transactionPageSize, transactionStatusFilter, transactionTypeFilter]);
 
   useEffect(() => {
     void loadDashboard();
@@ -698,6 +753,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   useEffect(() => {
     setError(null);
     setSuccessMessage(null);
+    setWalletActionFeedback(null);
   }, [activeTabKey]);
 
   useEffect(() => {
@@ -714,12 +770,69 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     await loadDashboard();
   };
 
+  const handleSelectTransactionTypeFilter = useCallback(async (nextFilter: string) => {
+    setTransactionTypeFilter(nextFilter);
+    setTransactionPage(1);
+    if (authUser) {
+      setTransactionLoading(true);
+      try {
+        const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+          params: {
+            page: 1,
+            pageSize: transactionPageSize,
+            type: nextFilter === 'ALL' ? undefined : nextFilter,
+            status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
+          },
+        });
+        setTransactions(response.data.items);
+        setTransactionPage(response.data.pagination.page);
+        setTransactionTotalItems(response.data.pagination.totalItems);
+        setTransactionTotalPages(response.data.pagination.totalPages);
+      } catch (loadError) {
+        setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+      } finally {
+        setTransactionLoading(false);
+      }
+    }
+  }, [authUser, transactionPageSize, transactionStatusFilter]);
+
+  const handleSelectTransactionStatusFilter = useCallback(async (nextFilter: string) => {
+    setTransactionStatusFilter(nextFilter);
+    setTransactionPage(1);
+    if (authUser) {
+      setTransactionLoading(true);
+      try {
+        const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+          params: {
+            page: 1,
+            pageSize: transactionPageSize,
+            type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
+            status: nextFilter === 'ALL' ? undefined : nextFilter,
+          },
+        });
+        setTransactions(response.data.items);
+        setTransactionPage(response.data.pagination.page);
+        setTransactionTotalItems(response.data.pagination.totalItems);
+        setTransactionTotalPages(response.data.pagination.totalPages);
+      } catch (loadError) {
+        setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+      } finally {
+        setTransactionLoading(false);
+      }
+    }
+  }, [authUser, transactionPageSize, transactionTypeFilter]);
+
+  const handleTransactionPageChange = useCallback(async (nextPage: number) => {
+    await loadTransactions(nextPage);
+  }, [loadTransactions]);
+
   const resetShopForm = () => {
     setEditingShopId('');
     setShopName('');
     setShopLocation('');
     setShopDescription('');
     setShopMerchantId(merchants[0]?.id || '');
+    setActiveEditSheet(current => (current === 'shop' ? null : current));
   };
 
   const resetPromotionForm = () => {
@@ -730,6 +843,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setPromotionStartDate('');
     setPromotionEndDate('');
     setPromotionShopId(manageablePromotionShops[0]?.id || '');
+    setActiveEditSheet(current => (current === 'promotion' ? null : current));
   };
 
   const resetEventForm = () => {
@@ -739,6 +853,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setEventLocation('');
     setEventStartDate('');
     setEventEndDate('');
+    setActiveEditSheet(current => (current === 'event' ? null : current));
   };
 
   const resetCategoryForm = () => {
@@ -747,6 +862,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setCategoryDiscountPercent('');
     setCategoryIsDefault(false);
     setCategoryShopId(availableShops[0]?.id || '');
+    setActiveEditSheet(current => (current === 'category' ? null : current));
   };
 
   const resetInternalUserForm = () => {
@@ -852,6 +968,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
+    setWalletActionFeedback('earn');
 
     try {
       await apiClient.post('/api/wallet/earn', {
@@ -898,6 +1015,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
+    setWalletActionFeedback('spend');
 
     try {
       const response = await apiClient.post<{
@@ -941,6 +1059,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setError(null);
     setSuccessMessage(null);
     setSettlementPreview(null);
+    setWalletActionFeedback('preview');
 
     try {
       const response = await apiClient.post<SettlementPreview>('/api/wallet/preview', {
@@ -966,6 +1085,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setShopMerchantId(shop.merchantId);
     setSuccessMessage(null);
     setError(null);
+    setActiveEditSheet('shop');
   };
 
   const handleSaveShop = async () => {
@@ -1105,6 +1225,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setPromotionShopId(promotion.shopId);
     setError(null);
     setSuccessMessage(null);
+    setActiveEditSheet('promotion');
   };
 
   const handleTogglePromotionStatus = async (promotion: Promotion) => {
@@ -1217,6 +1338,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setEventEndDate(event.endsAt.split('T')[0] || '');
     setError(null);
     setSuccessMessage(null);
+    setActiveEditSheet('event');
   };
 
   const handleToggleEventStatus = async (event: EventItem) => {
@@ -1245,6 +1367,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setCategoryIsDefault(category.isDefault);
     setError(null);
     setSuccessMessage(null);
+    setActiveEditSheet('category');
   };
 
   const handleSaveCategory = async () => {
@@ -1511,6 +1634,111 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     </View>
   );
 
+  const renderSheetActions = (
+    onSubmit: () => void,
+    onCancel: () => void,
+    loading: boolean,
+  ) => (
+    <View style={styles.bottomSheetActionColumn}>
+      <Button
+        mode="contained"
+        loading={loading}
+        onPress={() => void onSubmit()}
+        style={styles.bottomSheetPrimaryButton}
+        contentStyle={styles.bottomSheetButtonContent}
+      >
+        Update
+      </Button>
+      <Button
+        mode="outlined"
+        onPress={onCancel}
+        style={styles.bottomSheetSecondaryButton}
+        contentStyle={styles.bottomSheetButtonContent}
+      >
+        Cancel
+      </Button>
+    </View>
+  );
+
+  const renderEditSheetContent = () => {
+    switch (activeEditSheet) {
+      case 'shop':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Shop</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update shop details from the sheet.</Text>
+            <FloatingLabelInput icon="store-outline" label="Shop Name" value={shopName} onChangeText={setShopName} autoCapitalize="words" />
+            <FloatingLabelInput icon="map-marker-outline" label="Location" value={shopLocation} onChangeText={setShopLocation} autoCapitalize="words" />
+            <FloatingLabelInput icon="text-box-outline" label="Description" value={shopDescription} onChangeText={setShopDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <SelectField
+              label="Merchant"
+              value={shopMerchantId}
+              onSelect={setShopMerchantId}
+              options={merchants.map(merchant => ({
+                value: merchant.id,
+                label: [merchant.firstName, merchant.lastName].filter(Boolean).join(' ') || merchant.username,
+              }))}
+            />
+            {renderSheetActions(handleSaveShop, resetShopForm, shopSubmitting)}
+          </>
+        );
+      case 'promotion':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Promotion</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update promotion details from the sheet.</Text>
+            <FloatingLabelInput icon="tag-outline" label="Title" value={promotionTitle} onChangeText={setPromotionTitle} autoCapitalize="sentences" />
+            <FloatingLabelInput icon="text-box-outline" label="Description" value={promotionDescription} onChangeText={setPromotionDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <SelectField
+              label="Shop"
+              value={promotionShopId}
+              onSelect={setPromotionShopId}
+              options={manageablePromotionShops.map(shop => ({ value: shop.id, label: shop.name }))}
+            />
+            <FloatingLabelInput icon="star-four-points-outline" label="Bonus Points" keyboardType="number-pad" value={promotionBonusPoints} onChangeText={setPromotionBonusPoints} />
+            {renderDateField('Start Date', promotionStartDate, 'promotion-start', 'Select the promotion start date.')}
+            {renderDateField('End Date', promotionEndDate, 'promotion-end', 'Select the promotion end date.')}
+            {renderSheetActions(handleCreatePromotion, resetPromotionForm, promotionSubmitting)}
+          </>
+        );
+      case 'event':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Event</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update event details from the sheet.</Text>
+            <FloatingLabelInput icon="calendar-text-outline" label="Title" value={eventTitle} onChangeText={setEventTitle} autoCapitalize="sentences" />
+            <FloatingLabelInput icon="text-box-outline" label="Description" value={eventDescription} onChangeText={setEventDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <FloatingLabelInput icon="map-marker-outline" label="Location" value={eventLocation} onChangeText={setEventLocation} autoCapitalize="words" />
+            {renderDateField('Start Date', eventStartDate, 'event-start', 'Select the event start date.')}
+            {renderDateField('End Date', eventEndDate, 'event-end', 'Select the event end date.')}
+            {renderSheetActions(handleCreateEvent, resetEventForm, eventSubmitting)}
+          </>
+        );
+      case 'category':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Category</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update category details from the sheet.</Text>
+            <SelectField
+              label="Shop"
+              value={categoryShopId}
+              onSelect={setCategoryShopId}
+              options={availableShops.map(shop => ({ value: shop.id, label: shop.name }))}
+            />
+            <FloatingLabelInput icon="shape-outline" label="Category Name" value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
+            <FloatingLabelInput icon="percent-outline" label="Discount Percent" value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
+            {renderSheetActions(handleSaveCategory, resetCategoryForm, categorySubmitting)}
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
   const tabContext = {
     theme,
     styles,
@@ -1549,6 +1777,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     settlementPreview,
     error,
     successMessage,
+    walletActionFeedback,
     handlePreviewSettlement,
     submitting,
     handleAddPoints,
@@ -1572,10 +1801,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     transactionTypeOptions,
     transactionStatusOptions,
     transactionTypeFilter,
-    setTransactionTypeFilter,
+    setTransactionTypeFilter: handleSelectTransactionTypeFilter,
     transactionStatusFilter,
-    setTransactionStatusFilter,
-    filteredTransactions,
+    setTransactionStatusFilter: handleSelectTransactionStatusFilter,
+    filteredTransactions: transactions,
+    transactionLoading,
+    transactionPage,
+    transactionTotalPages,
+    transactionTotalItems,
+    handleTransactionPageChange,
     shops,
     merchants,
     customers,
@@ -1700,66 +1934,48 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     () => routes.findIndex(routeItem => routeItem.key === activeTabKey),
     [activeTabKey, routes],
   );
+  const tabScenes = useMemo<Partial<Record<keyof HomeTabParamList, React.ReactNode>>>(() => ({
+    home: <HomeOverviewTab context={tabContext} />,
+    dashboard: <HomeOverviewTab context={tabContext} />,
+    wallet: <WalletTab context={tabContext} />,
+    reports: <ReportsTab context={tabContext} />,
+    'user-management': authUser?.role === UserRole.REPRESENTATIVE
+      ? <RepresentativeUserManagementSection context={tabContext} />
+      : <AdminUserManagementSection context={tabContext} />,
+    'shop-management': (
+      <ShopManagementSection
+        context={tabContext}
+        title={t('management.admin.shopManagementTitle')}
+        subtitle={t('management.admin.shopManagementSubtitle')}
+      />
+    ),
+    'category-settings': <CategorySettingsSection context={tabContext} />,
+    configuration: <SystemConfigurationSection context={tabContext} />,
+    promotions: <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />,
+    events: <EventsSection context={tabContext} editable />,
+    transactions: <TransactionsTab context={tabContext} />,
+    customers: <CustomersTab context={tabContext} />,
+    'add-points': <AddPointsTab context={tabContext} />,
+    merchants: (
+      <UserListSection
+        context={tabContext}
+        title={t('directory.merchants.title')}
+        subtitle={t('directory.merchants.subtitle')}
+        users={merchants}
+      />
+    ),
+    representatives: (
+      <UserListSection
+        context={tabContext}
+        title={t('directory.representatives.title')}
+        subtitle={t('directory.representatives.subtitle')}
+        users={representatives}
+      />
+    ),
+    profile: <ProfileTab context={tabContext} />,
+  }), [authUser?.role, merchants, representatives, t, tabContext]);
 
-  const renderActiveTabContent = () => {
-    switch (activeTabKey) {
-      case 'home':
-      case 'dashboard':
-        return <HomeOverviewTab context={tabContext} />;
-      case 'wallet':
-        return <WalletTab context={tabContext} />;
-      case 'reports':
-        return <ReportsTab context={tabContext} />;
-      case 'user-management':
-        return authUser?.role === UserRole.REPRESENTATIVE
-          ? <RepresentativeUserManagementSection context={tabContext} />
-          : <AdminUserManagementSection context={tabContext} />;
-      case 'shop-management':
-        return (
-          <ShopManagementSection
-            context={tabContext}
-            title={t('management.admin.shopManagementTitle')}
-            subtitle={t('management.admin.shopManagementSubtitle')}
-          />
-        );
-      case 'category-settings':
-        return <CategorySettingsSection context={tabContext} />;
-      case 'configuration':
-        return <SystemConfigurationSection context={tabContext} />;
-      case 'promotions':
-        return <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />;
-      case 'events':
-        return <EventsSection context={tabContext} editable />;
-      case 'transactions':
-        return <TransactionsTab context={tabContext} />;
-      case 'customers':
-        return <CustomersTab context={tabContext} />;
-      case 'add-points':
-        return <AddPointsTab context={tabContext} />;
-      case 'merchants':
-        return (
-          <UserListSection
-            context={tabContext}
-            title={t('directory.merchants.title')}
-            subtitle={t('directory.merchants.subtitle')}
-            users={merchants}
-          />
-        );
-      case 'representatives':
-        return (
-          <UserListSection
-            context={tabContext}
-            title={t('directory.representatives.title')}
-            subtitle={t('directory.representatives.subtitle')}
-            users={representatives}
-          />
-        );
-      case 'profile':
-        return <ProfileTab context={tabContext} />;
-      default:
-        return <HomeOverviewTab context={tabContext} />;
-    }
-  };
+  const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
@@ -1805,12 +2021,72 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           </Snackbar>
         </View>
       </Portal>
+      {activeEditSheet ? (
+        <Portal>
+          <View style={styles.bottomSheetOverlay}>
+            <Pressable
+              style={[
+                styles.bottomSheetBackdrop,
+                {
+                  backgroundColor: theme.custom.background === '#07111F'
+                    ? 'rgba(2, 6, 23, 0.78)'
+                    : 'rgba(15, 23, 42, 0.62)',
+                },
+              ]}
+              onPress={() => {
+                if (activeEditSheet === 'shop') {
+                  resetShopForm();
+                } else if (activeEditSheet === 'promotion') {
+                  resetPromotionForm();
+                } else if (activeEditSheet === 'event') {
+                  resetEventForm();
+                } else if (activeEditSheet === 'category') {
+                  resetCategoryForm();
+                }
+              }}
+            />
+            <View
+              style={[
+                styles.bottomSheetShell,
+                {
+                  paddingBottom: 0,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.bottomSheetCard,
+                  {
+                    backgroundColor: theme.custom.surfaceStrong,
+                    borderColor: theme.custom.border,
+                    shadowColor: theme.custom.shadow,
+                  },
+                ]}
+              >
+                <ScrollView
+                  key={activeEditSheet}
+                  style={styles.bottomSheetScroll}
+                  contentContainerStyle={[
+                    styles.bottomSheetContent,
+                    {
+                      paddingBottom: Math.max(insets.bottom + 20, 28),
+                    },
+                  ]}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {renderEditSheetContent()}
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+        </Portal>
+      ) : null}
       <ScrollView
         contentContainerStyle={[
           styles.contentFrame,
           {
             paddingTop: Math.max(insets.top + 16, 24),
-            paddingBottom: Math.max(insets.bottom + 140, 148),
+            paddingBottom: Math.max(insets.bottom + 54, 58),
           },
         ]}
         keyboardDismissMode="on-drag"
@@ -1824,46 +2100,48 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           </View>
         ) : (
           <>
-            <View
-              style={[
-                styles.headerCard,
-                {
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  shadowColor: theme.custom.shadow,
-                },
-              ]}
-            >
-              <View style={styles.headerGlowBlue} />
-              <View style={styles.headerGlowOrange} />
-              <View style={styles.headerGrid} />
-              <View style={styles.headerTopRow}>
-                <View style={styles.rolePill}>
-                  <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.rolePillText}>
-                    {authUser ? t(roleTitles[authUser.role]) : 'Co-Money'}
-                  </Text>
+            {showWelcomeHeader ? (
+              <View
+                style={[
+                  styles.headerCard,
+                  {
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    shadowColor: theme.custom.shadow,
+                  },
+                ]}
+              >
+                <View style={styles.headerGlowBlue} />
+                <View style={styles.headerGlowOrange} />
+                <View style={styles.headerGrid} />
+                <View style={styles.headerTopRow}>
+                  <View style={styles.rolePill}>
+                    <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.rolePillText}>
+                      {authUser ? t(roleTitles[authUser.role]) : 'Co-Money'}
+                    </Text>
+                  </View>
+                  <View style={styles.headerActions}>
+                    <LanguageSwitcher tone="light" />
+                    <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
+                      <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
+                      <Text style={styles.headerLogoutText}>{t('dashboard.logout')}</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <View style={styles.headerActions}>
-                  <LanguageSwitcher tone="light" />
-                  <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
-                    <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
-                    <Text style={styles.headerLogoutText}>{t('dashboard.logout')}</Text>
-                  </Pressable>
-                </View>
-              </View>
 
-              <View style={styles.headerAccentRow}>
-                <View style={styles.headerAccentLine} />
-                <View style={styles.headerAccentDot} />
+                <View style={styles.headerAccentRow}>
+                  <View style={styles.headerAccentLine} />
+                  <View style={styles.headerAccentDot} />
+                </View>
+                <Text style={styles.dashboardKicker}>{activeRoute?.title || t('dashboard.overview')}</Text>
+                <Text style={styles.dashboardTitle}>
+                  {displayName ? t('dashboard.welcomeBack', { name: displayName }) : 'Co-Money'}
+                </Text>
+                <Text style={styles.dashboardSubtitle}>
+                  {t('dashboard.bannerSubtitle', { section: activeRoute?.title || t('dashboard.overview') })}
+                </Text>
               </View>
-              <Text style={styles.dashboardKicker}>{activeRoute?.title || t('dashboard.overview')}</Text>
-              <Text style={styles.dashboardTitle}>
-                {displayName ? t('dashboard.welcomeBack', { name: displayName }) : 'Co-Money'}
-              </Text>
-              <Text style={styles.dashboardSubtitle}>
-                {t('dashboard.bannerSubtitle', { section: activeRoute?.title || t('dashboard.overview') })}
-              </Text>
-            </View>
+            ) : null}
 
             <View
               style={[
@@ -1885,7 +2163,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
 	              <View style={styles.tabNavigatorShell}>
 	                <View style={styles.tabSceneContent}>
-	                  {renderActiveTabContent()}
+	                  {activeTabContent}
 		            </View>
 	              </View>
 	              {activeDatePicker ? (
@@ -2264,6 +2542,70 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
   },
+  bottomSheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 25,
+  },
+  bottomSheetShell: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: 0,
+    justifyContent: 'flex-end',
+  },
+  bottomSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bottomSheetCard: {
+    width: '100%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 1,
+    overflow: 'hidden',
+    height: '66%',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 22,
+  },
+  bottomSheetScroll: {
+    width: '100%',
+  },
+  bottomSheetContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 18,
+  },
+  bottomSheetHandle: {
+    alignSelf: 'center',
+    width: 56,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148, 163, 184, 0.55)',
+    marginBottom: 16,
+  },
+  bottomSheetActionColumn: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 10,
+  },
+  bottomSheetPrimaryButton: {
+    width: '78%',
+    alignSelf: 'center',
+  },
+  bottomSheetSecondaryButton: {
+    width: '78%',
+    alignSelf: 'center',
+  },
+  bottomSheetButtonContent: {
+    minHeight: 46,
+  },
   input: {
     borderWidth: 1,
     borderRadius: 12,
@@ -2318,7 +2660,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 12,
+    bottom: 0,
   },
   selectionCard: {
     borderWidth: 1,

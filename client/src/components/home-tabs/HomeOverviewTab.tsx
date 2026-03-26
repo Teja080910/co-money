@@ -62,7 +62,9 @@ export function HomeOverviewTab({ context }: Props) {
           {renderSummaryMetric(t('overview.merchant.metrics.transactions'), safeTransactions.length)}
         </View>
         <Button mode="contained" onPress={() => navigation.navigate('MerchantScan')} style={styles.primaryAction}>{t('overview.merchant.scanQr')}</Button>
-        <UserListSection context={context} title={t('overview.merchant.recentCustomersTitle')} subtitle={t('overview.merchant.recentCustomersSubtitle')} users={safeFilteredCustomers.slice(0, 5)} />
+        <View style={{ marginTop: 8 }}>
+          <UserListSection context={context} title={t('overview.merchant.recentCustomersTitle')} subtitle={t('overview.merchant.recentCustomersSubtitle')} users={safeFilteredCustomers.slice(0, 5)} />
+        </View>
         <PromotionsSection context={context} editable />
         <EventsSection context={context} editable={false} />
       </>

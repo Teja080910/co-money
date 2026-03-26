@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 import { Button, Card, Chip } from 'react-native-paper';
 import { UserRole } from '../../constants/userRoles';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
+import { SelectField } from '../common/SelectField';
 import { CustomerDirectoryCard } from '../user-directory/CustomerDirectoryCard';
 import { MerchantDirectoryCard } from '../user-directory/MerchantDirectoryCard';
 import { RepresentativeDirectoryCard } from '../user-directory/RepresentativeDirectoryCard';
@@ -95,34 +96,31 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
 
   return (
     <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title={title} subtitle={subtitle} />
-        <Card.Content>
-          <FloatingLabelInput icon="store-outline" label={t('management.shopForm.nameLabel')} helperText={t('management.shopForm.nameHelper')} value={shopName} onChangeText={setShopName} autoCapitalize="words" />
-          <FloatingLabelInput icon="map-marker-outline" label={t('management.shopForm.locationLabel')} helperText={t('management.shopForm.locationHelper')} value={shopLocation} onChangeText={setShopLocation} autoCapitalize="words" />
-          <FloatingLabelInput icon="text-box-outline" label={t('management.shopForm.descriptionLabel')} helperText={t('management.shopForm.descriptionHelper')} value={shopDescription} onChangeText={setShopDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+      {!editingShopId ? (
+        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+          <Card.Title title={title} subtitle={subtitle} />
+          <Card.Content>
+            <FloatingLabelInput icon="store-outline" label={t('management.shopForm.nameLabel')} helperText={t('management.shopForm.nameHelper')} value={shopName} onChangeText={setShopName} autoCapitalize="words" />
+            <FloatingLabelInput icon="map-marker-outline" label={t('management.shopForm.locationLabel')} helperText={t('management.shopForm.locationHelper')} value={shopLocation} onChangeText={setShopLocation} autoCapitalize="words" />
+            <FloatingLabelInput icon="text-box-outline" label={t('management.shopForm.descriptionLabel')} helperText={t('management.shopForm.descriptionHelper')} value={shopDescription} onChangeText={setShopDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <SelectField
+              label={t('management.shopForm.merchant')}
+              value={shopMerchantId}
+              onSelect={setShopMerchantId}
+              options={safeMerchants.map((merchant: any) => ({
+                value: merchant.id,
+                label: [merchant.firstName, merchant.lastName].filter(Boolean).join(' ') || merchant.username,
+              }))}
+            />
 
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('management.shopForm.merchant')}</Text>
-          <View style={styles.filterRow}>
-            {safeMerchants.map((merchant: any) => (
-              <Chip key={merchant.id} selected={shopMerchantId === merchant.id} mode={shopMerchantId === merchant.id ? 'flat' : 'outlined'} onPress={() => setShopMerchantId(merchant.id)} style={styles.filterChip}>
-                {[merchant.firstName, merchant.lastName].filter(Boolean).join(' ') || merchant.username}
-              </Chip>
-            ))}
-          </View>
-
-          <View style={styles.actionRow}>
+            <View style={styles.actionRow}>
               <Button mode="contained" loading={shopSubmitting} onPress={() => void handleSaveShop()} style={styles.inlineActionButton}>
-              {editingShopId ? t('management.shopForm.update') : t('management.shopForm.add')}
-            </Button>
-            {editingShopId ? (
-              <Button mode="outlined" onPress={resetShopForm} style={styles.inlineActionButton}>
-                {t('common.cancel')}
+                {t('management.shopForm.add')}
               </Button>
-            ) : null}
-          </View>
-        </Card.Content>
-      </Card>
+            </View>
+          </Card.Content>
+        </Card>
+      ) : null}
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.managedShops.title')} subtitle={t('management.managedShops.subtitle')} />
@@ -156,40 +154,12 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
 
 export function PromotionsSection({ context, editable }: Props & { editable: boolean }) {
   const { t } = useTranslation();
-  const { theme, styles, authUser, promotionTitle, setPromotionTitle, promotionDescription, setPromotionDescription, manageablePromotionShops, promotionShopId, setPromotionShopId, promotionBonusPoints, setPromotionBonusPoints, renderDateField, promotionStartDate, promotionEndDate, promotionSubmitting, claimingPromotionId, handleCreatePromotion, resetPromotionForm, promotions, handleDeletePromotion, handleClaimPromotion, formatDate, handleEditPromotion, editingPromotionId, handleTogglePromotionStatus } = context;
-  const safePromotionShops = manageablePromotionShops ?? [];
+  const { theme, styles, authUser, promotions, claimingPromotionId, handleDeletePromotion, handleClaimPromotion, formatDate, handleEditPromotion, handleTogglePromotionStatus } = context;
   const safePromotions = promotions ?? [];
   const isCustomerView = authUser?.role === UserRole.CUSTOMER;
 
   return (
     <>
-      {editable ? (
-        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-          <Card.Title title={t('management.promotions.editTitle')} subtitle={t('management.promotions.editSubtitle')} />
-          <Card.Content>
-            <FloatingLabelInput icon="tag-outline" label={t('management.promotions.titleLabel')} helperText={t('management.promotions.titleHelper')} value={promotionTitle} onChangeText={setPromotionTitle} autoCapitalize="sentences" />
-            <FloatingLabelInput icon="text-box-outline" label={t('management.promotions.descriptionLabel')} helperText={t('management.promotions.descriptionHelper')} value={promotionDescription} onChangeText={setPromotionDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
-            <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('management.promotions.shop')}</Text>
-            <View style={styles.filterRow}>
-              {safePromotionShops.map((shop: any) => (
-                <Chip key={shop.id} selected={promotionShopId === shop.id} mode={promotionShopId === shop.id ? 'flat' : 'outlined'} onPress={() => setPromotionShopId(shop.id)} style={styles.filterChip}>
-                  {shop.name}
-                </Chip>
-              ))}
-            </View>
-            <FloatingLabelInput icon="star-four-points-outline" label={t('management.promotions.bonusLabel')} helperText={t('management.promotions.bonusHelper')} keyboardType="number-pad" value={promotionBonusPoints} onChangeText={setPromotionBonusPoints} />
-            {renderDateField(t('common.startDate'), promotionStartDate, 'promotion-start', t('management.promotions.startHelper'))}
-            {renderDateField(t('common.endDate'), promotionEndDate, 'promotion-end', t('management.promotions.endHelper'))}
-            <View style={styles.actionRow}>
-              <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>
-                {editingPromotionId ? t('management.promotions.update') : t('management.promotions.save')}
-              </Button>
-              <Button mode="outlined" onPress={resetPromotionForm}>{t('common.reset')}</Button>
-            </View>
-          </Card.Content>
-        </Card>
-      ) : null}
-
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.promotions.activeTitle')} subtitle={t('management.promotions.activeSubtitle')} />
         <Card.Content>
@@ -242,7 +212,7 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
 
   return (
     <>
-      {editable ? (
+      {editable && !editingEventId ? (
         <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
           <Card.Title title={t('management.events.editTitle')} subtitle={t('management.events.editSubtitle')} />
           <Card.Content>
@@ -253,7 +223,7 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
             {renderDateField(t('common.endDate'), eventEndDate, 'event-end', t('management.events.endHelper'))}
             <View style={styles.actionRow}>
               <Button mode="contained" loading={eventSubmitting} onPress={() => void handleCreateEvent()}>
-                {editingEventId ? t('management.events.update') : t('management.events.save')}
+                {t('management.events.save')}
               </Button>
               <Button mode="outlined" onPress={resetEventForm}>{t('common.reset')}</Button>
             </View>
@@ -321,38 +291,35 @@ export function CategorySettingsSection({ context }: Props) {
 
   return (
     <>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-        <Card.Title title={t('management.categories.title')} subtitle={t('management.categories.subtitle')} />
-        <Card.Content>
-          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('management.categories.shop')}</Text>
-          <View style={styles.filterRow}>
-            {safeShops.map((shop: any) => (
-              <Chip
-                key={shop.id}
-                selected={categoryShopId === shop.id}
-                mode={categoryShopId === shop.id ? 'flat' : 'outlined'}
-                onPress={() => setCategoryShopId(shop.id)}
-                style={styles.filterChip}
-              >
-                {shop.name}
+      {!editingCategoryId ? (
+        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+          <Card.Title title={t('management.categories.title')} subtitle={t('management.categories.subtitle')} />
+          <Card.Content>
+            <SelectField
+              label={t('management.categories.shop')}
+              value={categoryShopId}
+              onSelect={setCategoryShopId}
+              options={safeShops.map((shop: any) => ({
+                value: shop.id,
+                label: shop.name,
+              }))}
+            />
+            <FloatingLabelInput icon="shape-outline" label={t('management.categories.nameLabel')} helperText={t('management.categories.nameHelper')} value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
+            <FloatingLabelInput icon="percent-outline" label={t('management.categories.discountLabel')} helperText={t('management.categories.discountHelper')} value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
+            <View style={styles.filterRow}>
+              <Chip selected={categoryIsDefault} mode={categoryIsDefault ? 'flat' : 'outlined'} onPress={() => setCategoryIsDefault((current: boolean) => !current)} style={styles.filterChip}>
+                {t('management.categories.defaultLabel')}
               </Chip>
-            ))}
-          </View>
-          <FloatingLabelInput icon="shape-outline" label={t('management.categories.nameLabel')} helperText={t('management.categories.nameHelper')} value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
-          <FloatingLabelInput icon="percent-outline" label={t('management.categories.discountLabel')} helperText={t('management.categories.discountHelper')} value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
-          <View style={styles.filterRow}>
-            <Chip selected={categoryIsDefault} mode={categoryIsDefault ? 'flat' : 'outlined'} onPress={() => setCategoryIsDefault((current: boolean) => !current)} style={styles.filterChip}>
-              {t('management.categories.defaultLabel')}
-            </Chip>
-          </View>
-          <View style={styles.actionRow}>
-            <Button mode="contained" loading={categorySubmitting} onPress={() => void handleSaveCategory()}>
-              {editingCategoryId ? t('management.categories.update') : t('management.categories.save')}
-            </Button>
-            <Button mode="outlined" onPress={resetCategoryForm}>{t('common.reset')}</Button>
-          </View>
-        </Card.Content>
-      </Card>
+            </View>
+            <View style={styles.actionRow}>
+              <Button mode="contained" loading={categorySubmitting} onPress={() => void handleSaveCategory()}>
+                {t('management.categories.save')}
+              </Button>
+              <Button mode="outlined" onPress={resetCategoryForm}>{t('common.reset')}</Button>
+            </View>
+          </Card.Content>
+        </Card>
+      ) : null}
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.categories.title')} subtitle={t('management.categories.subtitle')} />
@@ -461,17 +428,18 @@ export function InternalUserManagementSection({ context }: Props) {
   }
 
   return (
-    <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
-      <Card.Title title={t('management.users.title')} subtitle={t('management.users.subtitle')} />
-      <Card.Content>
-        <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{t('common.role')}</Text>
-        <View style={styles.filterRow}>
-          {safeAllowedRoles.map((role: string) => (
-            <Chip key={role} selected={internalRole === role} mode={internalRole === role ? 'flat' : 'outlined'} onPress={() => setInternalRole(role)} style={styles.filterChip}>
-              {t(`roles.${role.toLowerCase()}`)}
-            </Chip>
-          ))}
-        </View>
+      <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+        <Card.Title title={t('management.users.title')} subtitle={t('management.users.subtitle')} />
+        <Card.Content>
+        <SelectField
+          label={t('common.role')}
+          value={internalRole}
+          onSelect={setInternalRole}
+          options={safeAllowedRoles.map((role: string) => ({
+            value: role,
+            label: t(`roles.${role.toLowerCase()}`),
+          }))}
+        />
         <FloatingLabelInput icon="account-outline" label={t('management.users.firstNameLabel')} helperText={t('management.users.firstNameHelper')} value={internalFirstName} onChangeText={setInternalFirstName} autoCapitalize="words" />
         <FloatingLabelInput icon="badge-account-outline" label={t('management.users.lastNameLabel')} helperText={t('management.users.lastNameHelper')} value={internalLastName} onChangeText={setInternalLastName} autoCapitalize="words" />
         <FloatingLabelInput icon="account-circle-outline" label={t('management.users.usernameLabel')} helperText={t('management.users.usernameHelper')} valid={Boolean(trimmedInternalUsername)} value={internalUsername} onChangeText={text => { setInternalUsername(text); setInternalTouched((current: any) => ({ ...current, username: true })); }} autoCapitalize="none" />
