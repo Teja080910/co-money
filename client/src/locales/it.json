@@ -93,10 +93,10 @@
     "fetchWarning": "Impossibile caricare gli utenti, assicurati che il backend sia attivo"
   },
   "roles": {
-    "customer": "App Cliente",
-    "merchant": "Console Esercente",
-    "representative": "Workspace Rappresentante",
-    "admin": "Dashboard Admin"
+    "customer": " Cliente",
+    "merchant": "Esercente",
+    "representative": "Rappresentante",
+    "admin": "Admin"
   },
   "navigation": {
     "tabs": {
@@ -109,6 +109,8 @@
       "user-management": "Utenti",
       "dashboard": "Dashboard",
       "shop-management": "Negozi",
+      "category-settings": "Categorie",
+      "configuration": "Configurazione",
       "promotions": "Promozioni",
       "events": "Eventi"
     }
@@ -174,6 +176,7 @@
   },
   "common": {
     "role": "Ruolo",
+    "status": "Stato",
     "balance": "Saldo",
     "pointsShort": "pt",
     "to": "a",
@@ -181,10 +184,17 @@
     "reset": "Reimposta",
     "cancel": "Annulla",
     "edit": "Modifica",
+    "activate": "Attiva",
+    "deactivate": "Disattiva",
     "delete": "Elimina",
     "noRecords": "Nessun record disponibile.",
     "startDate": "Data inizio",
     "endDate": "Data fine"
+  },
+  "statuses": {
+    "active": "Attivo",
+    "inactive": "Inattivo",
+    "deleted": "Eliminato"
   },
   "pointTypes": {
     "standard": "Standard",
@@ -207,7 +217,10 @@
     "shops": "Negozi",
     "issued": "Emessi",
     "spent": "Spesi",
+    "monthlyIssued": "Emessi nel mese",
+    "monthlySpent": "Spesi nel mese",
     "activeBalance": "Saldo Attivo",
+    "topShops": "Negozi principali",
     "empty": "Nessun dato report disponibile."
   },
   "transactions": {
@@ -217,9 +230,11 @@
     "discount": "Sconto",
     "payable": "Da pagare",
     "earnedInSettlement": "Guadagnati nel regolamento",
-    "firstTimeBonus": "Bonus primo utilizzo",
+    "firstTimeBonus": "Bonus benvenuto",
     "from": "Da",
     "to": "A",
+    "customer": "Cliente",
+    "merchant": "Esercente",
     "empty": "Nessuna transazione corrisponde ai filtri attuali.",
     "types": {
       "earn": "Accumulo",
@@ -243,6 +258,11 @@
         "pending": "In attesa",
         "failed": "Fallita"
       }
+    },
+    "pagination": {
+      "previous": "Precedente",
+      "next": "Successiva",
+      "summary": "Pagina {{page}} di {{totalPages}}"
     }
   },
   "wallet": {
@@ -324,6 +344,7 @@
       "startHelper": "Scegli quando questa promozione deve diventare attiva.",
       "endHelper": "Scegli l'ultimo giorno in cui i clienti possono usare questa promozione.",
       "save": "Salva Promozione",
+      "update": "Aggiorna Promozione",
       "activeTitle": "Promozioni Attive",
       "activeSubtitle": "Offerte disponibili nella rete",
       "bonus": "Bonus",
@@ -331,6 +352,36 @@
       "claim": "Riscatta",
       "claimed": "Riscattata",
       "empty": "Nessuna promozione disponibile al momento."
+    },
+    "categories": {
+      "title": "Impostazioni Categorie",
+      "subtitle": "Gestisci le regole di sconto categoria senza cambiare il flusso negozio esistente.",
+      "shop": "Negozio",
+      "nameLabel": "Nome categoria",
+      "nameHelper": "Usa l'etichetta che gli esercenti riconoscono durante il regolamento.",
+      "discountLabel": "Percentuale sconto",
+      "discountHelper": "Scegli lo sconto massimo consentito per questa categoria.",
+      "defaultLabel": "Categoria predefinita",
+      "save": "Salva Categoria",
+      "update": "Aggiorna Categoria",
+      "empty": "Nessuna categoria disponibile per l'ambito selezionato."
+    },
+    "configuration": {
+      "title": "Configurazione Sistema",
+      "subtitle": "Regola limiti e premi globali usando l'attuale workspace admin.",
+      "welcomeBonusLabel": "Punti bonus benvenuto",
+      "welcomeBonusHelper": "Bonus assegnato dopo la verifica della registrazione.",
+      "expirationLabel": "Giorni scadenza punti",
+      "expirationHelper": "Numero di giorni prima della scadenza dei punti.",
+      "maxPointsLabel": "Massimo punti per transazione",
+      "maxPointsHelper": "Limite massimo che un singolo regolamento puo emettere o spendere.",
+      "defaultDiscountLabel": "Percentuale sconto max predefinita",
+      "defaultDiscountHelper": "Limite sconto usato quando una categoria non definisce un override.",
+      "reasonLabel": "Motivo modifica",
+      "reasonHelper": "Nota audit opzionale per la nuova versione di configurazione.",
+      "save": "Salva Configurazione",
+      "historyTitle": "Storico Configurazione",
+      "historyEmpty": "Nessuno storico configurazione disponibile."
     },
     "events": {
       "editTitle": "Eventi",
@@ -344,6 +395,7 @@
       "startHelper": "Scegli il primo giorno in cui questo evento sara visibile come attivo.",
       "endHelper": "Scegli l'ultimo giorno previsto per questo evento.",
       "save": "Salva Evento",
+      "update": "Aggiorna Evento",
       "listTitle": "Eventi",
       "listSubtitle": "Attivita future della rete",
       "empty": "Nessun evento pianificato."
@@ -393,16 +445,39 @@
     "ready": "Pronto a scansionare un portafoglio cliente.",
     "useCustomer": "Usa Questo Cliente",
     "scanAgain": "Scansiona Di Nuovo",
-    "scanError": "Impossibile scansionare il QR cliente."
+    "scanError": "Impossibile scansionare il QR cliente.",
+    "lookupLabel": "Ricerca cliente manuale",
+    "lookupHelper": "Cerca per nome cliente, username o email se la scansione non e disponibile.",
+    "lookupAction": "Trova Cliente",
+    "lookupError": "Impossibile cercare i clienti."
   },
   "addPoints": {
+    "customerCard": {
+      "title": "Scegli Cliente",
+      "subtitle": "Seleziona o scansiona il cliente prima di eseguire qualsiasi operazione sul portafoglio."
+    },
     "selectedCustomer": "Cliente Selezionato",
     "chooseCustomerHint": "Scegli un cliente qui sotto o dalla scheda Clienti.",
     "scanQr": "Scansiona QR Cliente",
+    "recentCustomers": "Clienti Recenti",
     "chooseCustomer": "Scegli Cliente",
     "pointType": "Tipo Punti",
     "selectShop": "Seleziona Negozio",
+    "category": "Categoria",
     "noShops": "Nessun negozio esercente disponibile per assegnare punti.",
+    "preview": {
+      "title": "Anteprima Regolamento",
+      "subtitle": "Controlla sconto, importo dovuto e punti riaccreditati prima di inviare.",
+      "action": "Anteprima Regolamento",
+      "usedPoints": "Punti usati",
+      "maxDiscount": "Sconto massimo",
+      "discountAmount": "Importo sconto",
+      "payableAmount": "Importo dovuto",
+      "earnedPoints": "Punti guadagnati",
+      "bonusPoints": "Punti bonus",
+      "predictedBalance": "Saldo previsto",
+      "categoryFallback": "Regola predefinita negozio"
+    },
     "fields": {
       "pointsLabel": "Punti",
       "pointsHelper": "Inserisci quanti punti aggiungere al portafoglio del cliente.",
@@ -451,6 +526,8 @@
     "passwordIncorrect": "La password inserita non e corretta.",
     "verifyEmailFirst": "Verifica prima la tua email.",
     "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento.",
+    "pointsNotRedeemableForShop": "I punti non possono essere riscattati per questo negozio.",
+    "requestedPointsExceedWalletBalance": "I punti richiesti superano il saldo del portafoglio del cliente.",
     "networkUnavailable": "Impossibile contattare il server. Controlla la connessione e riprova.",
     "requestTimedOut": "La richiesta ha impiegato troppo tempo. Riprova."
   }

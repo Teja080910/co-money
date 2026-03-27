@@ -7,6 +7,8 @@ import { WalletController } from './controllers/WalletController';
 import { ShopController } from './controllers/ShopController';
 import { PromotionController } from './controllers/PromotionController';
 import { EventController } from './controllers/EventController';
+import { CategoryController } from './controllers/CategoryController';
+import { SystemConfigController } from './controllers/SystemConfigController';
 import cors from 'cors';
 import { attachAuthenticatedUser } from './middleware/attachAuthenticatedUser';
 
@@ -28,6 +30,8 @@ export class AppServer extends OvernightServer {
         const shopController = new ShopController();
         const promotionController = new PromotionController();
         const eventController = new EventController();
+        const categoryController = new CategoryController();
+        const systemConfigController = new SystemConfigController();
         super.addControllers([
             userController,
             authController,
@@ -36,6 +40,8 @@ export class AppServer extends OvernightServer {
             shopController,
             promotionController,
             eventController,
+            categoryController,
+            systemConfigController,
         ]);
     }
 

@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Button, Card, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import type { ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
 import type { AppTheme } from '../theme/theme';
@@ -20,6 +21,14 @@ type ScannedCustomerResponse = {
   balance: number;
 };
 
+type CustomerLookupItem = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string;
+  email: string;
+};
+
 export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) {
   const theme = useTheme<AppTheme>();
   const { t } = useTranslation();
@@ -29,6 +38,9 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
   const [hasScanned, setHasScanned] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scannedCustomer, setScannedCustomer] = useState<ScannedCustomerResponse | null>(null);
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupResults, setLookupResults] = useState<CustomerLookupItem[]>([]);
+  const [lookupLoading, setLookupLoading] = useState(false);
 
   const handleBarcodeScanned = async ({ data }: { data: string }) => {
     if (hasScanned || isSubmitting) {
@@ -49,6 +61,38 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
       setHasScanned(false);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleManualLookup = async () => {
+    if (!lookupQuery.trim()) {
+      setLookupResults([]);
+      return;
+    }
+
+    setLookupLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.get<CustomerLookupItem[]>('/api/users/customers', {
+        params: { status: 'ACTIVE' },
+      });
+      const query = lookupQuery.trim().toLowerCase();
+      setLookupResults(
+        response.data.filter(customer => {
+          const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(' ').toLowerCase();
+          return (
+            customer.username.toLowerCase().includes(query) ||
+            customer.email.toLowerCase().includes(query) ||
+            fullName.includes(query)
+          );
+        }).slice(0, 6),
+      );
+    } catch (lookupError: any) {
+      setError(lookupError?.response?.data?.error || t('merchantScan.lookupError'));
+      setLookupResults([]);
+    } finally {
+      setLookupLoading(false);
     }
   };
 
@@ -205,9 +249,37 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
                   </Button>
                 </>
               ) : (
-                <Button mode="outlined" onPress={() => { setHasScanned(false); setError(null); }}>
-                  {t('merchantScan.scanAgain')}
-                </Button>
+                <>
+                  <Button mode="outlined" onPress={() => { setHasScanned(false); setError(null); }}>
+                    {t('merchantScan.scanAgain')}
+                  </Button>
+                  <View style={styles.lookupSection}>
+                    <FloatingLabelInput
+                      icon="account-search-outline"
+                      label={t('merchantScan.lookupLabel')}
+                      helperText={t('merchantScan.lookupHelper')}
+                      value={lookupQuery}
+                      onChangeText={setLookupQuery}
+                      autoCapitalize="none"
+                    />
+                    <Button mode="contained-tonal" onPress={() => void handleManualLookup()} loading={lookupLoading}>
+                      {t('merchantScan.lookupAction')}
+                    </Button>
+                    {lookupResults.map(customer => (
+                      <View key={customer.id} style={[styles.lookupResult, { borderColor: theme.custom.border }]}>
+                        <View style={styles.lookupResultBody}>
+                          <Text style={[styles.customerName, { color: theme.custom.textPrimary }]}>
+                            {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username}
+                          </Text>
+                          <Text style={[styles.statusText, { color: theme.custom.textSecondary }]}>{customer.email}</Text>
+                        </View>
+                        <Button mode="text" onPress={() => navigation.replace('Home', { selectedCustomerId: customer.id })}>
+                          {t('merchantScan.useCustomer')}
+                        </Button>
+                      </View>
+                    ))}
+                  </View>
+                </>
               )}
             </Card.Content>
           </Card>
@@ -353,5 +425,22 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginTop: 10,
+  },
+  lookupSection: {
+    marginTop: 18,
+    gap: 12,
+  },
+  lookupResult: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  lookupResultBody: {
+    flex: 1,
   },
 });

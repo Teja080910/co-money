@@ -100,6 +100,20 @@ export async function changePassword(payload: ChangePasswordPayload) {
   return response.data;
 }
 
+export async function fetchAuthenticatedProfile() {
+  const response = await apiClient.get<AuthUser>('/auth/profilo');
+  await saveAuthenticatedUser(response.data);
+  return response.data;
+}
+
+export async function logoutUser() {
+  try {
+    await apiClient.post('/auth/logout');
+  } finally {
+    await clearAuthenticatedUser();
+  }
+}
+
 export async function savePendingVerificationEmail(email: string) {
   await AsyncStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, email.trim().toLowerCase());
 }

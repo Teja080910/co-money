@@ -1,11 +1,17 @@
 import { randomInt } from 'crypto';
 import { AppDataSource } from '../config/db';
 import { User } from '../models/User';
+import { Wallet } from '../models/Wallet';
+import { WalletTransaction } from '../models/WalletTransaction';
 import { EmailService } from './EmailService';
 import { UserRole } from '../constants/userRoles';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { createAccessToken, getJwtExpiresInSeconds } from '../utils/jwt';
 import { AuthenticatedUser } from '../middleware/requireRole';
+import { SystemConfigService } from './SystemConfigService';
+import { WalletPointType } from '../constants/walletPointTypes';
+import { WalletTransactionStatus } from '../constants/walletTransactionStatuses';
+import { WalletTransactionType } from '../constants/walletTransactionTypes';
 
 type RegisterInput = {
     firstName: string;
@@ -29,6 +35,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export class AuthService {
     private userRepository = AppDataSource.getRepository(User);
     private emailService = new EmailService();
+    private systemConfigService = new SystemConfigService();
 
     public async register(input: RegisterInput): Promise<AuthPayload> {
         const firstName = this.requireValue(input.firstName, 'Inserisci il tuo nome.');
@@ -103,10 +110,55 @@ export class AuthService {
             throw new Error('OTP non valido.');
         }
 
-        user.emailVerified = true;
-        user.verificationCode = null;
-        user.verificationCodeExpiresAt = null;
-        await this.userRepository.save(user);
+        const currentConfig = await this.systemConfigService.getCurrentConfig();
+
+        await AppDataSource.transaction(async manager => {
+            user.emailVerified = true;
+            user.verificationCode = null;
+            user.verificationCodeExpiresAt = null;
+            await manager.save(User, user);
+
+            if (currentConfig.welcomeBonusPoints <= 0) {
+                return;
+            }
+
+            let wallet = await manager.findOneBy(Wallet, { customerId: user.id });
+            if (!wallet) {
+                wallet = manager.create(Wallet, {
+                    customerId: user.id,
+                    balance: 0,
+                });
+                wallet = await manager.save(Wallet, wallet);
+            }
+
+            const balanceBefore = wallet.balance;
+            wallet.balance += currentConfig.welcomeBonusPoints;
+            await manager.save(Wallet, wallet);
+
+            const welcomeBonusTransaction = manager.create(WalletTransaction, {
+                walletId: wallet.id,
+                customerId: user.id,
+                merchantId: null,
+                performedByUserId: user.id,
+                shopId: null,
+                fromShopId: null,
+                toShopId: null,
+                type: WalletTransactionType.EARN,
+                pointType: WalletPointType.BONUS,
+                status: WalletTransactionStatus.SUCCESS,
+                points: currentConfig.welcomeBonusPoints,
+                purchaseAmount: null,
+                discountAmount: null,
+                payableAmount: null,
+                earnedPoints: currentConfig.welcomeBonusPoints,
+                isFirstTransactionBonus: true,
+                balanceBefore,
+                balanceAfter: wallet.balance,
+                description: 'Welcome bonus awarded on registration',
+            });
+
+            await manager.save(WalletTransaction, welcomeBonusTransaction);
+        });
 
         return {
             message: 'Email verificata con successo.',
@@ -173,6 +225,10 @@ export class AuthService {
             throw new Error(isEmailLogin ? 'Email non trovata.' : 'Utente non trovato.');
         }
 
+        if (!user.isActive || user.deletedAt) {
+            throw new Error('Account non attivo.');
+        }
+
         if (!verifyPassword(normalizedPassword, user.password)) {
             throw new Error('Password non corretta.');
         }
@@ -199,6 +255,32 @@ export class AuthService {
                 role: user.role,
                 emailVerified: user.emailVerified,
             },
+        };
+    }
+
+    public async getProfile(authenticatedUser: AuthenticatedUser) {
+        const user = await this.userRepository.findOneBy({ id: authenticatedUser.id });
+        if (!user || !user.isActive || user.deletedAt) {
+            throw new Error('Utente non trovato.');
+        }
+
+        return {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            emailVerified: user.emailVerified,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+    }
+
+    public async logout(_authenticatedUser: AuthenticatedUser) {
+        return {
+            message: 'Logout effettuato con successo.',
         };
     }
 

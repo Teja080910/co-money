@@ -9,6 +9,8 @@ import { User } from '../models/User';
 import { Wallet } from '../models/Wallet';
 import { WalletTransaction } from '../models/WalletTransaction';
 import { createQrValue, verifyQrValue } from '../utils/qr';
+import { CategoryService } from './CategoryService';
+import { SystemConfigService } from './SystemConfigService';
 
 type CurrentUser = {
     id: string;
@@ -22,16 +24,16 @@ type UpdateWalletInput = {
     purchaseAmount?: number;
     description?: string;
     pointType?: string;
+    categoryId?: string;
 };
-
-const DEFAULT_MAX_DISCOUNT_PERCENT = 30;
-const DEFAULT_FIRST_TIME_BONUS_POINTS = 10;
 
 export class WalletService {
     private userRepository = AppDataSource.getRepository(User);
     private shopRepository = AppDataSource.getRepository(Shop);
     private walletRepository = AppDataSource.getRepository(Wallet);
     private walletTransactionRepository = AppDataSource.getRepository(WalletTransaction);
+    private categoryService = new CategoryService();
+    private systemConfigService = new SystemConfigService();
 
     public async getWalletSummary(currentUser: CurrentUser, customerId?: string) {
         const targetUserId = this.resolveWalletOwnerId(currentUser, customerId);
@@ -126,7 +128,7 @@ export class WalletService {
             });
 
             return this.applyTransactionFilters(
-                transactions.filter(transaction => ownedShopIds.includes(transaction.shopId)),
+                transactions.filter(transaction => !!transaction.shopId && ownedShopIds.includes(transaction.shopId)),
                 type,
                 status,
             );
@@ -202,6 +204,10 @@ export class WalletService {
         const pointType = this.normalizePointType(input.pointType);
         const purchaseAmount = input.purchaseAmount === undefined ? null : this.normalizeCurrencyAmount(input.purchaseAmount);
 
+        this.assertRequestedPointsAreSpendable(requestedPoints, wallet.balance, availablePoints);
+
+        const preview = await this.previewSettlement(currentUser, input);
+
         if (!purchaseAmount) {
             if (wallet.balance < requestedPoints || availablePoints < requestedPoints) {
                 throw new Error('Insufficient spendable points for this shop.');
@@ -241,24 +247,20 @@ export class WalletService {
             };
         }
 
-        const maxDiscountPoints = Math.floor((purchaseAmount * DEFAULT_MAX_DISCOUNT_PERCENT) / 100);
-        const spendableBalance = Math.min(wallet.balance, availablePoints);
-        const pointsToUse = Math.min(requestedPoints, maxDiscountPoints, spendableBalance);
+        const maxDiscountPoints = preview.maxDiscountPoints;
+        const pointsToUse = preview.usedPoints;
 
         if (pointsToUse <= 0) {
             throw new Error('Insufficient spendable points for this shop.');
         }
 
-        const payableAmount = purchaseAmount - pointsToUse;
-        const earnedPoints = payableAmount;
-        const isFirstSettlement = await this.isFirstSettlement(customer.id);
-        const bonusPoints = isFirstSettlement ? DEFAULT_FIRST_TIME_BONUS_POINTS : 0;
+        const payableAmount = preview.payableAmount ?? 0;
+        const earnedPoints = preview.earnedPoints ?? 0;
         const balanceBefore = wallet.balance;
         const balanceAfterSpend = balanceBefore - pointsToUse;
         const balanceAfterEarn = balanceAfterSpend + earnedPoints;
-        const finalBalance = balanceAfterEarn + bonusPoints;
 
-        wallet.balance = finalBalance;
+        wallet.balance = balanceAfterEarn;
         await this.walletRepository.save(wallet);
 
         const spendTransaction = this.walletTransactionRepository.create({
@@ -276,7 +278,7 @@ export class WalletService {
             purchaseAmount,
             discountAmount: pointsToUse,
             payableAmount,
-            earnedPoints: earnedPoints + bonusPoints,
+            earnedPoints,
             isFirstTransactionBonus: false,
             balanceBefore,
             balanceAfter: balanceAfterSpend,
@@ -307,32 +309,6 @@ export class WalletService {
 
         const transactionsToSave = [spendTransaction, earnTransaction];
 
-        if (bonusPoints > 0) {
-            transactionsToSave.push(
-                this.walletTransactionRepository.create({
-                    walletId: wallet.id,
-                    customerId: customer.id,
-                    merchantId: shop.merchantId,
-                    performedByUserId: currentUser.id,
-                    shopId: shop.id,
-                    fromShopId: null,
-                    toShopId: shop.id,
-                    type: WalletTransactionType.EARN,
-                    pointType: WalletPointType.BONUS,
-                    status: WalletTransactionStatus.SUCCESS,
-                    points: bonusPoints,
-                    purchaseAmount,
-                    discountAmount: pointsToUse,
-                    payableAmount,
-                    earnedPoints: bonusPoints,
-                    isFirstTransactionBonus: true,
-                    balanceBefore: balanceAfterEarn,
-                    balanceAfter: finalBalance,
-                    description: 'First-time bonus awarded',
-                }),
-            );
-        }
-
         await this.walletTransactionRepository.save(transactionsToSave);
 
         return {
@@ -341,8 +317,63 @@ export class WalletService {
             maxDiscountPoints,
             payableAmount,
             earnedPoints,
-            bonusPoints,
+            bonusPoints: 0,
             transactions: transactionsToSave,
+        };
+    }
+
+    public async previewSettlement(currentUser: CurrentUser, input: UpdateWalletInput) {
+        this.assertStaffCanUpdateWallet(currentUser.role);
+
+        const requestedPoints = this.normalizePoints(input.points);
+        const customer = await this.getCustomer(input.customerId);
+        const wallet = await this.getOrCreateWallet(customer.id);
+        const shop = await this.getAccessibleShop(currentUser, input.shopId);
+        const availablePoints = await this.getSpendablePointsForShop(customer.id, shop.id);
+        const purchaseAmount = input.purchaseAmount === undefined ? null : this.normalizeCurrencyAmount(input.purchaseAmount);
+        const currentConfig = await this.systemConfigService.getCurrentConfig();
+        const applicableCategory = await this.categoryService.getCategoryForShop(shop.id, input.categoryId);
+
+        this.assertRequestedPointsAreSpendable(requestedPoints, wallet.balance, availablePoints);
+
+        if (!purchaseAmount) {
+            return {
+                customerId: customer.id,
+                shopId: shop.id,
+                categoryId: applicableCategory?.id || null,
+                categoryName: applicableCategory?.formattedName || null,
+                availablePoints,
+                requestedPoints,
+                usedPoints: requestedPoints,
+                maxDiscountPoints: requestedPoints,
+                maxDiscountPercent: applicableCategory?.discountPercent ?? currentConfig.defaultMaxDiscountPercent,
+                payableAmount: null,
+                earnedPoints: null,
+                bonusPoints: 0,
+                predictedBalance: wallet.balance - requestedPoints,
+            };
+        }
+
+        const configuredMaxDiscountPercent = applicableCategory?.discountPercent ?? currentConfig.defaultMaxDiscountPercent;
+        const maxDiscountPoints = Math.floor((purchaseAmount * configuredMaxDiscountPercent) / 100);
+        const spendableBalance = Math.min(wallet.balance, availablePoints);
+        const usedPoints = Math.min(requestedPoints, maxDiscountPoints, spendableBalance);
+        const payableAmount = purchaseAmount - usedPoints;
+        const earnedPoints = payableAmount;
+        return {
+            customerId: customer.id,
+            shopId: shop.id,
+            categoryId: applicableCategory?.id || null,
+            categoryName: applicableCategory?.formattedName || null,
+            availablePoints,
+            requestedPoints,
+            usedPoints,
+            maxDiscountPoints,
+            maxDiscountPercent: configuredMaxDiscountPercent,
+            payableAmount,
+            earnedPoints,
+            bonusPoints: 0,
+            predictedBalance: wallet.balance - usedPoints + earnedPoints,
         };
     }
 
@@ -358,22 +389,59 @@ export class WalletService {
             this.walletTransactionRepository.find(),
         ]);
 
-        const totalPointsIssued = transactions
+        const scopedShops = currentUser.role === UserRole.REPRESENTATIVE
+            ? shops.filter(shop => shop.representativeId === currentUser.id)
+            : shops;
+        const scopedShopIds = new Set(scopedShops.map(shop => shop.id));
+        const scopedTransactions = currentUser.role === UserRole.REPRESENTATIVE
+            ? transactions.filter(transaction => !!transaction.shopId && scopedShopIds.has(transaction.shopId))
+            : transactions;
+        const now = new Date();
+        const currentMonthTransactions = scopedTransactions.filter(transaction => {
+            const createdAt = new Date(transaction.createdAt);
+            return createdAt.getUTCFullYear() === now.getUTCFullYear() && createdAt.getUTCMonth() === now.getUTCMonth();
+        });
+
+        const totalPointsIssued = scopedTransactions
             .filter(transaction => transaction.type === WalletTransactionType.EARN)
             .reduce((sum, transaction) => sum + transaction.points, 0);
 
-        const totalPointsSpent = transactions
+        const totalPointsSpent = scopedTransactions
             .filter(transaction => transaction.type === WalletTransactionType.SPEND)
             .reduce((sum, transaction) => sum + transaction.points, 0);
 
         const activeBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
+        const monthlyPointsIssued = currentMonthTransactions
+            .filter(transaction => transaction.type === WalletTransactionType.EARN)
+            .reduce((sum, transaction) => sum + transaction.points, 0);
+        const monthlyPointsSpent = currentMonthTransactions
+            .filter(transaction => transaction.type === WalletTransactionType.SPEND)
+            .reduce((sum, transaction) => sum + transaction.points, 0);
+        const topShops = scopedShops
+            .map(shop => ({
+                id: shop.id,
+                name: shop.name,
+                location: shop.location,
+                transactionCount: scopedTransactions.filter(transaction => transaction.shopId === shop.id).length,
+                pointsIssued: scopedTransactions
+                    .filter(transaction => transaction.shopId === shop.id && transaction.type === WalletTransactionType.EARN)
+                    .reduce((sum, transaction) => sum + transaction.points, 0),
+                pointsSpent: scopedTransactions
+                    .filter(transaction => transaction.shopId === shop.id && transaction.type === WalletTransactionType.SPEND)
+                    .reduce((sum, transaction) => sum + transaction.points, 0),
+            }))
+            .sort((left, right) => right.transactionCount - left.transactionCount)
+            .slice(0, 5);
 
         return {
             totalCustomers: customers.length,
-            totalShops: shops.length,
+            totalShops: scopedShops.length,
             totalPointsIssued,
             totalPointsSpent,
             activeBalance,
+            monthlyPointsIssued,
+            monthlyPointsSpent,
+            topShops,
         };
     }
 
@@ -431,36 +499,25 @@ export class WalletService {
             order: { createdAt: 'ASC' },
         });
 
-        const earnedFromOtherShops = transactions
+        const earnedFromCurrentShop = transactions
             .filter(
                 transaction =>
                     transaction.status === WalletTransactionStatus.SUCCESS &&
                     transaction.type === WalletTransactionType.EARN &&
-                    transaction.shopId !== shopId,
+                    transaction.shopId === shopId,
             )
             .reduce((sum, transaction) => sum + transaction.points, 0);
 
-        const spentTotal = transactions
+        const spentFromCurrentShop = transactions
             .filter(
                 transaction =>
                     transaction.status === WalletTransactionStatus.SUCCESS &&
-                    transaction.type === WalletTransactionType.SPEND,
+                    transaction.type === WalletTransactionType.SPEND &&
+                    transaction.shopId === shopId,
             )
             .reduce((sum, transaction) => sum + transaction.points, 0);
 
-        return Math.max(earnedFromOtherShops - spentTotal, 0);
-    }
-
-    private async isFirstSettlement(customerId: string) {
-        const earnCount = await this.walletTransactionRepository.count({
-            where: {
-                customerId,
-                type: WalletTransactionType.EARN,
-                status: WalletTransactionStatus.SUCCESS,
-            },
-        });
-
-        return earnCount === 0;
+        return Math.max(earnedFromCurrentShop - spentFromCurrentShop, 0);
     }
 
     private assertStaffCanUpdateWallet(role: UserRole): void {
@@ -483,6 +540,20 @@ export class WalletService {
         }
 
         return amount;
+    }
+
+    private assertRequestedPointsAreSpendable(requestedPoints: number, walletBalance: number, availablePoints: number) {
+        if (availablePoints <= 0) {
+            throw new Error('Points cannot be redeemed for this shop.');
+        }
+
+        if (requestedPoints > availablePoints) {
+            throw new Error('Requested points exceed the points available for this shop.');
+        }
+
+        if (requestedPoints > walletBalance) {
+            throw new Error('Requested points exceed the customer wallet balance.');
+        }
     }
 
     private normalizePointType(pointType?: string): WalletPointType {

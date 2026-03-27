@@ -79,6 +79,8 @@ const API_ERROR_KEY_BY_MESSAGE: Record<string, string> = {
   'Inserisci la nuova password.': 'apiErrors.passwordRequired',
   'Conferma la nuova password.': 'apiErrors.confirmPasswordRequired',
   'La nuova password deve essere di almeno 8 caratteri.': 'apiErrors.passwordShort',
+  'Points cannot be redeemed for this shop.': 'apiErrors.pointsNotRedeemableForShop',
+  'Requested points exceed the customer wallet balance.': 'apiErrors.requestedPointsExceedWalletBalance',
 };
 
 export function getApiResponseError(error: unknown): string | undefined {

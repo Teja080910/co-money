@@ -62,7 +62,9 @@ export function HomeOverviewTab({ context }: Props) {
           {renderSummaryMetric(t('overview.merchant.metrics.transactions'), safeTransactions.length)}
         </View>
         <Button mode="contained" onPress={() => navigation.navigate('MerchantScan')} style={styles.primaryAction}>{t('overview.merchant.scanQr')}</Button>
-        <UserListSection context={context} title={t('overview.merchant.recentCustomersTitle')} subtitle={t('overview.merchant.recentCustomersSubtitle')} users={safeFilteredCustomers.slice(0, 5)} />
+        <View style={{ marginTop: 8 }}>
+          <UserListSection context={context} title={t('overview.merchant.recentCustomersTitle')} subtitle={t('overview.merchant.recentCustomersSubtitle')} users={safeFilteredCustomers.slice(0, 5)} />
+        </View>
         <PromotionsSection context={context} editable />
         <EventsSection context={context} editable={false} />
       </>
@@ -86,6 +88,8 @@ export function HomeOverviewTab({ context }: Props) {
             <Card.Content>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.issued')}: {report.totalPointsIssued}</Text>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.spent')}: {report.totalPointsSpent}</Text>
+              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlyIssued')}: {report.monthlyPointsIssued ?? 0}</Text>
+              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlySpent')}: {report.monthlyPointsSpent ?? 0}</Text>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.activeBalance')}: {report.activeBalance}</Text>
             </Card.Content>
           </Card>
@@ -108,6 +112,7 @@ export function HomeOverviewTab({ context }: Props) {
           <Card.Content>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.customers')}: {report.totalCustomers} | {t('reports.shops')}: {report.totalShops}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.issued')}: {report.totalPointsIssued} | {t('reports.spent')}: {report.totalPointsSpent}</Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlyIssued')}: {report.monthlyPointsIssued ?? 0} | {t('reports.monthlySpent')}: {report.monthlyPointsSpent ?? 0}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.activeBalance')}: {report.activeBalance}</Text>
           </Card.Content>
         </Card>

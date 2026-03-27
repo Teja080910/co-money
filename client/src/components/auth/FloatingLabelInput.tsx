@@ -138,7 +138,12 @@ export function FloatingLabelInput({
           color={hasError ? theme.custom.error : isFocused ? theme.custom.brand : theme.custom.textSecondary}
           style={styles.leftIcon}
         />
-        <Animated.Text pointerEvents="none" style={[styles.label, labelStyle]}>
+        <Animated.Text
+          numberOfLines={1}
+          ellipsizeMode="clip"
+          pointerEvents="none"
+          style={[styles.label, labelStyle]}
+        >
           {label}
         </Animated.Text>
         <TextInput
@@ -208,6 +213,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderWidth: 1.2,
     borderRadius: 20,
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -221,6 +227,7 @@ const styles = StyleSheet.create({
   label: {
     position: 'absolute',
     left: 48,
+    right: 48,
     fontWeight: '600',
   },
   input: {

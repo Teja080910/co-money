@@ -1,17 +1,31 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
-import { Card, useTheme } from 'react-native-paper';
+import { Button, Card, useTheme } from 'react-native-paper';
 import type { AppTheme } from '../../theme/theme';
-import type { DirectoryUser } from './types';
+import type { DirectoryUser, DirectoryUserActionLoadingState } from './types';
 
 type Props = {
   title: string;
   subtitle: string;
   users: DirectoryUser[];
+  showStatus?: boolean;
+  onActivate?: (user: DirectoryUser) => void;
+  onDeactivate?: (user: DirectoryUser) => void;
+  onDelete?: (user: DirectoryUser) => void;
+  actionLoadingState?: DirectoryUserActionLoadingState;
 };
 
-export function UserDirectoryCard({ title, subtitle, users }: Props) {
+export function UserDirectoryCard({
+  title,
+  subtitle,
+  users,
+  showStatus = false,
+  onActivate,
+  onDeactivate,
+  onDelete,
+  actionLoadingState = null,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme<AppTheme>();
 
@@ -20,8 +34,14 @@ export function UserDirectoryCard({ title, subtitle, users }: Props) {
       <Card.Title title={title} subtitle={subtitle} />
       <Card.Content>
         {users.length ? (
-          users.map(user => (
-            <View key={user.id} style={styles.listItem}>
+          users.map(user => {
+            const isSameUserLoading = actionLoadingState?.userId === user.id;
+            const isActivateLoading = isSameUserLoading && actionLoadingState?.action === 'activate';
+            const isDeactivateLoading = isSameUserLoading && actionLoadingState?.action === 'deactivate';
+            const isDeleteLoading = isSameUserLoading && actionLoadingState?.action === 'delete';
+
+            return (
+              <View key={user.id} style={styles.listItem}>
               <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>
                 {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
               </Text>
@@ -29,8 +49,45 @@ export function UserDirectoryCard({ title, subtitle, users }: Props) {
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
                 {t('common.role')}: {t(`roles.${user.role.toLowerCase()}`)}
               </Text>
-            </View>
-          ))
+              {showStatus && user.status ? (
+                <Text
+                  style={[
+                    styles.listMeta,
+                    {
+                      color:
+                        user.status === 'ACTIVE'
+                          ? theme.custom.success
+                          : user.status === 'DELETED'
+                            ? theme.custom.error
+                            : theme.custom.textSecondary,
+                    },
+                  ]}
+                >
+                  {t('common.status')}: {t(`statuses.${user.status.toLowerCase()}`)}
+                </Text>
+              ) : null}
+              {onActivate || onDeactivate || onDelete ? (
+                <View style={styles.actionRow}>
+                  {onActivate && user.status !== 'ACTIVE' ? (
+                    <Button compact mode="text" onPress={() => onActivate(user)} loading={isActivateLoading} disabled={isSameUserLoading}>
+                      {t('common.activate')}
+                    </Button>
+                  ) : null}
+                  {onDeactivate && user.status === 'ACTIVE' ? (
+                    <Button compact mode="text" onPress={() => onDeactivate(user)} loading={isDeactivateLoading} disabled={isSameUserLoading}>
+                      {t('common.deactivate')}
+                    </Button>
+                  ) : null}
+                  {onDelete && user.status !== 'DELETED' ? (
+                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => onDelete(user)} loading={isDeleteLoading} disabled={isSameUserLoading}>
+                      {t('common.delete')}
+                    </Button>
+                  ) : null}
+                </View>
+              ) : null}
+              </View>
+            );
+          })
         ) : (
           <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('common.noRecords')}</Text>
         )}
@@ -62,6 +119,12 @@ const styles = StyleSheet.create({
   listMeta: {
     marginTop: 4,
     fontSize: 13,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    flexWrap: 'wrap',
   },
   emptyText: {
     fontSize: 14,

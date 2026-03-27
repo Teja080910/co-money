@@ -101,6 +101,64 @@ export class PromotionService {
         return this.promotionRepository.save(promotion);
     }
 
+    public async updatePromotion(currentUser: CurrentUser, promotionId: string, input: PromotionInput) {
+        this.assertCanManagePromotions(currentUser.role);
+
+        const promotion = await this.promotionRepository.findOneBy({ id: promotionId.trim() });
+        if (!promotion) {
+            throw new Error('Promotion not found.');
+        }
+
+        const shop = await this.getManageableShop(currentUser, promotion.shopId);
+        const nextTitle = input.title?.trim();
+        const requestedShopId = input.shopId?.trim();
+
+        if (nextTitle !== undefined) {
+            if (!nextTitle) {
+                throw new Error('Promotion title is required.');
+            }
+            promotion.title = nextTitle;
+        }
+
+        if (input.description !== undefined) {
+            promotion.description = input.description?.trim() || null;
+        }
+
+        if (requestedShopId && requestedShopId !== promotion.shopId) {
+            const nextShop = await this.getManageableShop(currentUser, requestedShopId);
+            promotion.shopId = nextShop.id;
+            promotion.merchantId = nextShop.merchantId;
+        } else {
+            promotion.merchantId = shop.merchantId;
+        }
+
+        if (input.startsAt !== undefined) {
+            promotion.startsAt = this.parseDate(input.startsAt, 'Promotion start date is required.');
+        }
+
+        if (input.endsAt !== undefined) {
+            promotion.endsAt = this.parseDate(input.endsAt, 'Promotion end date is required.');
+        }
+
+        if (promotion.endsAt < promotion.startsAt) {
+            throw new Error('Promotion end date must be after the start date.');
+        }
+
+        if (input.bonusPoints !== undefined) {
+            promotion.bonusPoints = this.normalizeNonNegativeInteger(input.bonusPoints, promotion.bonusPoints);
+        }
+
+        if (input.maxDiscountPercent !== undefined) {
+            promotion.maxDiscountPercent = this.normalizePercentage(input.maxDiscountPercent, promotion.maxDiscountPercent);
+        }
+
+        if (typeof input.isActive === 'boolean') {
+            promotion.isActive = input.isActive;
+        }
+
+        return this.promotionRepository.save(promotion);
+    }
+
     public async deletePromotion(currentUser: CurrentUser, promotionId: string) {
         this.assertCanManagePromotions(currentUser.role);
 

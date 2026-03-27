@@ -16,12 +16,16 @@ export async function attachAuthenticatedUser(req: Request, _res: Response, next
         const payload = verifyAccessToken(accessToken);
 
         if (payload) {
-            authenticatedRequest.authenticatedUser = {
-                id: payload.sub,
-                role: payload.role,
-                email: payload.email,
-            };
-            return next();
+            const user = await userRepository.findOneBy({ id: payload.sub });
+
+            if (user && user.isActive && !user.deletedAt) {
+                authenticatedRequest.authenticatedUser = {
+                    id: user.id,
+                    role: user.role,
+                    email: user.email,
+                };
+                return next();
+            }
         }
     }
 
@@ -33,7 +37,7 @@ export async function attachAuthenticatedUser(req: Request, _res: Response, next
         ? await userRepository.findOneBy({ id: userIdHeader })
         : await userRepository.findOneBy({ email: userEmailHeader! });
 
-    if (user) {
+    if (user && user.isActive && !user.deletedAt) {
         authenticatedRequest.authenticatedUser = {
             id: user.id,
             role: user.role,

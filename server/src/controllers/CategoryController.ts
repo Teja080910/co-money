@@ -1,12 +1,12 @@
 import { Controller, Delete, Get, Post, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/requireRole';
-import { ShopService } from '../services/ShopService';
+import { CategoryService } from '../services/CategoryService';
 import { getPaginationParams, paginateItems } from '../utils/pagination';
 
-@Controller('api/shops')
-export class ShopController {
-    private shopService = new ShopService();
+@Controller('api/categories')
+export class CategoryController {
+    private categoryService = new CategoryService();
 
     @Get('')
     private async list(req: Request, res: Response) {
@@ -16,10 +16,11 @@ export class ShopController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const shops = await this.shopService.listShops(authenticatedUser);
+            const shopId = typeof req.query.shopId === 'string' ? req.query.shopId : undefined;
+            const categories = await this.categoryService.listCategories(authenticatedUser, shopId);
             const pagination = getPaginationParams(req.query);
             return res.status(200).json(
-                pagination.enabled ? paginateItems(shops, pagination) : shops,
+                pagination.enabled ? paginateItems(categories, pagination) : categories,
             );
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
@@ -34,8 +35,8 @@ export class ShopController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const shop = await this.shopService.createShop(authenticatedUser, req.body);
-            return res.status(201).json(shop);
+            const category = await this.categoryService.createCategory(authenticatedUser, req.body);
+            return res.status(201).json(category);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -49,8 +50,8 @@ export class ShopController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const shop = await this.shopService.updateShop(authenticatedUser, req.params.id as string, req.body);
-            return res.status(200).json(shop);
+            const category = await this.categoryService.updateCategory(authenticatedUser, req.params.id as string, req.body);
+            return res.status(200).json(category);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -64,7 +65,7 @@ export class ShopController {
                 return res.status(401).json({ error: 'Authentication required.' });
             }
 
-            const result = await this.shopService.deleteShop(authenticatedUser, req.params.id as string);
+            const result = await this.categoryService.deleteCategory(authenticatedUser, req.params.id as string);
             return res.status(200).json(result);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });

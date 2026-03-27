@@ -11,19 +11,23 @@ import {
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Button, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Button, Portal, Snackbar, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserRole } from '../constants/userRoles';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
+import { SelectField } from '../components/common/SelectField';
 import { AddPointsTab } from '../components/home-tabs/AddPointsTab';
 import { CustomersTab } from '../components/home-tabs/CustomersTab';
 import { HomeOverviewTab } from '../components/home-tabs/HomeOverviewTab';
 import {
   AdminUserManagementSection,
+  CategorySettingsSection,
   EventsSection,
   PromotionsSection,
   RepresentativeUserManagementSection,
   ShopManagementSection,
+  SystemConfigurationSection,
   UserListSection,
 } from '../components/home-tabs/ManagementSections';
 import { ProfileTab } from '../components/home-tabs/ProfileTab';
@@ -33,17 +37,17 @@ import { WalletTab } from '../components/home-tabs/WalletTab';
 import { BottomTabBar } from '../components/navigation/BottomTabBar';
 import { getRoutesForRole } from '../navigation/homeTabConfig';
 import type { HomeTabParamList, ScreenProps } from '../navigation/types';
-import { apiClient } from '../services/api';
-import { changePassword, clearAuthenticatedUser, getAuthenticatedUser, type AuthUser } from '../services/auth';
+import { apiClient, getApiErrorMessage } from '../services/api';
+import { changePassword, fetchAuthenticatedProfile, getAuthenticatedUser, logoutUser, type AuthUser } from '../services/auth';
 import type { AppTheme } from '../theme/theme';
 
 type WalletTransaction = {
   id: string;
   walletId: string;
   customerId: string;
-  merchantId: string;
+  merchantId: string | null;
   performedByUserId: string;
-  shopId: string;
+  shopId: string | null;
   fromShopId: string | null;
   toShopId: string | null;
   type: 'EARN' | 'SPEND' | 'ADJUSTMENT';
@@ -99,6 +103,10 @@ type UserSummary = {
   email: string;
   role: AuthUser['role'];
   emailVerified: boolean;
+  isActive?: boolean;
+  status?: 'ACTIVE' | 'INACTIVE' | 'DELETED';
+  deactivatedAt?: string | null;
+  deletedAt?: string | null;
 };
 
 type ReportSummary = {
@@ -107,6 +115,16 @@ type ReportSummary = {
   totalPointsIssued: number;
   totalPointsSpent: number;
   activeBalance: number;
+  monthlyPointsIssued?: number;
+  monthlyPointsSpent?: number;
+  topShops?: Array<{
+    id: string;
+    name: string;
+    location: string;
+    transactionCount: number;
+    pointsIssued: number;
+    pointsSpent: number;
+  }>;
 };
 
 type Promotion = {
@@ -134,6 +152,60 @@ type EventItem = {
   endsAt: string;
   isActive: boolean;
 };
+
+type ShopCategory = {
+  id: string;
+  shopId: string;
+  shopName: string;
+  name: string;
+  formattedName: string;
+  discountPercent: number;
+  isDefault: boolean;
+  isActive: boolean;
+};
+
+type SystemConfig = {
+  id?: string;
+  version: number;
+  welcomeBonusPoints: number;
+  pointExpirationDays: number;
+  maxPointsPerTransaction: number;
+  defaultMaxDiscountPercent: number;
+  updatedByUserId: string;
+  changeReason: string | null;
+  createdAt: string | Date;
+};
+
+type SettlementPreview = {
+  customerId: string;
+  shopId: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  availablePoints: number;
+  requestedPoints: number;
+  usedPoints: number;
+  maxDiscountPoints: number;
+  maxDiscountPercent: number;
+  payableAmount: number | null;
+  earnedPoints: number | null;
+  bonusPoints: number;
+  predictedBalance: number;
+};
+
+type PaginatedResponse<T> = {
+  items: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+};
+
+type ActiveEditSheet = 'shop' | 'promotion' | 'event' | 'category' | null;
+type WalletActionFeedback = 'earn' | 'spend' | 'preview' | null;
 
 const roleTitles: Record<AuthUser['role'], string> = {
   [UserRole.CUSTOMER]: 'roles.customer',
@@ -172,6 +244,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
   const [selectedCustomerWallet, setSelectedCustomerWallet] = useState<WalletResponse | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionPageSize] = useState(10);
+  const [transactionTotalItems, setTransactionTotalItems] = useState(0);
+  const [transactionTotalPages, setTransactionTotalPages] = useState(0);
+  const [transactionLoading, setTransactionLoading] = useState(false);
   const [shops, setShops] = useState<Shop[]>([]);
   const [customers, setCustomers] = useState<UserSummary[]>([]);
   const [merchants, setMerchants] = useState<UserSummary[]>([]);
@@ -179,16 +256,27 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [report, setReport] = useState<ReportSummary | null>(null);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
+  const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
+  const [systemConfigHistory, setSystemConfigHistory] = useState<SystemConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [shopSubmitting, setShopSubmitting] = useState(false);
   const [promotionSubmitting, setPromotionSubmitting] = useState(false);
   const [claimingPromotionId, setClaimingPromotionId] = useState('');
   const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [userSubmitting, setUserSubmitting] = useState(false);
+  const [configSubmitting, setConfigSubmitting] = useState(false);
+  const [userActionLoadingState, setUserActionLoadingState] = useState<{
+    userId: string;
+    action: 'activate' | 'deactivate' | 'delete';
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [walletActionFeedback, setWalletActionFeedback] = useState<WalletActionFeedback>(null);
   const [activeTabKey, setActiveTabKey] = useState<keyof HomeTabParamList>('home');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedShopId, setSelectedShopId] = useState('');
@@ -198,6 +286,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [spendPoints, setSpendPoints] = useState('');
   const [spendDescription, setSpendDescription] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [settlementPreview, setSettlementPreview] = useState<SettlementPreview | null>(null);
   const [shopName, setShopName] = useState('');
   const [shopLocation, setShopLocation] = useState('');
   const [shopDescription, setShopDescription] = useState('');
@@ -209,11 +299,24 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [promotionStartDate, setPromotionStartDate] = useState('');
   const [promotionEndDate, setPromotionEndDate] = useState('');
   const [promotionShopId, setPromotionShopId] = useState('');
+  const [editingPromotionId, setEditingPromotionId] = useState('');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
+  const [editingEventId, setEditingEventId] = useState('');
+  const [categoryShopId, setCategoryShopId] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryDiscountPercent, setCategoryDiscountPercent] = useState('');
+  const [categoryIsDefault, setCategoryIsDefault] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState('');
+  const [activeEditSheet, setActiveEditSheet] = useState<ActiveEditSheet>(null);
+  const [configWelcomeBonusPoints, setConfigWelcomeBonusPoints] = useState('');
+  const [configPointExpirationDays, setConfigPointExpirationDays] = useState('');
+  const [configMaxPointsPerTransaction, setConfigMaxPointsPerTransaction] = useState('');
+  const [configDefaultMaxDiscountPercent, setConfigDefaultMaxDiscountPercent] = useState('');
+  const [configChangeReason, setConfigChangeReason] = useState('');
   const [internalRole, setInternalRole] = useState<AuthUser['role']>(UserRole.MERCHANT);
   const [internalFirstName, setInternalFirstName] = useState('');
   const [internalLastName, setInternalLastName] = useState('');
@@ -247,6 +350,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
   >(null);
 
+  const notificationVisible = Boolean(error || successMessage);
+
   const routes = useMemo(() => {
     if (!authUser) {
       return [];
@@ -261,6 +366,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     () => routes.find(routeItem => routeItem.key === activeTabKey) || routes[0] || null,
     [activeTabKey, routes],
   );
+  const showWelcomeHeader = Boolean(activeRoute?.showWelcomeHeader);
 
   const displayName = useMemo(() => {
     if (!authUser) {
@@ -287,6 +393,28 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }, {});
   }, [merchants]);
 
+  const shopNameMap = useMemo(() => {
+    return shops.reduce<Record<string, string>>((acc, shop) => {
+      acc[shop.id] = shop.name;
+      return acc;
+    }, {});
+  }, [shops]);
+
+  const userDisplayNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+
+    const allUsers = [...customers, ...merchants, ...representatives];
+    allUsers.forEach(user => {
+      map[user.id] = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+    });
+
+    if (authUser) {
+      map[authUser.id] = [authUser.firstName, authUser.lastName].filter(Boolean).join(' ') || authUser.username;
+    }
+
+    return map;
+  }, [authUser, customers, merchants, representatives]);
+
   const availableShops = useMemo(() => {
     if (!authUser) {
       return shops;
@@ -294,6 +422,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
     if (authUser.role === UserRole.MERCHANT) {
       return shops.filter(shop => shop.merchantId === authUser.id);
+    }
+
+    if (authUser.role === UserRole.REPRESENTATIVE) {
+      return shops.filter(shop => shop.representativeId === authUser.id);
     }
 
     return shops;
@@ -315,6 +447,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     return shops;
   }, [authUser, availableShops, shops]);
 
+  const visibleCategories = useMemo(() => {
+    if (!selectedShopId.trim()) {
+      return categories;
+    }
+
+    return categories.filter(category => category.shopId === selectedShopId);
+  }, [categories, selectedShopId]);
+
+  const manageableCategories = useMemo(() => {
+    if (!categoryShopId.trim()) {
+      return categories;
+    }
+
+    return categories.filter(category => category.shopId === categoryShopId);
+  }, [categories, categoryShopId]);
+
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) {
       return customerUsers;
@@ -330,14 +478,6 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       );
     });
   }, [customerSearch, customerUsers]);
-
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(transaction => {
-      const matchesType = transactionTypeFilter === 'ALL' ? true : transaction.type === transactionTypeFilter;
-      const matchesStatus = transactionStatusFilter === 'ALL' ? true : transaction.status === transactionStatusFilter;
-      return matchesType && matchesStatus;
-    });
-  }, [transactionStatusFilter, transactionTypeFilter, transactions]);
 
   const allowedInternalRoles = useMemo(() => {
     if (!authUser) {
@@ -399,67 +539,129 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setAuthUser(storedUser);
 
     try {
-      if (storedUser.role === UserRole.CUSTOMER) {
-        const [walletResponse, transactionsResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
+      const authenticatedProfile = await fetchAuthenticatedProfile();
+      setAuthUser(authenticatedProfile);
+
+      if (authenticatedProfile.role === UserRole.CUSTOMER) {
+        const [walletResponse, shopsResponse, promotionsResponse, eventsResponse] = await Promise.all([
           apiClient.get<WalletResponse>('/api/wallet/me'),
-          apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
           apiClient.get<Shop[]>('/api/shops'),
           apiClient.get<Promotion[]>('/api/promotions'),
           apiClient.get<EventItem[]>('/api/events'),
         ]);
 
         setWallet(walletResponse.data);
-        setTransactions(transactionsResponse.data);
         setShops(shopsResponse.data);
         setPromotions(promotionsResponse.data);
         setEvents(eventsResponse.data);
+        setCategories([]);
+        setSystemConfig(null);
+        setSystemConfigHistory([]);
         setCustomers([]);
         setMerchants([]);
         setRepresentatives([]);
         setReport(null);
       } else {
         const requests: Array<Promise<any>> = [
-          apiClient.get<WalletTransaction[]>('/api/wallet/transactions'),
           apiClient.get<UserSummary[]>('/api/users/customers'),
           apiClient.get<Shop[]>('/api/shops'),
           apiClient.get<Promotion[]>('/api/promotions'),
           apiClient.get<EventItem[]>('/api/events'),
+          apiClient.get<ShopCategory[]>('/api/categories'),
         ];
 
-        if (storedUser.role === UserRole.REPRESENTATIVE || storedUser.role === UserRole.ADMIN) {
+        if (authenticatedProfile.role === UserRole.REPRESENTATIVE || authenticatedProfile.role === UserRole.ADMIN) {
           requests.push(apiClient.get<UserSummary[]>('/api/users/merchants'));
           requests.push(apiClient.get<ReportSummary>('/api/wallet/reports/summary'));
         }
 
-        if (storedUser.role === UserRole.ADMIN) {
+        if (authenticatedProfile.role === UserRole.ADMIN) {
+          requests.push(apiClient.get<SystemConfig>('/api/system-config'));
+          requests.push(apiClient.get<SystemConfig[]>('/api/system-config/history'));
           requests.push(apiClient.get<UserSummary[]>('/api/users/representatives'));
         }
 
         const responses = await Promise.all(requests);
 
         setWallet(null);
-        setTransactions(responses[0].data);
-        setCustomers(responses[1].data);
-        setShops(responses[2].data);
-        setPromotions(responses[3].data);
-        setEvents(responses[4].data);
-        setMerchants(storedUser.role === UserRole.REPRESENTATIVE || storedUser.role === UserRole.ADMIN ? responses[5].data : []);
+        setCustomers(responses[0].data);
+        setShops(responses[1].data);
+        setPromotions(responses[2].data);
+        setEvents(responses[3].data);
+        setCategories(responses[4].data);
+        setMerchants(authenticatedProfile.role === UserRole.REPRESENTATIVE || authenticatedProfile.role === UserRole.ADMIN ? responses[5].data : []);
         setReport(
-          storedUser.role === UserRole.REPRESENTATIVE
+          authenticatedProfile.role === UserRole.REPRESENTATIVE
             ? responses[6].data
-            : storedUser.role === UserRole.ADMIN
+            : authenticatedProfile.role === UserRole.ADMIN
               ? responses[6].data
               : null,
         );
-        setRepresentatives(storedUser.role === UserRole.ADMIN ? responses[7].data : []);
+        if (authenticatedProfile.role === UserRole.ADMIN) {
+          setSystemConfig(responses[7].data);
+          setSystemConfigHistory(responses[8].data);
+          setRepresentatives(responses[9].data);
+        } else {
+          setSystemConfig(null);
+          setSystemConfigHistory([]);
+          setRepresentatives([]);
+        }
       }
+
+      const transactionsResponse = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+        params: {
+          page: transactionPage,
+          pageSize: transactionPageSize,
+          type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
+          status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
+        },
+      });
+
+      setTransactions(transactionsResponse.data.items);
+      setTransactionPage(transactionsResponse.data.pagination.page);
+      setTransactionTotalItems(transactionsResponse.data.pagination.totalItems);
+      setTransactionTotalPages(transactionsResponse.data.pagination.totalPages);
     } catch (loadError: any) {
+      if (loadError?.response?.status === 401) {
+        await logoutUser();
+        navigation.replace('Login');
+        return;
+      }
+
       setError(loadError?.response?.data?.error || 'Unable to load dashboard data.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [navigation]);
+  }, [navigation, transactionPage, transactionPageSize, transactionStatusFilter, transactionTypeFilter]);
+
+  const loadTransactions = useCallback(async (nextPage = transactionPage) => {
+    if (!authUser) {
+      return;
+    }
+
+    setTransactionLoading(true);
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+        params: {
+          page: nextPage,
+          pageSize: transactionPageSize,
+          type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
+          status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
+        },
+      });
+
+      setTransactions(response.data.items);
+      setTransactionPage(response.data.pagination.page);
+      setTransactionTotalItems(response.data.pagination.totalItems);
+      setTransactionTotalPages(response.data.pagination.totalPages);
+    } catch (loadError) {
+      setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+    } finally {
+      setTransactionLoading(false);
+    }
+  }, [authUser, transactionPage, transactionPageSize, transactionStatusFilter, transactionTypeFilter]);
 
   useEffect(() => {
     void loadDashboard();
@@ -495,6 +697,36 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }, [manageablePromotionShops, promotionShopId]);
 
   useEffect(() => {
+    if (visibleCategories.length && !visibleCategories.some(category => category.id === selectedCategoryId)) {
+      const defaultCategory = visibleCategories.find(category => category.isDefault) || visibleCategories[0];
+      setSelectedCategoryId(defaultCategory?.id || '');
+    }
+
+    if (!visibleCategories.length) {
+      setSelectedCategoryId('');
+    }
+  }, [selectedCategoryId, visibleCategories]);
+
+  useEffect(() => {
+    if (
+      availableShops.length &&
+      (!categoryShopId || !availableShops.some(shop => shop.id === categoryShopId))
+    ) {
+      setCategoryShopId(availableShops[0].id);
+    }
+  }, [availableShops, categoryShopId]);
+
+  useEffect(() => {
+    if (systemConfig) {
+      setConfigWelcomeBonusPoints(String(systemConfig.welcomeBonusPoints));
+      setConfigPointExpirationDays(String(systemConfig.pointExpirationDays));
+      setConfigMaxPointsPerTransaction(String(systemConfig.maxPointsPerTransaction));
+      setConfigDefaultMaxDiscountPercent(String(systemConfig.defaultMaxDiscountPercent));
+      setConfigChangeReason('');
+    }
+  }, [systemConfig]);
+
+  useEffect(() => {
     if (allowedInternalRoles.length && !allowedInternalRoles.includes(internalRole)) {
       setInternalRole(allowedInternalRoles[0]);
     }
@@ -521,10 +753,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   useEffect(() => {
     setError(null);
     setSuccessMessage(null);
+    setWalletActionFeedback(null);
   }, [activeTabKey]);
 
+  useEffect(() => {
+    setSettlementPreview(null);
+  }, [selectedCustomerId, selectedShopId, selectedCategoryId, purchaseAmount, spendPoints]);
+
   const onLogout = async () => {
-    await clearAuthenticatedUser();
+    await logoutUser();
     navigation.replace('Login');
   };
 
@@ -533,29 +770,99 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     await loadDashboard();
   };
 
+  const handleSelectTransactionTypeFilter = useCallback(async (nextFilter: string) => {
+    setTransactionTypeFilter(nextFilter);
+    setTransactionPage(1);
+    if (authUser) {
+      setTransactionLoading(true);
+      try {
+        const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+          params: {
+            page: 1,
+            pageSize: transactionPageSize,
+            type: nextFilter === 'ALL' ? undefined : nextFilter,
+            status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
+          },
+        });
+        setTransactions(response.data.items);
+        setTransactionPage(response.data.pagination.page);
+        setTransactionTotalItems(response.data.pagination.totalItems);
+        setTransactionTotalPages(response.data.pagination.totalPages);
+      } catch (loadError) {
+        setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+      } finally {
+        setTransactionLoading(false);
+      }
+    }
+  }, [authUser, transactionPageSize, transactionStatusFilter]);
+
+  const handleSelectTransactionStatusFilter = useCallback(async (nextFilter: string) => {
+    setTransactionStatusFilter(nextFilter);
+    setTransactionPage(1);
+    if (authUser) {
+      setTransactionLoading(true);
+      try {
+        const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
+          params: {
+            page: 1,
+            pageSize: transactionPageSize,
+            type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
+            status: nextFilter === 'ALL' ? undefined : nextFilter,
+          },
+        });
+        setTransactions(response.data.items);
+        setTransactionPage(response.data.pagination.page);
+        setTransactionTotalItems(response.data.pagination.totalItems);
+        setTransactionTotalPages(response.data.pagination.totalPages);
+      } catch (loadError) {
+        setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+      } finally {
+        setTransactionLoading(false);
+      }
+    }
+  }, [authUser, transactionPageSize, transactionTypeFilter]);
+
+  const handleTransactionPageChange = useCallback(async (nextPage: number) => {
+    await loadTransactions(nextPage);
+  }, [loadTransactions]);
+
   const resetShopForm = () => {
     setEditingShopId('');
     setShopName('');
     setShopLocation('');
     setShopDescription('');
     setShopMerchantId(merchants[0]?.id || '');
+    setActiveEditSheet(current => (current === 'shop' ? null : current));
   };
 
   const resetPromotionForm = () => {
+    setEditingPromotionId('');
     setPromotionTitle('');
     setPromotionDescription('');
     setPromotionBonusPoints('');
     setPromotionStartDate('');
     setPromotionEndDate('');
     setPromotionShopId(manageablePromotionShops[0]?.id || '');
+    setActiveEditSheet(current => (current === 'promotion' ? null : current));
   };
 
   const resetEventForm = () => {
+    setEditingEventId('');
     setEventTitle('');
     setEventDescription('');
     setEventLocation('');
     setEventStartDate('');
     setEventEndDate('');
+    setActiveEditSheet(current => (current === 'event' ? null : current));
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCategoryId('');
+    setCategoryName('');
+    setCategoryDiscountPercent('');
+    setCategoryIsDefault(false);
+    setCategoryShopId(availableShops[0]?.id || '');
+    setActiveEditSheet(current => (current === 'category' ? null : current));
   };
 
   const resetInternalUserForm = () => {
@@ -661,6 +968,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
+    setWalletActionFeedback('earn');
 
     try {
       await apiClient.post('/api/wallet/earn', {
@@ -707,6 +1015,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
+    setWalletActionFeedback('spend');
 
     try {
       const response = await apiClient.post<{
@@ -719,6 +1028,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         shopId: selectedShopId.trim(),
         points: Number(spendPoints),
         purchaseAmount: Number(purchaseAmount),
+        categoryId: selectedCategoryId.trim() || undefined,
         description: spendDescription.trim() || undefined,
       });
 
@@ -729,12 +1039,41 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setPurchaseAmount('');
       setSpendPoints('');
       setSpendDescription('');
+      setSettlementPreview(null);
       await loadDashboard();
       await fetchSelectedCustomerWallet(selectedCustomerId);
     } catch (submitError: any) {
       setError(submitError?.response?.data?.error || 'Unable to settle the purchase.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePreviewSettlement = async () => {
+    if (!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()) {
+      setError('Select customer, shop, purchase amount, and points before previewing.');
+      return;
+    }
+
+    setPreviewLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    setSettlementPreview(null);
+    setWalletActionFeedback('preview');
+
+    try {
+      const response = await apiClient.post<SettlementPreview>('/api/wallet/preview', {
+        customerId: selectedCustomerId.trim(),
+        shopId: selectedShopId.trim(),
+        points: Number(spendPoints),
+        purchaseAmount: Number(purchaseAmount),
+        categoryId: selectedCategoryId.trim() || undefined,
+      });
+      setSettlementPreview(response.data);
+    } catch (previewError: any) {
+      setError(getApiErrorMessage(previewError, 'Unable to preview settlement.'));
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -746,6 +1085,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setShopMerchantId(shop.merchantId);
     setSuccessMessage(null);
     setError(null);
+    setActiveEditSheet('shop');
   };
 
   const handleSaveShop = async () => {
@@ -833,16 +1173,23 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSuccessMessage(null);
 
     try {
-      await apiClient.post('/api/promotions', {
+      const payload = {
         title: promotionTitle.trim(),
         description: promotionDescription.trim() || undefined,
         shopId: promotionShopId.trim(),
         bonusPoints: promotionBonusPoints.trim() ? Number(promotionBonusPoints) : 0,
         startsAt: `${promotionStartDate.trim()}T00:00:00.000Z`,
         endsAt: `${promotionEndDate.trim()}T23:59:59.000Z`,
-      });
+      };
 
-      setSuccessMessage('Promotion created successfully.');
+      if (editingPromotionId) {
+        await apiClient.put(`/api/promotions/${editingPromotionId}`, payload);
+        setSuccessMessage('Promotion updated successfully.');
+      } else {
+        await apiClient.post('/api/promotions', payload);
+        setSuccessMessage('Promotion created successfully.');
+      }
+
       resetPromotionForm();
       await loadDashboard();
     } catch (submitError: any) {
@@ -863,6 +1210,37 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       await loadDashboard();
     } catch (deleteError: any) {
       setError(deleteError?.response?.data?.error || 'Unable to delete promotion.');
+    } finally {
+      setPromotionSubmitting(false);
+    }
+  };
+
+  const handleEditPromotion = (promotion: Promotion) => {
+    setEditingPromotionId(promotion.id);
+    setPromotionTitle(promotion.title);
+    setPromotionDescription(promotion.description || '');
+    setPromotionBonusPoints(String(promotion.bonusPoints));
+    setPromotionStartDate(promotion.startsAt.split('T')[0] || '');
+    setPromotionEndDate(promotion.endsAt.split('T')[0] || '');
+    setPromotionShopId(promotion.shopId);
+    setError(null);
+    setSuccessMessage(null);
+    setActiveEditSheet('promotion');
+  };
+
+  const handleTogglePromotionStatus = async (promotion: Promotion) => {
+    setPromotionSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.put(`/api/promotions/${promotion.id}`, {
+        isActive: !promotion.isActive,
+      });
+      setSuccessMessage(`Promotion ${promotion.isActive ? 'deactivated' : 'activated'} successfully.`);
+      await loadDashboard();
+    } catch (updateError: any) {
+      setError(updateError?.response?.data?.error || 'Unable to update promotion.');
     } finally {
       setPromotionSubmitting(false);
     }
@@ -910,15 +1288,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSuccessMessage(null);
 
     try {
-      await apiClient.post('/api/events', {
+      const payload = {
         title: eventTitle.trim(),
         description: eventDescription.trim() || undefined,
         location: eventLocation.trim(),
         startsAt: `${eventStartDate.trim()}T00:00:00.000Z`,
         endsAt: `${eventEndDate.trim()}T23:59:59.000Z`,
-      });
+      };
 
-      setSuccessMessage('Event created successfully.');
+      if (editingEventId) {
+        await apiClient.put(`/api/events/${editingEventId}`, payload);
+        setSuccessMessage('Event updated successfully.');
+      } else {
+        await apiClient.post('/api/events', payload);
+        setSuccessMessage('Event created successfully.');
+      }
+
       resetEventForm();
       await loadDashboard();
     } catch (submitError: any) {
@@ -941,6 +1326,158 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setError(deleteError?.response?.data?.error || 'Unable to delete event.');
     } finally {
       setEventSubmitting(false);
+    }
+  };
+
+  const handleEditEvent = (event: EventItem) => {
+    setEditingEventId(event.id);
+    setEventTitle(event.title);
+    setEventDescription(event.description || '');
+    setEventLocation(event.location);
+    setEventStartDate(event.startsAt.split('T')[0] || '');
+    setEventEndDate(event.endsAt.split('T')[0] || '');
+    setError(null);
+    setSuccessMessage(null);
+    setActiveEditSheet('event');
+  };
+
+  const handleToggleEventStatus = async (event: EventItem) => {
+    setEventSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.put(`/api/events/${event.id}`, {
+        isActive: !event.isActive,
+      });
+      setSuccessMessage(`Event ${event.isActive ? 'deactivated' : 'activated'} successfully.`);
+      await loadDashboard();
+    } catch (updateError: any) {
+      setError(updateError?.response?.data?.error || 'Unable to update event.');
+    } finally {
+      setEventSubmitting(false);
+    }
+  };
+
+  const handleEditCategory = (category: ShopCategory) => {
+    setEditingCategoryId(category.id);
+    setCategoryShopId(category.shopId);
+    setCategoryName(category.formattedName || category.name);
+    setCategoryDiscountPercent(String(category.discountPercent));
+    setCategoryIsDefault(category.isDefault);
+    setError(null);
+    setSuccessMessage(null);
+    setActiveEditSheet('category');
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryShopId.trim()) {
+      setError('Select a shop for the category.');
+      return;
+    }
+
+    if (!categoryName.trim()) {
+      setError('Category name is required.');
+      return;
+    }
+
+    if (!categoryDiscountPercent.trim() || Number(categoryDiscountPercent) < 0) {
+      setError('Enter a valid category discount percent.');
+      return;
+    }
+
+    setCategorySubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    const payload = {
+      shopId: categoryShopId.trim(),
+      name: categoryName.trim(),
+      discountPercent: Number(categoryDiscountPercent),
+      isDefault: categoryIsDefault,
+    };
+
+    try {
+      if (editingCategoryId) {
+        await apiClient.put(`/api/categories/${editingCategoryId}`, payload);
+        setSuccessMessage('Category updated successfully.');
+      } else {
+        await apiClient.post('/api/categories', payload);
+        setSuccessMessage('Category created successfully.');
+      }
+
+      resetCategoryForm();
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to save category.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleToggleCategoryStatus = async (category: ShopCategory) => {
+    setCategorySubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.put(`/api/categories/${category.id}`, {
+        isActive: !category.isActive,
+      });
+      setSuccessMessage(`Category ${category.isActive ? 'deactivated' : 'activated'} successfully.`);
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to update category.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    setCategorySubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.delete(`/api/categories/${categoryId}`);
+      setSuccessMessage('Category deleted successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to delete category.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleSaveConfiguration = async () => {
+    if (
+      !configWelcomeBonusPoints.trim() ||
+      !configPointExpirationDays.trim() ||
+      !configMaxPointsPerTransaction.trim() ||
+      !configDefaultMaxDiscountPercent.trim()
+    ) {
+      setError('Complete all configuration fields before saving.');
+      return;
+    }
+
+    setConfigSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post<SystemConfig>('/api/system-config', {
+        welcomeBonusPoints: Number(configWelcomeBonusPoints),
+        pointExpirationDays: Number(configPointExpirationDays),
+        maxPointsPerTransaction: Number(configMaxPointsPerTransaction),
+        defaultMaxDiscountPercent: Number(configDefaultMaxDiscountPercent),
+        changeReason: configChangeReason.trim() || undefined,
+      });
+      setSuccessMessage('System configuration updated successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to save system configuration.');
+    } finally {
+      setConfigSubmitting(false);
     }
   };
 
@@ -988,6 +1525,54 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setError(submitError?.response?.data?.error || 'Unable to create user.');
     } finally {
       setUserSubmitting(false);
+    }
+  };
+
+  const handleActivateUser = async (user: UserSummary) => {
+    setUserActionLoadingState({ userId: user.id, action: 'activate' });
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post(`/api/users/${user.id}/activate`, {});
+      setSuccessMessage('User activated successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to activate user.');
+    } finally {
+      setUserActionLoadingState(null);
+    }
+  };
+
+  const handleDeactivateUser = async (user: UserSummary) => {
+    setUserActionLoadingState({ userId: user.id, action: 'deactivate' });
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post(`/api/users/${user.id}/deactivate`, {});
+      setSuccessMessage('User deactivated successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to deactivate user.');
+    } finally {
+      setUserActionLoadingState(null);
+    }
+  };
+
+  const handleDeleteUser = async (user: UserSummary) => {
+    setUserActionLoadingState({ userId: user.id, action: 'delete' });
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiClient.post(`/api/users/${user.id}/delete`, {});
+      setSuccessMessage('User deleted successfully.');
+      await loadDashboard();
+    } catch (submitError: any) {
+      setError(submitError?.response?.data?.error || 'Unable to delete user.');
+    } finally {
+      setUserActionLoadingState(null);
     }
   };
 
@@ -1049,6 +1634,111 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     </View>
   );
 
+  const renderSheetActions = (
+    onSubmit: () => void,
+    onCancel: () => void,
+    loading: boolean,
+  ) => (
+    <View style={styles.bottomSheetActionColumn}>
+      <Button
+        mode="contained"
+        loading={loading}
+        onPress={() => void onSubmit()}
+        style={styles.bottomSheetPrimaryButton}
+        contentStyle={styles.bottomSheetButtonContent}
+      >
+        Update
+      </Button>
+      <Button
+        mode="outlined"
+        onPress={onCancel}
+        style={styles.bottomSheetSecondaryButton}
+        contentStyle={styles.bottomSheetButtonContent}
+      >
+        Cancel
+      </Button>
+    </View>
+  );
+
+  const renderEditSheetContent = () => {
+    switch (activeEditSheet) {
+      case 'shop':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Shop</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update shop details from the sheet.</Text>
+            <FloatingLabelInput icon="store-outline" label="Shop Name" value={shopName} onChangeText={setShopName} autoCapitalize="words" />
+            <FloatingLabelInput icon="map-marker-outline" label="Location" value={shopLocation} onChangeText={setShopLocation} autoCapitalize="words" />
+            <FloatingLabelInput icon="text-box-outline" label="Description" value={shopDescription} onChangeText={setShopDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <SelectField
+              label="Merchant"
+              value={shopMerchantId}
+              onSelect={setShopMerchantId}
+              options={merchants.map(merchant => ({
+                value: merchant.id,
+                label: [merchant.firstName, merchant.lastName].filter(Boolean).join(' ') || merchant.username,
+              }))}
+            />
+            {renderSheetActions(handleSaveShop, resetShopForm, shopSubmitting)}
+          </>
+        );
+      case 'promotion':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Promotion</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update promotion details from the sheet.</Text>
+            <FloatingLabelInput icon="tag-outline" label="Title" value={promotionTitle} onChangeText={setPromotionTitle} autoCapitalize="sentences" />
+            <FloatingLabelInput icon="text-box-outline" label="Description" value={promotionDescription} onChangeText={setPromotionDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <SelectField
+              label="Shop"
+              value={promotionShopId}
+              onSelect={setPromotionShopId}
+              options={manageablePromotionShops.map(shop => ({ value: shop.id, label: shop.name }))}
+            />
+            <FloatingLabelInput icon="star-four-points-outline" label="Bonus Points" keyboardType="number-pad" value={promotionBonusPoints} onChangeText={setPromotionBonusPoints} />
+            {renderDateField('Start Date', promotionStartDate, 'promotion-start', 'Select the promotion start date.')}
+            {renderDateField('End Date', promotionEndDate, 'promotion-end', 'Select the promotion end date.')}
+            {renderSheetActions(handleCreatePromotion, resetPromotionForm, promotionSubmitting)}
+          </>
+        );
+      case 'event':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Event</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update event details from the sheet.</Text>
+            <FloatingLabelInput icon="calendar-text-outline" label="Title" value={eventTitle} onChangeText={setEventTitle} autoCapitalize="sentences" />
+            <FloatingLabelInput icon="text-box-outline" label="Description" value={eventDescription} onChangeText={setEventDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <FloatingLabelInput icon="map-marker-outline" label="Location" value={eventLocation} onChangeText={setEventLocation} autoCapitalize="words" />
+            {renderDateField('Start Date', eventStartDate, 'event-start', 'Select the event start date.')}
+            {renderDateField('End Date', eventEndDate, 'event-end', 'Select the event end date.')}
+            {renderSheetActions(handleCreateEvent, resetEventForm, eventSubmitting)}
+          </>
+        );
+      case 'category':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Category</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update category details from the sheet.</Text>
+            <SelectField
+              label="Shop"
+              value={categoryShopId}
+              onSelect={setCategoryShopId}
+              options={availableShops.map(shop => ({ value: shop.id, label: shop.name }))}
+            />
+            <FloatingLabelInput icon="shape-outline" label="Category Name" value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
+            <FloatingLabelInput icon="percent-outline" label="Discount Percent" value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
+            {renderSheetActions(handleSaveCategory, resetCategoryForm, categorySubmitting)}
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
   const tabContext = {
     theme,
     styles,
@@ -1080,6 +1770,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSpendPoints,
     spendDescription,
     setSpendDescription,
+    previewCategories: visibleCategories,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    previewLoading,
+    settlementPreview,
+    error,
+    successMessage,
+    walletActionFeedback,
+    handlePreviewSettlement,
     submitting,
     handleAddPoints,
     handleSpendPoints,
@@ -1102,10 +1801,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     transactionTypeOptions,
     transactionStatusOptions,
     transactionTypeFilter,
-    setTransactionTypeFilter,
+    setTransactionTypeFilter: handleSelectTransactionTypeFilter,
     transactionStatusFilter,
-    setTransactionStatusFilter,
-    filteredTransactions,
+    setTransactionStatusFilter: handleSelectTransactionStatusFilter,
+    filteredTransactions: transactions,
+    transactionLoading,
+    transactionPage,
+    transactionTotalPages,
+    transactionTotalItems,
+    handleTransactionPageChange,
     shops,
     merchants,
     customers,
@@ -1123,6 +1827,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     editingShopId,
     resetShopForm,
     merchantNameMap,
+    shopNameMap,
+    userDisplayNameMap,
     handleEditShop,
     handleToggleShopStatus,
     promotionTitle,
@@ -1134,6 +1840,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setPromotionShopId,
     promotionBonusPoints,
     setPromotionBonusPoints,
+    editingPromotionId,
     renderDateField,
     promotionStartDate,
     promotionEndDate,
@@ -1142,6 +1849,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     handleCreatePromotion,
     resetPromotionForm,
     promotions,
+    handleEditPromotion,
+    handleTogglePromotionStatus,
     handleDeletePromotion,
     handleClaimPromotion,
     eventTitle,
@@ -1152,12 +1861,45 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setEventLocation,
     eventStartDate,
     eventEndDate,
+    editingEventId,
     eventSubmitting,
     handleCreateEvent,
     resetEventForm,
     events,
+    handleEditEvent,
+    handleToggleEventStatus,
     handleDeleteEvent,
     formatDate,
+    categoryShopId,
+    setCategoryShopId,
+    categoryName,
+    setCategoryName,
+    categoryDiscountPercent,
+    setCategoryDiscountPercent,
+    categoryIsDefault,
+    setCategoryIsDefault,
+    categorySubmitting,
+    editingCategoryId,
+    categories: manageableCategories,
+    handleEditCategory,
+    handleSaveCategory,
+    handleToggleCategoryStatus,
+    handleDeleteCategory,
+    resetCategoryForm,
+    systemConfig,
+    systemConfigHistory,
+    configWelcomeBonusPoints,
+    setConfigWelcomeBonusPoints,
+    configPointExpirationDays,
+    setConfigPointExpirationDays,
+    configMaxPointsPerTransaction,
+    setConfigMaxPointsPerTransaction,
+    configDefaultMaxDiscountPercent,
+    setConfigDefaultMaxDiscountPercent,
+    configChangeReason,
+    setConfigChangeReason,
+    configSubmitting,
+    handleSaveConfiguration,
     allowedInternalRoles,
     internalRole,
     setInternalRole,
@@ -1178,7 +1920,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     internalPassword,
     setInternalPassword,
     userSubmitting,
+    userActionLoadingState,
     handleCreateInternalUser,
+    handleActivateUser,
+    handleDeactivateUser,
+    handleDeleteUser,
     resetInternalUserForm,
     customerUsers,
     renderSummaryMetric,
@@ -1188,62 +1934,48 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     () => routes.findIndex(routeItem => routeItem.key === activeTabKey),
     [activeTabKey, routes],
   );
+  const tabScenes = useMemo<Partial<Record<keyof HomeTabParamList, React.ReactNode>>>(() => ({
+    home: <HomeOverviewTab context={tabContext} />,
+    dashboard: <HomeOverviewTab context={tabContext} />,
+    wallet: <WalletTab context={tabContext} />,
+    reports: <ReportsTab context={tabContext} />,
+    'user-management': authUser?.role === UserRole.REPRESENTATIVE
+      ? <RepresentativeUserManagementSection context={tabContext} />
+      : <AdminUserManagementSection context={tabContext} />,
+    'shop-management': (
+      <ShopManagementSection
+        context={tabContext}
+        title={t('management.admin.shopManagementTitle')}
+        subtitle={t('management.admin.shopManagementSubtitle')}
+      />
+    ),
+    'category-settings': <CategorySettingsSection context={tabContext} />,
+    configuration: <SystemConfigurationSection context={tabContext} />,
+    promotions: <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />,
+    events: <EventsSection context={tabContext} editable />,
+    transactions: <TransactionsTab context={tabContext} />,
+    customers: <CustomersTab context={tabContext} />,
+    'add-points': <AddPointsTab context={tabContext} />,
+    merchants: (
+      <UserListSection
+        context={tabContext}
+        title={t('directory.merchants.title')}
+        subtitle={t('directory.merchants.subtitle')}
+        users={merchants}
+      />
+    ),
+    representatives: (
+      <UserListSection
+        context={tabContext}
+        title={t('directory.representatives.title')}
+        subtitle={t('directory.representatives.subtitle')}
+        users={representatives}
+      />
+    ),
+    profile: <ProfileTab context={tabContext} />,
+  }), [authUser?.role, merchants, representatives, t, tabContext]);
 
-  const renderActiveTabContent = () => {
-    switch (activeTabKey) {
-      case 'home':
-      case 'dashboard':
-        return <HomeOverviewTab context={tabContext} />;
-      case 'wallet':
-        return <WalletTab context={tabContext} />;
-      case 'reports':
-        return <ReportsTab context={tabContext} />;
-      case 'user-management':
-        return authUser?.role === UserRole.REPRESENTATIVE
-          ? <RepresentativeUserManagementSection context={tabContext} />
-          : <AdminUserManagementSection context={tabContext} />;
-      case 'shop-management':
-        return (
-          <ShopManagementSection
-            context={tabContext}
-            title={t('management.admin.shopManagementTitle')}
-            subtitle={t('management.admin.shopManagementSubtitle')}
-          />
-        );
-      case 'promotions':
-        return <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />;
-      case 'events':
-        return <EventsSection context={tabContext} editable />;
-      case 'transactions':
-        return <TransactionsTab context={tabContext} />;
-      case 'customers':
-        return <CustomersTab context={tabContext} />;
-      case 'add-points':
-        return <AddPointsTab context={tabContext} />;
-      case 'merchants':
-        return (
-          <UserListSection
-            context={tabContext}
-            title={t('directory.merchants.title')}
-            subtitle={t('directory.merchants.subtitle')}
-            users={merchants}
-          />
-        );
-      case 'representatives':
-        return (
-          <UserListSection
-            context={tabContext}
-            title={t('directory.representatives.title')}
-            subtitle={t('directory.representatives.subtitle')}
-            users={representatives}
-          />
-        );
-      case 'profile':
-        return <ProfileTab context={tabContext} />;
-      default:
-        return <HomeOverviewTab context={tabContext} />;
-    }
-  };
+  const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
@@ -1253,12 +1985,108 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         <View style={styles.backdropGlowOrange} />
         <View style={styles.backdropGrid} />
       </View>
+      <Portal>
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.toastOverlay,
+            {
+              top: Math.max(insets.top + 8, 16),
+            },
+          ]}
+        >
+          <Snackbar
+            visible={notificationVisible}
+            onDismiss={() => {
+              setError(null);
+              setSuccessMessage(null);
+            }}
+            duration={3200}
+            style={[
+              styles.snackbar,
+              {
+                backgroundColor: error ? theme.custom.error : theme.custom.success,
+              },
+            ]}
+            action={{
+              label: 'Dismiss',
+              textColor: '#FFFFFF',
+              onPress: () => {
+                setError(null);
+                setSuccessMessage(null);
+              },
+            }}
+          >
+            {error || successMessage || ''}
+          </Snackbar>
+        </View>
+      </Portal>
+      {activeEditSheet ? (
+        <Portal>
+          <View style={styles.bottomSheetOverlay}>
+            <Pressable
+              style={[
+                styles.bottomSheetBackdrop,
+                {
+                  backgroundColor: theme.custom.background === '#07111F'
+                    ? 'rgba(2, 6, 23, 0.78)'
+                    : 'rgba(15, 23, 42, 0.62)',
+                },
+              ]}
+              onPress={() => {
+                if (activeEditSheet === 'shop') {
+                  resetShopForm();
+                } else if (activeEditSheet === 'promotion') {
+                  resetPromotionForm();
+                } else if (activeEditSheet === 'event') {
+                  resetEventForm();
+                } else if (activeEditSheet === 'category') {
+                  resetCategoryForm();
+                }
+              }}
+            />
+            <View
+              style={[
+                styles.bottomSheetShell,
+                {
+                  paddingBottom: 0,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.bottomSheetCard,
+                  {
+                    backgroundColor: theme.custom.surfaceStrong,
+                    borderColor: theme.custom.border,
+                    shadowColor: theme.custom.shadow,
+                  },
+                ]}
+              >
+                <ScrollView
+                  key={activeEditSheet}
+                  style={styles.bottomSheetScroll}
+                  contentContainerStyle={[
+                    styles.bottomSheetContent,
+                    {
+                      paddingBottom: Math.max(insets.bottom + 20, 28),
+                    },
+                  ]}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {renderEditSheetContent()}
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+        </Portal>
+      ) : null}
       <ScrollView
         contentContainerStyle={[
           styles.contentFrame,
           {
             paddingTop: Math.max(insets.top + 16, 24),
-            paddingBottom: Math.max(insets.bottom + 140, 148),
+            paddingBottom: Math.max(insets.bottom + 54, 58),
           },
         ]}
         keyboardDismissMode="on-drag"
@@ -1272,46 +2100,48 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           </View>
         ) : (
           <>
-            <View
-              style={[
-                styles.headerCard,
-                {
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  shadowColor: theme.custom.shadow,
-                },
-              ]}
-            >
-              <View style={styles.headerGlowBlue} />
-              <View style={styles.headerGlowOrange} />
-              <View style={styles.headerGrid} />
-              <View style={styles.headerTopRow}>
-                <View style={styles.rolePill}>
-                  <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.rolePillText}>
-                    {authUser ? t(roleTitles[authUser.role]) : 'Co-Money'}
-                  </Text>
+            {showWelcomeHeader ? (
+              <View
+                style={[
+                  styles.headerCard,
+                  {
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    shadowColor: theme.custom.shadow,
+                  },
+                ]}
+              >
+                <View style={styles.headerGlowBlue} />
+                <View style={styles.headerGlowOrange} />
+                <View style={styles.headerGrid} />
+                <View style={styles.headerTopRow}>
+                  <View style={styles.rolePill}>
+                    <MaterialCommunityIcons name="shield-account-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.rolePillText}>
+                      {authUser ? t(roleTitles[authUser.role]) : 'Co-Money'}
+                    </Text>
+                  </View>
+                  <View style={styles.headerActions}>
+                    <LanguageSwitcher tone="light" />
+                    <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
+                      <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
+                      <Text style={styles.headerLogoutText}>{t('dashboard.logout')}</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <View style={styles.headerActions}>
-                  <LanguageSwitcher tone="light" />
-                  <Pressable onPress={() => void onLogout()} style={styles.headerLogoutButton}>
-                    <MaterialCommunityIcons name="logout-variant" size={16} color="#FFFFFF" />
-                    <Text style={styles.headerLogoutText}>{t('dashboard.logout')}</Text>
-                  </Pressable>
-                </View>
-              </View>
 
-              <View style={styles.headerAccentRow}>
-                <View style={styles.headerAccentLine} />
-                <View style={styles.headerAccentDot} />
+                <View style={styles.headerAccentRow}>
+                  <View style={styles.headerAccentLine} />
+                  <View style={styles.headerAccentDot} />
+                </View>
+                <Text style={styles.dashboardKicker}>{activeRoute?.title || t('dashboard.overview')}</Text>
+                <Text style={styles.dashboardTitle}>
+                  {displayName ? t('dashboard.welcomeBack', { name: displayName }) : 'Co-Money'}
+                </Text>
+                <Text style={styles.dashboardSubtitle}>
+                  {t('dashboard.bannerSubtitle', { section: activeRoute?.title || t('dashboard.overview') })}
+                </Text>
               </View>
-              <Text style={styles.dashboardKicker}>{activeRoute?.title || t('dashboard.overview')}</Text>
-              <Text style={styles.dashboardTitle}>
-                {displayName ? t('dashboard.welcomeBack', { name: displayName }) : 'Co-Money'}
-              </Text>
-              <Text style={styles.dashboardSubtitle}>
-                {t('dashboard.bannerSubtitle', { section: activeRoute?.title || t('dashboard.overview') })}
-              </Text>
-            </View>
+            ) : null}
 
             <View
               style={[
@@ -1331,16 +2161,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 </Text>
               </View>
 
-              {error ? <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text> : null}
-              {successMessage ? <Text style={[styles.message, { color: theme.custom.success }]}>{successMessage}</Text> : null}
-              <View style={styles.tabNavigatorShell}>
-                <View style={styles.tabSceneContent}>
-                  {renderActiveTabContent()}
-                </View>
-              </View>
-              {activeDatePicker ? (
-                <View style={styles.datePickerWrap}>
-                  <DateTimePicker
+	              <View style={styles.tabNavigatorShell}>
+	                <View style={styles.tabSceneContent}>
+	                  {activeTabContent}
+		            </View>
+	              </View>
+	              {activeDatePicker ? (
+	                <View style={styles.datePickerWrap}>
+	                  <DateTimePicker
                     value={
                       activeDatePicker === 'promotion-start'
                         ? getPickerDate(promotionStartDate)
@@ -1643,6 +2471,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
   },
+  snackbar: {
+    borderRadius: 16,
+    elevation: 8,
+  },
+  toastOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    elevation: 20,
+  },
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1703,6 +2542,70 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
   },
+  bottomSheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 25,
+  },
+  bottomSheetShell: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: 0,
+    justifyContent: 'flex-end',
+  },
+  bottomSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bottomSheetCard: {
+    width: '100%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 1,
+    overflow: 'hidden',
+    height: '66%',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 22,
+  },
+  bottomSheetScroll: {
+    width: '100%',
+  },
+  bottomSheetContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 18,
+  },
+  bottomSheetHandle: {
+    alignSelf: 'center',
+    width: 56,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148, 163, 184, 0.55)',
+    marginBottom: 16,
+  },
+  bottomSheetActionColumn: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 10,
+  },
+  bottomSheetPrimaryButton: {
+    width: '78%',
+    alignSelf: 'center',
+  },
+  bottomSheetSecondaryButton: {
+    width: '78%',
+    alignSelf: 'center',
+  },
+  bottomSheetButtonContent: {
+    minHeight: 46,
+  },
   input: {
     borderWidth: 1,
     borderRadius: 12,
@@ -1757,7 +2660,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 12,
+    bottom: 0,
   },
   selectionCard: {
     borderWidth: 1,

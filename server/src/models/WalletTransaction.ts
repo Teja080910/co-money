@@ -14,14 +14,14 @@ export class WalletTransaction {
     @Column({ type: 'uuid' })
     customerId!: string;
 
-    @Column({ type: 'uuid' })
-    merchantId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    merchantId!: string | null;
 
     @Column({ type: 'uuid' })
     performedByUserId!: string;
 
-    @Column({ type: 'uuid' })
-    shopId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    shopId!: string | null;
 
     @Column({ type: 'uuid', nullable: true })
     fromShopId!: string | null;

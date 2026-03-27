@@ -93,10 +93,10 @@
     "fetchWarning": "Could not fetch users, make sure backend is running"
   },
   "roles": {
-    "customer": "Customer App",
-    "merchant": "Merchant Console",
-    "representative": "Representative Workspace",
-    "admin": "Admin Dashboard"
+    "customer": "Customer",
+    "merchant": "Merchant",
+    "representative": "Representative",
+    "admin": "Admin"
   },
   "navigation": {
     "tabs": {
@@ -109,6 +109,8 @@
       "user-management": "Users",
       "dashboard": "Dashboard",
       "shop-management": "Shops",
+      "category-settings": "Categories",
+      "configuration": "Configuration",
       "promotions": "Promotions",
       "events": "Events"
     }
@@ -174,6 +176,7 @@
   },
   "common": {
     "role": "Role",
+    "status": "Status",
     "balance": "Balance",
     "pointsShort": "pts",
     "to": "to",
@@ -181,10 +184,17 @@
     "reset": "Reset",
     "cancel": "Cancel",
     "edit": "Edit",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
     "delete": "Delete",
     "noRecords": "No records available.",
     "startDate": "Start date",
     "endDate": "End date"
+  },
+  "statuses": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "deleted": "Deleted"
   },
   "pointTypes": {
     "standard": "Standard",
@@ -207,7 +217,10 @@
     "shops": "Shops",
     "issued": "Issued",
     "spent": "Spent",
+    "monthlyIssued": "Monthly Issued",
+    "monthlySpent": "Monthly Spent",
     "activeBalance": "Active Balance",
+    "topShops": "Top Shops",
     "empty": "No report data available."
   },
   "transactions": {
@@ -217,9 +230,11 @@
     "discount": "Discount",
     "payable": "Payable",
     "earnedInSettlement": "Earned in settlement",
-    "firstTimeBonus": "First-time bonus",
+    "firstTimeBonus": "Welcome bonus",
     "from": "From",
     "to": "To",
+    "customer": "Customer",
+    "merchant": "Merchant",
     "empty": "No transactions match the current filters.",
     "types": {
       "earn": "Earn",
@@ -243,6 +258,11 @@
         "pending": "Pending",
         "failed": "Failed"
       }
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "summary": "Page {{page}} of {{totalPages}}"
     }
   },
   "wallet": {
@@ -324,6 +344,7 @@
       "startHelper": "Choose when this promotion should become active.",
       "endHelper": "Choose the last day customers can use this promotion.",
       "save": "Save Promotion",
+      "update": "Update Promotion",
       "activeTitle": "Active Promotions",
       "activeSubtitle": "Offers available across the network",
       "bonus": "Bonus",
@@ -331,6 +352,36 @@
       "claim": "Claim",
       "claimed": "Claimed",
       "empty": "No promotions are available right now."
+    },
+    "categories": {
+      "title": "Category Settings",
+      "subtitle": "Manage category discount rules without changing the current shop flow.",
+      "shop": "Shop",
+      "nameLabel": "Category name",
+      "nameHelper": "Use the label merchants recognize during settlement.",
+      "discountLabel": "Discount percent",
+      "discountHelper": "Choose the maximum discount allowed for this category.",
+      "defaultLabel": "Default category",
+      "save": "Save Category",
+      "update": "Update Category",
+      "empty": "No categories are available for the selected scope."
+    },
+    "configuration": {
+      "title": "System Configuration",
+      "subtitle": "Adjust global limits and rewards using the current admin workspace.",
+      "welcomeBonusLabel": "Welcome bonus points",
+      "welcomeBonusHelper": "Bonus granted after registration is verified.",
+      "expirationLabel": "Point expiration days",
+      "expirationHelper": "Number of days before points expire.",
+      "maxPointsLabel": "Max points per transaction",
+      "maxPointsHelper": "Upper limit a single settlement can earn or spend.",
+      "defaultDiscountLabel": "Default max discount percent",
+      "defaultDiscountHelper": "Fallback discount cap when a category does not override it.",
+      "reasonLabel": "Change reason",
+      "reasonHelper": "Optional audit note for the new configuration version.",
+      "save": "Save Configuration",
+      "historyTitle": "Configuration History",
+      "historyEmpty": "No configuration history is available yet."
     },
     "events": {
       "editTitle": "Events",
@@ -344,6 +395,7 @@
       "startHelper": "Pick the first day this event will be visible as active.",
       "endHelper": "Pick the final day for this event schedule.",
       "save": "Save Event",
+      "update": "Update Event",
       "listTitle": "Events",
       "listSubtitle": "Upcoming network activity",
       "empty": "No events are scheduled yet."
@@ -393,16 +445,39 @@
     "ready": "Ready to scan a customer wallet.",
     "useCustomer": "Use This Customer",
     "scanAgain": "Scan Again",
-    "scanError": "Unable to scan customer QR."
+    "scanError": "Unable to scan customer QR.",
+    "lookupLabel": "Manual customer lookup",
+    "lookupHelper": "Search by customer name, username, or email if scanning is unavailable.",
+    "lookupAction": "Find Customer",
+    "lookupError": "Unable to search for customers."
   },
   "addPoints": {
+    "customerCard": {
+      "title": "Choose Customer",
+      "subtitle": "Select or scan the customer before running any wallet action."
+    },
     "selectedCustomer": "Selected Customer",
     "chooseCustomerHint": "Choose a customer below or from the Customers tab.",
     "scanQr": "Scan Customer QR",
+    "recentCustomers": "Recent Customers",
     "chooseCustomer": "Choose Customer",
     "pointType": "Point Type",
     "selectShop": "Select Shop",
+    "category": "Category",
     "noShops": "No merchant shop is available for point assignment.",
+    "preview": {
+      "title": "Settlement Preview",
+      "subtitle": "Check discount, payable amount, and re-earned points before submitting.",
+      "action": "Preview Settlement",
+      "usedPoints": "Used points",
+      "maxDiscount": "Max discount",
+      "discountAmount": "Discount amount",
+      "payableAmount": "Payable amount",
+      "earnedPoints": "Earned points",
+      "bonusPoints": "Bonus points",
+      "predictedBalance": "Predicted balance",
+      "categoryFallback": "Default shop rule"
+    },
     "fields": {
       "pointsLabel": "Points",
       "pointsHelper": "Enter how many points should be added to the customer wallet.",
@@ -451,6 +526,8 @@
     "passwordIncorrect": "The password you entered is incorrect.",
     "verifyEmailFirst": "Verify your email first.",
     "verificationEmailFailed": "We could not send the verification email right now.",
+    "pointsNotRedeemableForShop": "Points cannot be redeemed for this shop.",
+    "requestedPointsExceedWalletBalance": "Requested points exceed the customer wallet balance.",
     "networkUnavailable": "We couldn't reach the server. Check your internet connection and try again.",
     "requestTimedOut": "The request took too long. Please try again."
   }

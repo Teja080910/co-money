@@ -15,6 +15,7 @@ export type AppTabRoute = {
   title: string;
   focusedIcon: string;
   unfocusedIcon: string;
+  showWelcomeHeader?: boolean;
 };
 
 export type HomeTabParamList = {
@@ -24,6 +25,8 @@ export type HomeTabParamList = {
   reports: undefined;
   'user-management': undefined;
   'shop-management': undefined;
+  'category-settings': undefined;
+  configuration: undefined;
   promotions: undefined;
   events: undefined;
   transactions: undefined;
