@@ -1,10 +1,7 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import i18n from '../i18n';
-
-const AUTH_USER_KEY = 'auth-user';
-const AUTH_TOKEN_KEY = 'auth-token';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY, getSecureSessionItem } from './secureSessionStorage';
 
 const fallbackApiUrl =
   Platform.OS === 'android' ? 'http://10.0.2.2:5008' : 'http://127.0.0.1:5008';
@@ -36,9 +33,18 @@ apiClient.interceptors.request.use(config => {
 });
 
 apiClient.interceptors.request.use(async config => {
-  const accessToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-  const serializedUser = await AsyncStorage.getItem(AUTH_USER_KEY);
-  const authenticatedUser = serializedUser ? (JSON.parse(serializedUser) as { id: string; email: string }) : null;
+  const [accessToken, serializedUser] = await Promise.all([
+    getSecureSessionItem(AUTH_TOKEN_KEY),
+    getSecureSessionItem(AUTH_USER_KEY),
+  ]);
+  let authenticatedUser: { id: string; email: string } | null = null;
+  if (serializedUser) {
+    try {
+      authenticatedUser = JSON.parse(serializedUser) as { id: string; email: string };
+    } catch {
+      authenticatedUser = null;
+    }
+  }
 
   if (accessToken) {
     config.headers.set?.('Authorization', `Bearer ${accessToken}`);
@@ -51,6 +57,27 @@ apiClient.interceptors.request.use(async config => {
 
   return config;
 });
+
+apiClient.interceptors.response.use(
+  response => response,
+  async error => {
+    if (!axios.isAxiosError(error)) {
+      return Promise.reject(error);
+    }
+
+    const requestConfig = error.config as (typeof error.config & { _retryReadonly?: boolean }) | undefined;
+    const method = requestConfig?.method?.toLowerCase();
+    const isReadonlyRequest = method === 'get';
+    const isRetryableFailure = error.code === 'ECONNABORTED' || !error.response;
+
+    if (!requestConfig || !isReadonlyRequest || !isRetryableFailure || requestConfig._retryReadonly) {
+      return Promise.reject(error);
+    }
+
+    requestConfig._retryReadonly = true;
+    return apiClient(requestConfig);
+  },
+);
 
 const API_ERROR_KEY_BY_MESSAGE: Record<string, string> = {
   'Inserisci il tuo nome.': 'apiErrors.firstNameRequired',

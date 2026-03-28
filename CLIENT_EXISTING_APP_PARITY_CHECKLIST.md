@@ -18,8 +18,8 @@ Status meanings:
 | Merchant/shop directory | Present | [ShopDirectorySection](./client/src/components/home-tabs/ManagementSections.tsx) lists shops with pagination. | Confirm filtering matches legacy merchant-list expectations. |
 | Promotions browse | Present | [PromotionsSection](./client/src/components/home-tabs/ManagementSections.tsx) renders customer-facing promotions. | Verify customer visibility rules are enforced server-side. |
 | Promotion claim flow | Present | [handleClaimPromotion](./client/src/screens/HomeScreen.tsx) posts to `/api/promotions/:id/claim`. | Confirm this is intended product behavior, since legacy app only inferred claimability. |
-| Offline QR rendering after auth | Partial | QR is always fetched from API in [CustomerQrScreen](./client/src/screens/CustomerQrScreen.tsx). No cached offline payload is shown. | Decide whether offline QR support is required and cache a last valid QR if needed. |
-| Secure token storage | Missing/Risk | [auth.ts](./client/src/services/auth.ts) stores token/user in `AsyncStorage`. | Move auth token storage to platform-secure storage. |
+| Offline QR rendering after auth | Present | [CustomerQrScreen](./client/src/screens/CustomerQrScreen.tsx) caches the last valid QR payload and shows it when a live refresh fails. | Keep QR expiry semantics aligned with backend validation rules. |
+| Secure token storage | Present | [auth.ts](./client/src/services/auth.ts), [api.ts](./client/src/services/api.ts), and [secureSessionStorage.ts](./client/src/services/secureSessionStorage.ts) store auth session data in `SecureStore` with migration from legacy `AsyncStorage`. | Verify secure-storage migration on physical devices before release. |
 
 ## Merchant
 
@@ -27,7 +27,7 @@ Status meanings:
 | --- | --- | --- | --- |
 | Merchant dashboard/home | Present | Merchant tabs are defined in [homeTabConfig](./client/src/navigation/homeTabConfig.ts) and merchant overview is rendered in [HomeOverviewTab](./client/src/components/home-tabs/HomeOverviewTab.tsx). | Keep dashboard metrics aligned with legacy expectations. |
 | QR scan customer verification | Present | [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx) scans QR and posts to `/api/wallet/scan-customer`. | Confirm backend verification semantics match legacy `/esercente/verifica-cliente`. |
-| Manual customer lookup fallback | Present | [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx) supports manual lookup by name/username/email. | Replace broad fetch-and-filter with dedicated server-side search if needed. |
+| Manual customer lookup fallback | Present | [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx) supports manual lookup by name/username/email using the existing customer search API. | Keep this fallback fast and available for checkout resilience. |
 | Verified customer handoff into transaction flow | Present | `selectedCustomerId` is passed via navigation in [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx) and consumed in [HomeScreen](./client/src/screens/HomeScreen.tsx). | Keep this flow as the primary merchant verification handoff. |
 | Customer list and wallet lookup | Present | [CustomersTab](./client/src/components/home-tabs/CustomersTab.tsx) selects a customer and shows wallet breakdown. | Confirm wallet payload contains all legacy merchant-visible balance fields. |
 | Assign points | Present | [handleAddPoints](./client/src/screens/HomeScreen.tsx) posts to `/api/wallet/earn`. | Confirm response/audit data covers legacy before/after expectations. |
@@ -36,10 +36,10 @@ Status meanings:
 | Merchant category management | Present | [CategorySettingsSection](./client/src/components/home-tabs/ManagementSections.tsx) and related handlers in [HomeScreen](./client/src/screens/HomeScreen.tsx) support create/edit/activate/delete/default. | Confirm category discount rules match legacy transaction math. |
 | Merchant promotions CRUD | Present | [PromotionsSection](./client/src/components/home-tabs/ManagementSections.tsx) plus promotion handlers in [HomeScreen](./client/src/screens/HomeScreen.tsx). | Confirm promotion application mechanics with product/backend. |
 | Separate assign / accept / unified screens | Partial | Current UI consolidates these into [AddPointsTab](./client/src/components/home-tabs/AddPointsTab.tsx) instead of separate screens. | Decide whether feature parity requires screen-level matching or only behavior parity. |
-| Dedicated server-side customer verification flow | Partial | Manual lookup fetches `/api/users/customers` and filters client-side in [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx). | Add a scoped merchant verification endpoint/search flow if parity requires it. |
-| Explicit spendable-at-this-merchant balance UI | Missing/Risk | Preview shows used points and max discount, but no explicit `punti_spendibili_qui` style field is surfaced in [AddPointsTab](./client/src/components/home-tabs/AddPointsTab.tsx). | Add merchant-specific spendable balance display if backend supports it. |
-| Visible enforcement messaging for same-merchant-earned-points rule | Missing/Risk | No client-visible rule explanation was found in merchant transaction UI. | Surface backend-provided spendability rule explanation in preview or validation errors. |
-| Explicit new balance success feedback after earn | Partial | Success message exists in [handleAddPoints](./client/src/screens/HomeScreen.tsx), but updated balance is not explicitly included in the message. | Include returned balance delta/new balance in merchant success UI if product wants legacy parity. |
+| Dedicated server-side customer verification flow | Present | [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx) sends `search`, `page`, and `pageSize` to `/api/users/customers` instead of fetching and filtering the full list client-side. | Keep result limits and search matching aligned with merchant checkout needs. |
+| Explicit spendable-at-this-merchant balance UI | Present | [AddPointsTab](./client/src/components/home-tabs/AddPointsTab.tsx) surfaces the preview `availablePoints` returned by the backend settlement preview. | Keep the preview contract aligned with backend spendability rules. |
+| Visible enforcement messaging for same-merchant-earned-points rule | Present | [AddPointsTab](./client/src/components/home-tabs/AddPointsTab.tsx) explains the same-shop restriction in the spend helper copy and pairs it with the explicit spendable balance preview. | Preserve this messaging when transaction copy evolves. |
+| Explicit new balance success feedback after earn | Present | [handleAddPoints](./client/src/screens/HomeScreen.tsx) now uses the `/api/wallet/earn` response balance in the success message. | Keep the success copy aligned with backend earn response fields. |
 
 ## Representative
 
@@ -50,7 +50,7 @@ Status meanings:
 | Merchant management/listing | Present | [RepresentativeUserManagementSection](./client/src/components/home-tabs/ManagementSections.tsx) shows merchant directory. | Confirm lifecycle actions intended for representative role. |
 | Customer directory/listing | Present | [RepresentativeUserManagementSection](./client/src/components/home-tabs/ManagementSections.tsx) shows customer directory. | Confirm this matches legacy scope. |
 | Internal user creation for merchant/customer | Present | [InternalUserManagementSection](./client/src/components/home-tabs/ManagementSections.tsx) plus [handleCreateInternalUser](./client/src/screens/HomeScreen.tsx). | Verify allowed roles remain limited to representative permissions. |
-| Rich zone leaderboard / top-area reporting | Partial | Current representative overview has summary KPIs, but no explicit top-zone or top-merchant ranking UI was found in [HomeOverviewTab](./client/src/components/home-tabs/HomeOverviewTab.tsx). | Add leaderboard or ranked reporting if needed for strict parity. |
+| Rich zone leaderboard / top-area reporting | Present | Representatives now have a reachable `reports` tab via [homeTabConfig](./client/src/navigation/homeTabConfig.ts), and ranked shop reporting is shown in [ReportsTab](./client/src/components/home-tabs/ReportsTab.tsx). | Keep report ranking scoped correctly to representative-owned shops. |
 | Role constraints around promotions | Missing/Risk | Non-customer roles can edit promotions through [PromotionsSection](./client/src/components/home-tabs/ManagementSections.tsx). | Confirm whether representatives should manage promotions or only events. |
 
 ## Admin / Centrale
@@ -65,7 +65,7 @@ Status meanings:
 | Representative creation | Present | Generic internal user creation supports representative role in [handleCreateInternalUser](./client/src/screens/HomeScreen.tsx). | Decide whether a dedicated create-representative screen is still wanted. |
 | System configuration form | Present | [SystemConfigurationSection](./client/src/components/home-tabs/ManagementSections.tsx) exposes welcome bonus, expiry, max points, and default max discount. | Keep field names and semantics aligned with backend rules. |
 | Configuration history/versioning | Present | History list is shown in [SystemConfigurationSection](./client/src/components/home-tabs/ManagementSections.tsx) and loaded in [HomeScreen](./client/src/screens/HomeScreen.tsx). | Confirm versioning semantics and edit/delete permissions. |
-| Distinct central metric for points cashed in | Partial | Admin summary shows issued, spent, monthly metrics, and active balance in [HomeOverviewTab](./client/src/components/home-tabs/HomeOverviewTab.tsx), but not a clearly separate `incassati` metric. | Add any missing central metrics required for parity. |
+| Distinct central metric for points cashed in | Present | [HomeOverviewTab](./client/src/components/home-tabs/HomeOverviewTab.tsx) and [ReportsTab](./client/src/components/home-tabs/ReportsTab.tsx) now surface an explicit `cashed in` metric for central reporting. | Keep naming aligned with product copy in Italian production builds. |
 | Dedicated create-representative UX | Partial | The behavior exists through a generic user form, not a dedicated central screen. | Decide whether UX parity requires a dedicated representative onboarding screen. |
 
 ## Cross-Cutting Requirements
@@ -78,14 +78,14 @@ Status meanings:
 | Manual fallback on scan screens | Present | [MerchantScanScreen](./client/src/screens/MerchantScanScreen.tsx) includes manual lookup. | Keep this mandatory for accessibility and checkout resilience. |
 | Password change | Present | [ProfileTab](./client/src/components/home-tabs/ProfileTab.tsx) and [handleChangePassword](./client/src/screens/HomeScreen.tsx). | Confirm whether this was part of legacy parity or a modern addition. |
 | Analytics events for business actions | Missing/Risk | No explicit client analytics hooks were found in the reviewed screens. | Add analytics instrumentation for scan, earn, spend, promotion, event, and admin flows. |
-| Network retry behavior for non-destructive reads | Missing/Risk | No obvious retry UI/policy was found in the reviewed client code. | Add retry affordances or central request retry handling where appropriate. |
+| Network retry behavior for non-destructive reads | Present | [api.ts](./client/src/services/api.ts) retries retryable `GET` failures once for timeout/offline conditions before surfacing an error. | Add screen-level retry affordances where UX needs a visible recovery action beyond the shared automatic retry. |
 | Client-side evidence of privacy-safe merchant views | Partial | Merchant sees customer identity and wallet summary, but explicit privacy minimization rules are not visible in UI code. | Review what wallet/customer fields are shown during merchant operations. |
-| Platform-secure token storage | Missing/Risk | Auth token persists in [auth.ts](./client/src/services/auth.ts) using `AsyncStorage`. | Replace with secure storage before production. |
+| Platform-secure token storage | Present | [auth.ts](./client/src/services/auth.ts), [api.ts](./client/src/services/api.ts), and [secureSessionStorage.ts](./client/src/services/secureSessionStorage.ts) use secure session storage with fallback only where secure storage is unavailable. | Validate storage behavior on every target platform in release builds. |
 
 ## Highest-Priority Follow-Ups
 
-1. Move auth token storage from `AsyncStorage` to secure platform storage.
-2. Confirm backend enforcement and client messaging for merchant spendability rules, especially same-merchant-earned points.
-3. Decide whether representative promotion editing is intended or a parity drift from the legacy app.
-4. Decide whether screen-level parity matters for merchant flows, or whether current consolidated UX is acceptable.
-5. Add missing observability and analytics instrumentation for critical business actions.
+1. Decide whether representative promotion editing is intended or a parity drift from the legacy app.
+2. Decide whether screen-level parity matters for merchant flows, or whether current consolidated UX is acceptable.
+3. Add missing observability and analytics instrumentation for critical business actions.
+4. Review privacy-safe field exposure during merchant verification and wallet flows.
+5. Expand explicit retry/refresh affordances on individual screens where the shared automatic retry is not enough UX recovery.

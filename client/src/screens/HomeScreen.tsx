@@ -1625,7 +1625,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setWalletActionFeedback('earn');
 
     try {
-      await apiClient.post('/api/wallet/earn', {
+      const response = await apiClient.post<{ balance?: number }>('/api/wallet/earn', {
         customerId: selectedCustomerId.trim(),
         shopId: selectedShopId.trim(),
         points: Number(points),
@@ -1633,7 +1633,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         description: description.trim() || undefined,
       });
 
-      setSuccessMessage(t('homeScreen.success.pointsAdded'));
+      setSuccessMessage(
+        typeof response.data.balance === 'number'
+          ? t('homeScreen.success.pointsAddedWithBalance', { balance: response.data.balance })
+          : t('homeScreen.success.pointsAdded'),
+      );
       setPoints('');
       setDescription('');
       await loadDashboard();
