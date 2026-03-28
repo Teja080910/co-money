@@ -20,14 +20,19 @@ export function ReportsTab({ context }: Props) {
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.customers')}: {report.totalCustomers}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.shops')}: {report.totalShops}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.issued')}: {report.totalPointsIssued}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.spent')}: {report.totalPointsSpent}</Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.cashedIn')}: {report.totalPointsSpent}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlyIssued')}: {report.monthlyPointsIssued ?? 0}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlySpent')}: {report.monthlyPointsSpent ?? 0}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.activeBalance')}: {report.activeBalance}</Text>
             {report.topShops?.length ? (
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>
-                {t('reports.topShops')}: {report.topShops.map((shop: any) => `${shop.name} (${shop.transactionCount})`).join(', ')}
-              </Text>
+              <>
+                <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.topShops')}:</Text>
+                {report.topShops.map((shop: any, index: number) => (
+                  <Text key={shop.id} style={[styles.reportText, { color: theme.custom.textSecondary }]}>
+                    {index + 1}. {shop.name} ({shop.transactionCount})
+                  </Text>
+                ))}
+              </>
             ) : null}
           </>
         ) : (

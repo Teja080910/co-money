@@ -1,10 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserRole } from '../constants/userRoles';
 import { apiClient } from './api';
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  getSecureSessionItem,
+  removeSecureSessionItems,
+  setSecureSessionItem,
+  setSecureSessionItems,
+} from './secureSessionStorage';
 
 const PENDING_VERIFICATION_EMAIL_KEY = 'pending-verification-email';
-const AUTH_USER_KEY = 'auth-user';
-const AUTH_TOKEN_KEY = 'auth-token';
 
 export type AuthUser = {
   id: string;
@@ -128,18 +134,18 @@ export async function clearPendingVerificationEmail() {
 }
 
 export async function saveAuthenticatedSession(session: AuthSession) {
-  await AsyncStorage.multiSet([
+  await setSecureSessionItems([
     [AUTH_USER_KEY, JSON.stringify(session.user)],
     [AUTH_TOKEN_KEY, session.accessToken],
   ]);
 }
 
 export async function saveAuthenticatedUser(user: AuthUser) {
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  await setSecureSessionItem(AUTH_USER_KEY, JSON.stringify(user));
 }
 
 export async function getAuthenticatedUser() {
-  const serializedUser = await AsyncStorage.getItem(AUTH_USER_KEY);
+  const serializedUser = await getSecureSessionItem(AUTH_USER_KEY);
   if (!serializedUser) {
     return null;
   }
@@ -147,15 +153,15 @@ export async function getAuthenticatedUser() {
   try {
     return JSON.parse(serializedUser) as AuthUser;
   } catch {
-    await AsyncStorage.removeItem(AUTH_USER_KEY);
+    await removeSecureSessionItems([AUTH_USER_KEY]);
     return null;
   }
 }
 
 export async function clearAuthenticatedUser() {
-  await AsyncStorage.multiRemove([AUTH_USER_KEY, AUTH_TOKEN_KEY]);
+  await removeSecureSessionItems([AUTH_USER_KEY, AUTH_TOKEN_KEY]);
 }
 
 export async function getAuthenticatedToken() {
-  return AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  return getSecureSessionItem(AUTH_TOKEN_KEY);
 }

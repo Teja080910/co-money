@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,6 +10,7 @@ import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
 import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import type { ScreenProps } from '../navigation/types';
+import { getAuthenticatedUser } from '../services/auth';
 import { apiClient } from '../services/api';
 import type { AppTheme } from '../theme/theme';
 
@@ -29,6 +31,8 @@ type CustomerQrResponse = {
   balance: number;
 };
 
+const CUSTOMER_QR_CACHE_KEY_PREFIX = 'customer-qr-cache';
+
 export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
   const theme = useTheme<AppTheme>();
   const { t } = useTranslation();
@@ -37,11 +41,46 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showingCachedQr, setShowingCachedQr] = useState(false);
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   useAutoDismissMessage(error, clearError, FEEDBACK_AUTO_DISMISS_MS);
+
+  const getCustomerQrCacheKey = useCallback(async () => {
+    const authenticatedUser = await getAuthenticatedUser();
+    return authenticatedUser ? `${CUSTOMER_QR_CACHE_KEY_PREFIX}:${authenticatedUser.id}` : null;
+  }, []);
+
+  const getCachedQr = useCallback(async () => {
+    const cacheKey = await getCustomerQrCacheKey();
+    if (!cacheKey) {
+      return null;
+    }
+
+    const serializedQr = await AsyncStorage.getItem(cacheKey);
+    if (!serializedQr) {
+      return null;
+    }
+
+    try {
+      const authenticatedUser = await getAuthenticatedUser();
+      const cachedQr = JSON.parse(serializedQr) as CustomerQrResponse;
+      if (
+        !authenticatedUser ||
+        cachedQr.customer.id !== authenticatedUser.id ||
+        new Date(cachedQr.expiresAt).getTime() <= Date.now()
+      ) {
+        await AsyncStorage.removeItem(cacheKey);
+        return null;
+      }
+      return cachedQr;
+    } catch {
+      await AsyncStorage.removeItem(cacheKey);
+      return null;
+    }
+  }, [getCustomerQrCacheKey]);
 
   const loadQr = useCallback(async () => {
     setError(null);
@@ -49,13 +88,26 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
     try {
       const response = await apiClient.get<CustomerQrResponse>('/api/wallet/qr-code');
       setQrData(response.data);
+      setShowingCachedQr(false);
+      const cacheKey = await getCustomerQrCacheKey();
+      if (cacheKey) {
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(response.data));
+      }
     } catch (loadError: any) {
-      setError(loadError?.response?.data?.error || t('customerQr.loadError'));
+      const cachedQr = await getCachedQr();
+      if (cachedQr) {
+        setQrData(cachedQr);
+        setShowingCachedQr(true);
+      } else {
+        setQrData(null);
+        setShowingCachedQr(false);
+        setError(loadError?.response?.data?.error || t('customerQr.loadError'));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [getCachedQr, getCustomerQrCacheKey, t]);
 
   useEffect(() => {
     void loadQr();
@@ -128,6 +180,11 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
                 <Text style={[styles.message, { color: theme.custom.error }]}>{error}</Text>
               ) : qrData ? (
                 <>
+                  {showingCachedQr ? (
+                    <Text style={[styles.cachedMessage, { color: theme.custom.brandStrong }]}>
+                      {t('customerQr.cachedNotice')}
+                    </Text>
+                  ) : null}
                   <View style={styles.qrWrap}>
                     <QRCode value={qrData.qrValue} size={220} />
                   </View>
@@ -249,4 +306,10 @@ const styles = StyleSheet.create({
   balance: { fontSize: 36, fontWeight: '800', marginBottom: 8 },
   helper: { fontSize: 14, marginBottom: 4 },
   message: { fontSize: 14, textAlign: 'center' },
+  cachedMessage: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
 });

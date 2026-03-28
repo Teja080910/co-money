@@ -87,7 +87,7 @@ export function HomeOverviewTab({ context }: Props) {
             <Card.Title title={t('overview.representative.snapshotTitle')} subtitle={t('overview.representative.snapshotSubtitle')} />
             <Card.Content>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.issued')}: {report.totalPointsIssued}</Text>
-              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.spent')}: {report.totalPointsSpent}</Text>
+              <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.cashedIn')}: {report.totalPointsSpent}</Text>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlyIssued')}: {report.monthlyPointsIssued ?? 0}</Text>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlySpent')}: {report.monthlyPointsSpent ?? 0}</Text>
               <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('overview.representative.activeBalance')}: {report.activeBalance}</Text>
@@ -111,7 +111,7 @@ export function HomeOverviewTab({ context }: Props) {
           <Card.Title title={t('overview.admin.summaryTitle')} subtitle={t('overview.admin.summarySubtitle')} />
           <Card.Content>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.customers')}: {report.totalCustomers} | {t('reports.shops')}: {report.totalShops}</Text>
-            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.issued')}: {report.totalPointsIssued} | {t('reports.spent')}: {report.totalPointsSpent}</Text>
+            <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.issued')}: {report.totalPointsIssued} | {t('reports.cashedIn')}: {report.totalPointsSpent}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.monthlyIssued')}: {report.monthlyPointsIssued ?? 0} | {t('reports.monthlySpent')}: {report.monthlyPointsSpent ?? 0}</Text>
             <Text style={[styles.reportText, { color: theme.custom.textPrimary }]}>{t('reports.activeBalance')}: {report.activeBalance}</Text>
           </Card.Content>
