@@ -24,6 +24,7 @@ export function getRoutesForRole(role: UserRole): AppTabRoute[] {
     case UserRole.REPRESENTATIVE:
       return [
         { key: 'home', title: 'Home', focusedIcon: 'home-city', unfocusedIcon: 'home-city-outline', showWelcomeHeader: true },
+        { key: 'reports', title: 'Reports', focusedIcon: 'chart-box', unfocusedIcon: 'chart-box-outline' },
         { key: 'events', title: 'Events', focusedIcon: 'calendar-star', unfocusedIcon: 'calendar-star' },
         { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
         { key: 'category-settings', title: 'Categories', focusedIcon: 'shape-outline', unfocusedIcon: 'shape-outline' },
@@ -33,6 +34,7 @@ export function getRoutesForRole(role: UserRole): AppTabRoute[] {
     case UserRole.ADMIN:
       return [
         { key: 'dashboard', title: 'Dashboard', focusedIcon: 'view-dashboard', unfocusedIcon: 'view-dashboard-outline', showWelcomeHeader: true },
+        { key: 'reports', title: 'Reports', focusedIcon: 'chart-box', unfocusedIcon: 'chart-box-outline' },
         { key: 'user-management', title: 'Users', focusedIcon: 'account-group', unfocusedIcon: 'account-group-outline' },
         { key: 'shop-management', title: 'Shops', focusedIcon: 'storefront', unfocusedIcon: 'storefront-outline' },
         { key: 'category-settings', title: 'Categories', focusedIcon: 'shape-outline', unfocusedIcon: 'shape-outline' },

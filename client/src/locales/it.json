@@ -229,6 +229,7 @@
     "customers": "Clienti",
     "shops": "Negozi",
     "issued": "Emessi",
+    "cashedIn": "Incassati",
     "spent": "Spesi",
     "monthlyIssued": "Emessi nel mese",
     "monthlySpent": "Spesi nel mese",
@@ -358,6 +359,7 @@
     },
     "success": {
       "pointsAdded": "Punti aggiunti con successo.",
+      "pointsAddedWithBalance": "Punti aggiunti con successo. Nuovo saldo: {{balance}} pt.",
       "settlementComplete": "Regolamento completato. Usati {{usedPoints}} pt, da pagare {{payableAmount}}, guadagnati {{earnedPoints}}{{bonusSuffix}}.",
       "settlementBonusSuffix": " + {{bonusPoints}} bonus",
       "shopUpdated": "Negozio aggiornato con successo.",
@@ -548,6 +550,7 @@
     "sheetTitle": "Pass Portafoglio",
     "sheetSubtitle": "Aggiorna in qualsiasi momento per generare un nuovo QR a breve durata.",
     "loading": "Caricamento codice QR...",
+    "cachedNotice": "Viene mostrato l'ultimo QR valido perche al momento non e disponibile un aggiornamento live.",
     "expiresAt": "Scade alle",
     "walletId": "ID Portafoglio",
     "refresh": "Aggiorna QR",

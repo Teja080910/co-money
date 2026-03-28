@@ -229,6 +229,7 @@
     "customers": "Customers",
     "shops": "Shops",
     "issued": "Issued",
+    "cashedIn": "Cashed In",
     "spent": "Spent",
     "monthlyIssued": "Monthly Issued",
     "monthlySpent": "Monthly Spent",
@@ -358,6 +359,7 @@
     },
     "success": {
       "pointsAdded": "Points added successfully.",
+      "pointsAddedWithBalance": "Points added successfully. New balance: {{balance}} pts.",
       "settlementComplete": "Settlement complete. Used {{usedPoints}} pts, payable {{payableAmount}}, earned {{earnedPoints}}{{bonusSuffix}}.",
       "settlementBonusSuffix": " + {{bonusPoints}} bonus",
       "shopUpdated": "Shop updated successfully.",
@@ -548,6 +550,7 @@
     "sheetTitle": "Wallet Pass",
     "sheetSubtitle": "Refresh anytime to generate a fresh short-lived QR.",
     "loading": "Loading QR code...",
+    "cachedNotice": "Showing your last valid QR because a live refresh is not available right now.",
     "expiresAt": "Expires at",
     "walletId": "Wallet ID",
     "refresh": "Refresh QR",

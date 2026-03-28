@@ -31,6 +31,10 @@ type CustomerLookupItem = {
   email: string;
 };
 
+type CustomerLookupResponse = {
+  items: CustomerLookupItem[];
+};
+
 export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) {
   const theme = useTheme<AppTheme>();
   const { t } = useTranslation();
@@ -81,20 +85,15 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
     setError(null);
 
     try {
-      const response = await apiClient.get<CustomerLookupItem[]>('/api/users/customers', {
-        params: { status: 'ACTIVE' },
+      const response = await apiClient.get<CustomerLookupResponse>('/api/users/customers', {
+        params: {
+          status: 'ACTIVE',
+          search: lookupQuery.trim(),
+          page: 1,
+          pageSize: 6,
+        },
       });
-      const query = lookupQuery.trim().toLowerCase();
-      setLookupResults(
-        response.data.filter(customer => {
-          const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(' ').toLowerCase();
-          return (
-            customer.username.toLowerCase().includes(query) ||
-            customer.email.toLowerCase().includes(query) ||
-            fullName.includes(query)
-          );
-        }).slice(0, 6),
-      );
+      setLookupResults(response.data.items);
     } catch (lookupError: any) {
       setError(lookupError?.response?.data?.error || t('merchantScan.lookupError'));
       setLookupResults([]);

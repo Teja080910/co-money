@@ -228,6 +228,9 @@ export function AddPointsTab({ context }: Props) {
             <View style={[styles.selectionCard, { borderColor: theme.custom.border }]}>
               <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{t('addPoints.preview.title')}</Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                {t('wallet.availablePoints')}: {settlementPreview.availablePoints}
+              </Text>
+              <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
                 {t('addPoints.preview.usedPoints')}: {settlementPreview.usedPoints}
               </Text>
               <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
