@@ -1,7 +1,17 @@
-import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'crypto';
+import { randomInt } from 'crypto';
 import { AppDataSource } from '../config/db';
 import { User } from '../models/User';
+import { Wallet } from '../models/Wallet';
+import { WalletTransaction } from '../models/WalletTransaction';
 import { EmailService } from './EmailService';
+import { UserRole } from '../constants/userRoles';
+import { hashPassword, verifyPassword } from '../utils/password';
+import { createAccessToken, getJwtExpiresInSeconds } from '../utils/jwt';
+import { AuthenticatedUser } from '../middleware/requireRole';
+import { SystemConfigService } from './SystemConfigService';
+import { WalletPointType } from '../constants/walletPointTypes';
+import { WalletTransactionStatus } from '../constants/walletTransactionStatuses';
+import { WalletTransactionType } from '../constants/walletTransactionTypes';
 
 type RegisterInput = {
     firstName: string;
@@ -9,6 +19,7 @@ type RegisterInput = {
     email: string;
     password: string;
     username?: string;
+    locale?: string;
 };
 
 type AuthPayload = {
@@ -25,6 +36,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export class AuthService {
     private userRepository = AppDataSource.getRepository(User);
     private emailService = new EmailService();
+    private systemConfigService = new SystemConfigService();
 
     public async register(input: RegisterInput): Promise<AuthPayload> {
         const firstName = this.requireValue(input.firstName, 'Inserisci il tuo nome.');
@@ -55,14 +67,15 @@ export class AuthService {
             lastName,
             username,
             email,
-            password: this.hashPassword(password),
+            password: hashPassword(password),
+            role: UserRole.CUSTOMER,
             emailVerified: false,
             verificationCode,
             verificationCodeExpiresAt: this.getOtpExpiryDate(),
         });
-
+        
         await this.userRepository.save(user);
-        await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
+        await this.deliverOtpEmail(user.email, verificationCode, user.firstName, input.locale);
 
         return {
             message: 'Registrazione completata con successo!',
@@ -98,10 +111,55 @@ export class AuthService {
             throw new Error('OTP non valido.');
         }
 
-        user.emailVerified = true;
-        user.verificationCode = null;
-        user.verificationCodeExpiresAt = null;
-        await this.userRepository.save(user);
+        const currentConfig = await this.systemConfigService.getCurrentConfig();
+
+        await AppDataSource.transaction(async manager => {
+            user.emailVerified = true;
+            user.verificationCode = null;
+            user.verificationCodeExpiresAt = null;
+            await manager.save(User, user);
+
+            if (currentConfig.welcomeBonusPoints <= 0) {
+                return;
+            }
+
+            let wallet = await manager.findOneBy(Wallet, { customerId: user.id });
+            if (!wallet) {
+                wallet = manager.create(Wallet, {
+                    customerId: user.id,
+                    balance: 0,
+                });
+                wallet = await manager.save(Wallet, wallet);
+            }
+
+            const balanceBefore = wallet.balance;
+            wallet.balance += currentConfig.welcomeBonusPoints;
+            await manager.save(Wallet, wallet);
+
+            const welcomeBonusTransaction = manager.create(WalletTransaction, {
+                walletId: wallet.id,
+                customerId: user.id,
+                merchantId: null,
+                performedByUserId: user.id,
+                shopId: null,
+                fromShopId: null,
+                toShopId: null,
+                type: WalletTransactionType.EARN,
+                pointType: WalletPointType.BONUS,
+                status: WalletTransactionStatus.SUCCESS,
+                points: currentConfig.welcomeBonusPoints,
+                purchaseAmount: null,
+                discountAmount: null,
+                payableAmount: null,
+                earnedPoints: currentConfig.welcomeBonusPoints,
+                isFirstTransactionBonus: true,
+                balanceBefore,
+                balanceAfter: wallet.balance,
+                description: 'Welcome bonus awarded on registration',
+            });
+
+            await manager.save(WalletTransaction, welcomeBonusTransaction);
+        });
 
         return {
             message: 'Email verificata con successo.',
@@ -110,7 +168,7 @@ export class AuthService {
         };
     }
 
-    public async resendOtp(emailInput: string): Promise<AuthPayload> {
+    public async resendOtp(emailInput: string, locale?: string): Promise<AuthPayload> {
         const email = this.requireValue(emailInput, 'Email richiesta.').toLowerCase();
         const user = await this.userRepository.findOneBy({ email });
 
@@ -130,7 +188,7 @@ export class AuthService {
         user.verificationCode = verificationCode;
         user.verificationCodeExpiresAt = this.getOtpExpiryDate();
         await this.userRepository.save(user);
-        await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
+        await this.deliverOtpEmail(user.email, verificationCode, user.firstName, locale);
 
         return {
             message: 'Codice OTP reinviato alla tua email.',
@@ -158,13 +216,22 @@ export class AuthService {
     public async login(identifierInput: string, password: string, domain?: string) {
         const normalizedIdentifier = this.requireValue(identifierInput, 'Inserisci nome utente o email.').toLowerCase();
         const normalizedPassword = this.requireValue(password, 'Inserisci una password.');
+        const isEmailLogin = normalizedIdentifier.includes('@');
         const email = normalizedIdentifier.includes('@')
             ? normalizedIdentifier
             : this.buildEmail(normalizedIdentifier, domain);
 
         const user = await this.userRepository.findOneBy({ email });
-        if (!user || !this.verifyPassword(normalizedPassword, user.password)) {
-            throw new Error('Credenziali non valide.');
+        if (!user) {
+            throw new Error(isEmailLogin ? 'Email non trovata.' : 'Utente non trovato.');
+        }
+
+        if (!user.isActive || user.deletedAt) {
+            throw new Error('Account non attivo.');
+        }
+
+        if (!verifyPassword(normalizedPassword, user.password)) {
+            throw new Error('Password non corretta.');
         }
 
         if (!user.emailVerified) {
@@ -173,14 +240,83 @@ export class AuthService {
 
         return {
             message: 'Login effettuato con successo.',
+            accessToken: createAccessToken({
+                sub: user.id,
+                email: user.email,
+                role: user.role,
+            }),
+            tokenType: 'Bearer',
+            expiresInSeconds: getJwtExpiresInSeconds(),
             user: {
                 id: user.id,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 username: user.username,
                 email: user.email,
+                role: user.role,
                 emailVerified: user.emailVerified,
             },
+        };
+    }
+
+    public async getProfile(authenticatedUser: AuthenticatedUser) {
+        const user = await this.userRepository.findOneBy({ id: authenticatedUser.id });
+        if (!user || !user.isActive || user.deletedAt) {
+            throw new Error('Utente non trovato.');
+        }
+
+        return {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            emailVerified: user.emailVerified,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+    }
+
+    public async logout(_authenticatedUser: AuthenticatedUser) {
+        return {
+            message: 'Logout effettuato con successo.',
+        };
+    }
+
+    public async changePassword(
+        authenticatedUser: AuthenticatedUser,
+        currentPasswordInput: string,
+        newPasswordInput: string,
+        confirmPasswordInput?: string,
+    ) {
+        const currentPassword = this.requireValue(currentPasswordInput, 'Inserisci la password attuale.');
+        const newPassword = this.requireValue(newPasswordInput, 'Inserisci la nuova password.');
+        const confirmPassword = this.requireValue(confirmPasswordInput || '', 'Conferma la nuova password.');
+
+        if (newPassword.length < 8) {
+            throw new Error('La nuova password deve essere di almeno 8 caratteri.');
+        }
+
+        if (newPassword !== confirmPassword) {
+            throw new Error('Le nuove password non coincidono.');
+        }
+
+        const user = await this.userRepository.findOneBy({ id: authenticatedUser.id });
+        if (!user) {
+            throw new Error('Utente non trovato.');
+        }
+
+        if (!verifyPassword(currentPassword, user.password)) {
+            throw new Error('La password attuale non e corretta.');
+        }
+
+        user.password = hashPassword(newPassword);
+        await this.userRepository.save(user);
+
+        return {
+            message: 'Password aggiornata con successo.',
         };
     }
 
@@ -218,28 +354,6 @@ export class AuthService {
         return new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
     }
 
-    private hashPassword(password: string): string {
-        const salt = randomBytes(16).toString('hex');
-        const hash = scryptSync(password, salt, 64).toString('hex');
-        return `${salt}:${hash}`;
-    }
-
-    private verifyPassword(password: string, storedPassword: string): boolean {
-        const [salt, storedHash] = storedPassword.split(':');
-        if (!salt || !storedHash) {
-            return false;
-        }
-
-        const computedHash = scryptSync(password, salt, 64);
-        const storedHashBuffer = Buffer.from(storedHash, 'hex');
-
-        if (computedHash.length !== storedHashBuffer.length) {
-            return false;
-        }
-
-        return timingSafeEqual(computedHash, storedHashBuffer);
-    }
-
     private getDebugOtpPayload(otp: string): Pick<AuthPayload, 'debugOtp'> | {} {
         if (process.env.NODE_ENV === 'production') {
             return {};
@@ -248,12 +362,13 @@ export class AuthService {
         return { debugOtp: otp };
     }
 
-    private async deliverOtpEmail(email: string, otp: string, firstName?: string | null): Promise<void> {
+    private async deliverOtpEmail(email: string, otp: string, firstName?: string | null, locale?: string): Promise<void> {
         try {
             await this.emailService.sendOtpEmail({
                 to: email,
                 otp,
                 firstName,
+                locale,
             });
         } catch (error) {
             console.error('Failed to send OTP email:', error);

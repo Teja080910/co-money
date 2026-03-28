@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { UserRole } from '../constants/userRoles';
 
 @Entity('users')
 export class User {
@@ -20,8 +21,20 @@ export class User {
     @Column({ type: 'varchar' })
     password!: string;
 
+    @Column({ type: 'enum', enum: UserRole, default: UserRole.CUSTOMER })
+    role!: UserRole;
+
     @Column({ type: 'boolean', default: false })
     emailVerified!: boolean;
+
+    @Column({ type: 'boolean', default: true })
+    isActive!: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    deactivatedAt!: Date | null;
+
+    @Column({ type: 'timestamp', nullable: true })
+    deletedAt!: Date | null;
 
     @Column({ type: 'varchar', length: 6, nullable: true })
     verificationCode!: string | null;

@@ -20,7 +20,7 @@
       "footerPrompt": "Non hai un account?",
       "footerAction": "Registrati",
       "errors": {
-        "submit": "Credenziali non valide.",
+        "submit": "Non siamo riusciti ad effettuare l'accesso. Riprova.",
         "identifierRequired": "Inserisci nome o email.",
         "passwordRequired": "Password richiesta."
       }
@@ -48,7 +48,7 @@
       "footerPrompt": "Hai gia un account?",
       "footerAction": "Accedi",
       "errors": {
-        "submit": "Errore registrazione.",
+        "submit": "Non siamo riusciti a completare la registrazione. Riprova.",
         "firstNameRequired": "Inserisci il tuo nome.",
         "firstNameShort": "Il nome deve avere almeno 2 caratteri.",
         "lastNameRequired": "Inserisci il tuo cognome.",
@@ -92,6 +92,540 @@
     "logout": "Esci",
     "fetchWarning": "Impossibile caricare gli utenti, assicurati che il backend sia attivo"
   },
+  "roles": {
+    "customer": " Cliente",
+    "merchant": "Esercente",
+    "representative": "Rappresentante",
+    "admin": "Admin"
+  },
+  "navigation": {
+    "tabs": {
+      "home": "Home",
+      "wallet": "Portafoglio",
+      "transactions": "Cronologia",
+      "profile": "Profilo",
+      "customers": "Clienti",
+      "add-points": "Aggiungi Punti",
+      "user-management": "Utenti",
+      "dashboard": "Dashboard",
+      "shop-management": "Negozi",
+      "category-settings": "Categorie",
+      "configuration": "Configurazione",
+      "promotions": "Promozioni",
+      "events": "Eventi"
+    }
+  },
+  "dashboard": {
+    "overview": "Panoramica",
+    "logout": "Esci",
+    "welcomeBack": "Bentornato, {{name}}",
+    "bannerSubtitle": "{{section}} per portafoglio, transazioni e azioni quotidiane.",
+    "sheetSubtitle": "Workspace wallet e transazioni in base al ruolo."
+  },
+  "overview": {
+    "customer": {
+      "welcomeBack": "Bentornato",
+      "subtitle": "Il tuo portafoglio e pronto per accumulare e spendere nei negozi locali.",
+      "qrCta": "Mostra il mio codice QR",
+      "metrics": {
+        "currentBalance": "Saldo Attuale",
+        "transactions": "Transazioni"
+      }
+    },
+    "merchant": {
+      "scanQr": "Scansiona QR Cliente",
+      "recentCustomersTitle": "Clienti Recenti",
+      "recentCustomersSubtitle": "Clienti disponibili per assegnazione punti",
+      "metrics": {
+        "customers": "Clienti",
+        "myShops": "I Miei Negozi",
+        "transactions": "Transazioni"
+      }
+    },
+    "representative": {
+      "shopManagementTitle": "Gestione Negozi",
+      "shopManagementSubtitle": "I rappresentanti possono aggiungere, aggiornare, attivare e disattivare i negozi",
+      "snapshotTitle": "Panoramica Operativa",
+      "snapshotSubtitle": "Report rappresentante",
+      "issued": "Punti emessi totali",
+      "spent": "Punti spesi totali",
+      "activeBalance": "Saldo attivo",
+      "metrics": {
+        "merchants": "Esercenti",
+        "customers": "Clienti",
+        "transactions": "Transazioni",
+        "shops": "Negozi"
+      }
+    },
+    "admin": {
+      "summaryTitle": "Riepilogo Esecutivo",
+      "summarySubtitle": "Report admin",
+      "recentRepresentativesTitle": "Rappresentanti Recenti",
+      "recentRepresentativesSubtitle": "Ultimi account rappresentante interni",
+      "recentMerchantsTitle": "Esercenti Recenti",
+      "recentMerchantsSubtitle": "Account esercenti gestiti",
+      "recentCustomersTitle": "Clienti Recenti",
+      "recentCustomersSubtitle": "Nuovi account cliente nella rete",
+      "metrics": {
+        "representatives": "Rappresentanti",
+        "merchants": "Esercenti",
+        "customers": "Clienti",
+        "transactions": "Transazioni"
+      }
+    }
+  },
+  "common": {
+    "role": "Ruolo",
+    "status": "Stato",
+    "balance": "Saldo",
+    "pointsShort": "pt",
+    "to": "a",
+    "na": "N/D",
+    "reset": "Reimposta",
+    "cancel": "Annulla",
+    "update": "Aggiorna",
+    "edit": "Modifica",
+    "activate": "Attiva",
+    "deactivate": "Disattiva",
+    "delete": "Elimina",
+    "noRecords": "Nessun record disponibile.",
+    "startDate": "Data inizio",
+    "endDate": "Data fine",
+    "selectDate": "Seleziona data",
+    "selectOption": "Seleziona un'opzione",
+    "pagination": {
+      "previous": "Precedente",
+      "next": "Successiva",
+      "summary": "Pagina {{page}} di {{totalPages}}",
+      "itemsPerPage": "Elementi per pagina"
+    }
+  },
+  "accessibility": {
+    "showField": "Mostra {{field}}",
+    "hideField": "Nascondi {{field}}"
+  },
+  "statuses": {
+    "active": "Attivo",
+    "inactive": "Inattivo",
+    "deleted": "Eliminato"
+  },
+  "pointTypes": {
+    "standard": "Standard",
+    "bonus": "Bonus"
+  },
+  "customers": {
+    "title": "Clienti",
+    "subtitle": "Account cliente disponibili per assegnazione punti",
+    "searchLabel": "Cerca per nome, username o email",
+    "searchHelper": "Filtra la lista clienti per trovare piu rapidamente il portafoglio giusto.",
+    "selected": "Selezionato",
+    "select": "Seleziona",
+    "empty": "Nessun utente cliente corrisponde alla ricerca.",
+    "selectedWalletTitle": "Portafoglio Cliente Selezionato"
+  },
+  "reports": {
+    "title": "Report",
+    "subtitle": "Riepilogo report in base al ruolo",
+    "customers": "Clienti",
+    "shops": "Negozi",
+    "issued": "Emessi",
+    "cashedIn": "Incassati",
+    "spent": "Spesi",
+    "monthlyIssued": "Emessi nel mese",
+    "monthlySpent": "Spesi nel mese",
+    "activeBalance": "Saldo Attivo",
+    "topShops": "Negozi principali",
+    "empty": "Nessun dato report disponibile."
+  },
+  "transactions": {
+    "title": "Transazioni",
+    "subtitle": "Monitora le attivita di accumulo e spesa",
+    "purchase": "Acquisto",
+    "discount": "Sconto",
+    "payable": "Da pagare",
+    "earnedInSettlement": "Guadagnati nel regolamento",
+    "firstTimeBonus": "Bonus benvenuto",
+    "from": "Da",
+    "to": "A",
+    "customer": "Cliente",
+    "merchant": "Esercente",
+    "empty": "Nessuna transazione corrisponde ai filtri attuali.",
+    "types": {
+      "earn": "Accumulo",
+      "spend": "Spesa",
+      "adjustment": "Rettifica"
+    },
+    "statuses": {
+      "pending": "In attesa",
+      "success": "Completata",
+      "failed": "Fallita"
+    },
+    "filters": {
+      "type": {
+        "all": "Tutte",
+        "earn": "Accumulo",
+        "spend": "Spesa"
+      },
+      "status": {
+        "all": "Tutti",
+        "success": "Completata",
+        "pending": "In attesa",
+        "failed": "Fallita"
+      }
+    }
+  },
+  "wallet": {
+    "title": "Portafoglio",
+    "subtitle": "Saldo punti attuale",
+    "availablePoints": "Totale punti disponibili",
+    "breakdownTitle": "Dettaglio Punti",
+    "breakdownSubtitle": "Tipi di punti supportati",
+    "empty": "Nessun tipo di punti registrato."
+  },
+  "profile": {
+    "title": "Profilo",
+    "subtitle": "Account autenticato corrente",
+    "username": "Nome utente",
+    "password": {
+      "title": "Cambia Password",
+      "subtitle": "Aggiorna la password di accesso dalla sezione profilo",
+      "currentLabel": "Password attuale",
+      "currentHelper": "Inserisci la password esistente prima di sceglierne una nuova.",
+      "newLabel": "Nuova password",
+      "newHelper": "Usa almeno 8 caratteri per la nuova password.",
+      "confirmLabel": "Conferma nuova password",
+      "confirmHelper": "Reinserisci la nuova password per confermare la modifica.",
+      "submit": "Aggiorna Password",
+      "success": "Password aggiornata con successo.",
+      "errors": {
+        "required": "Password attuale, nuova password e conferma sono obbligatorie.",
+        "currentRequired": "La password attuale e obbligatoria.",
+        "newShort": "La nuova password deve contenere almeno 8 caratteri.",
+        "mustDiffer": "La nuova password deve essere diversa da quella attuale.",
+        "confirmMismatch": "Le password non coincidono.",
+        "confirmMatch": "Nuova password e conferma password devono coincidere.",
+        "submit": "Impossibile aggiornare la password."
+      }
+    }
+  },
+  "homeScreen": {
+    "errors": {
+      "loadDashboard": "Impossibile caricare i dati della dashboard.",
+      "loadListData": "Impossibile caricare i dati dell'elenco.",
+      "loadTransactions": "Impossibile caricare le transazioni.",
+      "addPointsCustomerRequired": "Seleziona un cliente prima di aggiungere punti.",
+      "addPointsShopRequired": "Seleziona un negozio prima di aggiungere punti.",
+      "addPointsAmountInvalid": "Inserisci una quantita di punti valida.",
+      "addPointsSubmit": "Impossibile aggiungere punti.",
+      "spendCustomerRequired": "Seleziona un cliente prima di accettare punti.",
+      "spendShopRequired": "Seleziona un negozio prima di accettare punti.",
+      "purchaseAmountInvalid": "Inserisci un importo acquisto valido.",
+      "spendPointsRequired": "Inserisci i punti richiesti da utilizzare.",
+      "settlePurchase": "Impossibile completare il regolamento dell'acquisto.",
+      "previewFieldsRequired": "Seleziona cliente, negozio, importo acquisto e punti prima di visualizzare l'anteprima.",
+      "previewSettlement": "Impossibile visualizzare l'anteprima del regolamento.",
+      "shopNameRequired": "Il nome negozio e obbligatorio.",
+      "shopLocationRequired": "La posizione del negozio e obbligatoria.",
+      "shopMerchantRequired": "Seleziona un esercente per il negozio.",
+      "shopSave": "Impossibile salvare il negozio.",
+      "shopStatusUpdate": "Impossibile aggiornare lo stato del negozio.",
+      "promotionTitleRequired": "Il titolo della promozione e obbligatorio.",
+      "promotionShopRequired": "Seleziona un negozio per la promozione.",
+      "promotionDatesRequired": "Inserisci entrambe le date della promozione.",
+      "promotionSave": "Impossibile creare la promozione.",
+      "promotionDelete": "Impossibile eliminare la promozione.",
+      "promotionStatusUpdate": "Impossibile aggiornare la promozione.",
+      "promotionClaim": "Impossibile riscattare la promozione.",
+      "eventTitleRequired": "Il titolo dell'evento e obbligatorio.",
+      "eventLocationRequired": "La posizione dell'evento e obbligatoria.",
+      "eventDatesRequired": "Inserisci entrambe le date dell'evento.",
+      "eventSave": "Impossibile creare l'evento.",
+      "eventDelete": "Impossibile eliminare l'evento.",
+      "eventStatusUpdate": "Impossibile aggiornare l'evento.",
+      "categoryShopRequired": "Seleziona un negozio per la categoria.",
+      "categoryNameRequired": "Il nome categoria e obbligatorio.",
+      "categoryDiscountInvalid": "Inserisci una percentuale di sconto categoria valida.",
+      "categorySave": "Impossibile salvare la categoria.",
+      "categoryStatusUpdate": "Impossibile aggiornare la categoria.",
+      "categoryDelete": "Impossibile eliminare la categoria.",
+      "configurationFieldsRequired": "Completa tutti i campi configurazione prima di salvare.",
+      "configurationSave": "Impossibile salvare la configurazione di sistema.",
+      "configurationDelete": "Impossibile eliminare la configurazione di sistema.",
+      "internalUserRequired": "Nome utente, email e password sono obbligatori.",
+      "userCreate": "Impossibile creare l'utente.",
+      "userActivate": "Impossibile attivare l'utente.",
+      "userDeactivate": "Impossibile disattivare l'utente.",
+      "userDelete": "Impossibile eliminare l'utente."
+    },
+    "success": {
+      "pointsAdded": "Punti aggiunti con successo.",
+      "pointsAddedWithBalance": "Punti aggiunti con successo. Nuovo saldo: {{balance}} pt.",
+      "settlementComplete": "Regolamento completato. Usati {{usedPoints}} pt, da pagare {{payableAmount}}, guadagnati {{earnedPoints}}{{bonusSuffix}}.",
+      "settlementBonusSuffix": " + {{bonusPoints}} bonus",
+      "shopUpdated": "Negozio aggiornato con successo.",
+      "shopCreated": "Negozio creato con successo.",
+      "shopActivated": "Negozio attivato con successo.",
+      "shopDeactivated": "Negozio disattivato con successo.",
+      "promotionUpdated": "Promozione aggiornata con successo.",
+      "promotionCreated": "Promozione creata con successo.",
+      "promotionRemoved": "Promozione rimossa con successo.",
+      "promotionActivated": "Promozione attivata con successo.",
+      "promotionDeactivated": "Promozione disattivata con successo.",
+      "promotionClaimed": "Promozione riscattata con successo. {{bonusPoints}} punti bonus sono stati aggiunti al tuo portafoglio.",
+      "eventUpdated": "Evento aggiornato con successo.",
+      "eventCreated": "Evento creato con successo.",
+      "eventRemoved": "Evento rimosso con successo.",
+      "eventActivated": "Evento attivato con successo.",
+      "eventDeactivated": "Evento disattivato con successo.",
+      "categoryUpdated": "Categoria aggiornata con successo.",
+      "categoryCreated": "Categoria creata con successo.",
+      "categoryActivated": "Categoria attivata con successo.",
+      "categoryDeactivated": "Categoria disattivata con successo.",
+      "categoryDeleted": "Categoria eliminata con successo.",
+      "configurationUpdated": "Configurazione di sistema aggiornata con successo.",
+      "configurationDeleted": "Configurazione di sistema eliminata con successo.",
+      "internalUserCreated": "Account {{role}} creato con successo e credenziali inviate via email.",
+      "userActivated": "Utente attivato con successo.",
+      "userDeactivated": "Utente disattivato con successo.",
+      "userDeleted": "Utente eliminato con successo."
+    }
+  },
+  "directory": {
+    "customers": {
+      "title": "Clienti",
+      "subtitle": "Account cliente nella rete"
+    },
+    "merchants": {
+      "title": "Esercenti",
+      "subtitle": "Account esercenti gestiti"
+    },
+    "representatives": {
+      "title": "Rappresentanti",
+      "subtitle": "Account rappresentante interni"
+    }
+  },
+  "management": {
+    "bottomSheet": {
+      "shop": {
+        "title": "Modifica Negozio",
+        "subtitle": "Aggiorna i dettagli del negozio dal pannello."
+      },
+      "promotion": {
+        "title": "Modifica Promozione",
+        "subtitle": "Aggiorna i dettagli della promozione dal pannello."
+      },
+      "event": {
+        "title": "Modifica Evento",
+        "subtitle": "Aggiorna i dettagli dell'evento dal pannello."
+      },
+      "category": {
+        "title": "Modifica Categoria",
+        "subtitle": "Aggiorna i dettagli della categoria dal pannello."
+      },
+      "configuration": {
+        "title": "Modifica Configurazione",
+        "subtitle": "Aggiorna i dettagli della configurazione dal pannello."
+      }
+    },
+    "shopDirectory": {
+      "title": "Lista Negozi",
+      "subtitle": "Negozi locali partecipanti",
+      "empty": "Nessun negozio disponibile al momento."
+    },
+    "shopForm": {
+      "nameLabel": "Nome negozio",
+      "nameHelper": "Usa il nome pubblico del negozio riconoscibile dai clienti.",
+      "locationLabel": "Posizione",
+      "locationHelper": "Aggiungi zona filiale o indirizzo mostrato nella lista negozi.",
+      "descriptionLabel": "Descrizione",
+      "descriptionHelper": "Scrivi un breve riepilogo di cio che offre questo negozio.",
+      "merchant": "Esercente",
+      "update": "Aggiorna Negozio",
+      "add": "Aggiungi Negozio"
+    },
+    "managedShops": {
+      "title": "Negozi Gestiti",
+      "subtitle": "Aggiungi, aggiorna, attiva o disattiva i negozi assegnati",
+      "merchant": "Esercente",
+      "status": "Stato",
+      "active": "Attivo",
+      "inactive": "Inattivo",
+      "activate": "Attiva",
+      "deactivate": "Disattiva",
+      "empty": "Nessun negozio disponibile."
+    },
+    "promotions": {
+      "editTitle": "Promozioni",
+      "editSubtitle": "Crea offerte e campagne bonus per i negozi",
+      "titleLabel": "Titolo promozione",
+      "titleHelper": "Scegli un nome campagna chiaro che i clienti riconoscano rapidamente.",
+      "descriptionLabel": "Descrizione",
+      "descriptionHelper": "Spiega l'offerta, la ricompensa o i requisiti in una breve nota.",
+      "shop": "Negozio",
+      "bonusLabel": "Punti bonus",
+      "bonusHelper": "Inserisci i punti premio extra assegnati da questa promozione.",
+      "startHelper": "Scegli quando questa promozione deve diventare attiva.",
+      "endHelper": "Scegli l'ultimo giorno in cui i clienti possono usare questa promozione.",
+      "save": "Salva Promozione",
+      "update": "Aggiorna Promozione",
+      "activeTitle": "Promozioni Attive",
+      "activeSubtitle": "Offerte disponibili nella rete",
+      "bonus": "Bonus",
+      "maxDiscount": "Sconto max",
+      "claim": "Riscatta",
+      "claimed": "Riscattata",
+      "empty": "Nessuna promozione disponibile al momento."
+    },
+    "categories": {
+      "title": "Impostazioni Categorie",
+      "subtitle": "Gestisci le regole di sconto categoria senza cambiare il flusso negozio esistente.",
+      "shop": "Negozio",
+      "nameLabel": "Nome categoria",
+      "nameHelper": "Usa l'etichetta che gli esercenti riconoscono durante il regolamento.",
+      "discountLabel": "Percentuale sconto",
+      "discountHelper": "Scegli lo sconto massimo consentito per questa categoria.",
+      "defaultLabel": "Categoria predefinita",
+      "save": "Salva Categoria",
+      "update": "Aggiorna Categoria",
+      "empty": "Nessuna categoria disponibile per l'ambito selezionato."
+    },
+    "configuration": {
+      "title": "Configurazione Sistema",
+      "subtitle": "Regola limiti e premi globali usando l'attuale workspace admin.",
+      "welcomeBonusLabel": "Punti bonus benvenuto",
+      "welcomeBonusHelper": "Bonus assegnato dopo la verifica della registrazione.",
+      "expirationLabel": "Giorni scadenza punti",
+      "expirationHelper": "Numero di giorni prima della scadenza dei punti.",
+      "maxPointsLabel": "Massimo punti per transazione",
+      "maxPointsHelper": "Limite massimo che un singolo regolamento puo emettere o spendere.",
+      "defaultDiscountLabel": "Percentuale sconto max predefinita",
+      "defaultDiscountHelper": "Limite sconto usato quando una categoria non definisce un override.",
+      "reasonLabel": "Motivo modifica",
+      "reasonHelper": "Nota audit opzionale per la nuova versione di configurazione.",
+      "save": "Salva Configurazione",
+      "historyTitle": "Storico Configurazione",
+      "historyEmpty": "Nessuno storico configurazione disponibile."
+    },
+    "events": {
+      "editTitle": "Eventi",
+      "editSubtitle": "Pianifica eventi della comunita e annunci",
+      "titleLabel": "Titolo evento",
+      "titleHelper": "Usa il nome evento che deve apparire negli annunci.",
+      "descriptionLabel": "Descrizione",
+      "descriptionHelper": "Aggiungi una breve agenda, finalita o riepilogo dell'evento.",
+      "locationLabel": "Posizione",
+      "locationHelper": "Indica luogo, filiale o punto di incontro.",
+      "startHelper": "Scegli il primo giorno in cui questo evento sara visibile come attivo.",
+      "endHelper": "Scegli l'ultimo giorno previsto per questo evento.",
+      "save": "Salva Evento",
+      "update": "Aggiorna Evento",
+      "listTitle": "Eventi",
+      "listSubtitle": "Attivita future della rete",
+      "empty": "Nessun evento pianificato."
+    },
+    "users": {
+      "title": "Gestione Utenti",
+      "subtitle": "Crea account interni e gestiti",
+      "firstNameLabel": "Nome",
+      "firstNameHelper": "Inserisci il nome della persona per il profilo.",
+      "lastNameLabel": "Cognome",
+      "lastNameHelper": "Inserisci il cognome usato per report e registri account.",
+      "usernameLabel": "Nome utente",
+      "usernameHelper": "Usa un nome di accesso univoco senza spazi.",
+      "emailLabel": "Email",
+      "emailHelper": "Aggiungi l'indirizzo email usato per accesso e notifiche.",
+      "passwordLabel": "Password",
+      "passwordHelper": "Imposta una password temporanea di almeno 8 caratteri.",
+      "create": "Crea Utente"
+    },
+    "admin": {
+      "shopManagementTitle": "Gestione Negozi",
+      "shopManagementSubtitle": "Gli admin possono aggiungere, aggiornare, attivare e disattivare i negozi"
+    }
+  },
+  "customerQr": {
+    "badge": "Portafoglio Cliente",
+    "title": "QR Cliente",
+    "subtitle": "Mostra questo codice a un esercente per identificare in sicurezza il tuo portafoglio.",
+    "sheetTitle": "Pass Portafoglio",
+    "sheetSubtitle": "Aggiorna in qualsiasi momento per generare un nuovo QR a breve durata.",
+    "loading": "Caricamento codice QR...",
+    "cachedNotice": "Viene mostrato l'ultimo QR valido perche al momento non e disponibile un aggiornamento live.",
+    "expiresAt": "Scade alle",
+    "walletId": "ID Portafoglio",
+    "refresh": "Aggiorna QR",
+    "loadError": "Impossibile caricare il codice QR."
+  },
+  "merchantScan": {
+    "badge": "Scanner Esercente",
+    "title": "Scansiona Cliente",
+    "subtitle": "Scansiona il QR per verificare un cliente e tornare al flusso aggiunta punti.",
+    "permissionSubtitle": "L'accesso alla fotocamera e necessario per verificare un QR cliente.",
+    "permissionText": "Consenti l'accesso alla fotocamera per scansionare i codici QR cliente.",
+    "grantAccess": "Concedi Accesso Fotocamera",
+    "sheetTitle": "Scanner",
+    "sheetSubtitle": "Allinea il QR del cliente nel riquadro per recuperare i dettagli del portafoglio.",
+    "checking": "Verifica QR cliente...",
+    "ready": "Pronto a scansionare un portafoglio cliente.",
+    "useCustomer": "Usa Questo Cliente",
+    "scanAgain": "Scansiona Di Nuovo",
+    "scanError": "Impossibile scansionare il QR cliente.",
+    "lookupLabel": "Ricerca cliente manuale",
+    "lookupHelper": "Cerca per nome cliente, username o email se la scansione non e disponibile.",
+    "lookupAction": "Trova Cliente",
+    "lookupError": "Impossibile cercare i clienti."
+  },
+  "addPoints": {
+    "customerCard": {
+      "title": "Scegli Cliente",
+      "subtitle": "Seleziona o scansiona il cliente prima di eseguire qualsiasi operazione sul portafoglio."
+    },
+    "selectedCustomer": "Cliente Selezionato",
+    "chooseCustomerHint": "Scegli un cliente qui sotto o dalla scheda Clienti.",
+    "scanQr": "Scansiona QR Cliente",
+    "recentCustomers": "Clienti Recenti",
+    "chooseCustomer": "Scegli Cliente",
+    "pointType": "Tipo Punti",
+    "selectShop": "Seleziona Negozio",
+    "category": "Categoria",
+    "noShops": "Nessun negozio esercente disponibile per assegnare punti.",
+    "preview": {
+      "title": "Anteprima Regolamento",
+      "subtitle": "Controlla sconto, importo dovuto e punti riaccreditati prima di inviare.",
+      "action": "Anteprima Regolamento",
+      "usedPoints": "Punti usati",
+      "maxDiscount": "Sconto massimo",
+      "discountAmount": "Importo sconto",
+      "payableAmount": "Importo dovuto",
+      "earnedPoints": "Punti guadagnati",
+      "bonusPoints": "Punti bonus",
+      "predictedBalance": "Saldo previsto",
+      "categoryFallback": "Regola predefinita negozio"
+    },
+    "fields": {
+      "pointsLabel": "Punti",
+      "pointsHelper": "Inserisci quanti punti aggiungere al portafoglio del cliente.",
+      "descriptionLabel": "Descrizione",
+      "descriptionHelper": "Aggiungi una nota opzionale per spiegare perche sono stati assegnati questi punti.",
+      "purchaseAmountLabel": "Importo acquisto",
+      "purchaseAmountHelper": "Inserisci il totale dello scontrino prima degli sconti.",
+      "redeemPointsLabel": "Punti richiesti da usare",
+      "redeemPointsHelper": "Inserisci quanti punti cliente devono essere riscattati.",
+      "settlementDescriptionLabel": "Descrizione regolamento",
+      "settlementDescriptionHelper": "Aggiungi una nota opzionale per il contesto di acquisto o riscatto."
+    },
+    "earn": {
+      "title": "Aggiungi Punti",
+      "subtitle": "Transazione di accumulo esercente per un cliente",
+      "submit": "Invia Transazione Accredito"
+    },
+    "spend": {
+      "title": "Accetta Punti",
+      "subtitle": "Regola un acquisto con sconto, importo dovuto e nuovi punti",
+      "helper": "Il vincolo dello stesso negozio e applicato automaticamente e gli sconti sono limitati al 30% dell'acquisto.",
+      "submit": "Invia Regolamento Acquisto"
+    }
+  },
   "apiErrors": {
     "firstNameRequired": "Inserisci il tuo nome.",
     "lastNameRequired": "Inserisci il tuo cognome.",
@@ -100,6 +634,7 @@
     "emailInvalid": "Inserisci una email valida.",
     "passwordRequired": "Inserisci una password.",
     "passwordRequiredShort": "Password richiesta.",
+    "confirmPasswordRequired": "Conferma la password.",
     "passwordShort": "La password deve essere di almeno 8 caratteri.",
     "emailAlreadyRegistered": "Email gia registrata.",
     "otpRequired": "Inserisci il codice OTP.",
@@ -111,7 +646,14 @@
     "usernameRequired": "Inserisci nome utente.",
     "identifierRequired": "Inserisci nome utente o email.",
     "invalidCredentials": "Credenziali non valide.",
+    "emailNotFound": "Non abbiamo trovato un account con questa email.",
+    "passwordIncorrect": "La password inserita non e corretta.",
     "verifyEmailFirst": "Verifica prima la tua email.",
-    "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento."
+    "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento.",
+    "accountCredentialsEmailFailed": "Impossibile inviare l'email con le credenziali dell'account in questo momento.",
+    "pointsNotRedeemableForShop": "I punti non possono essere riscattati per questo negozio.",
+    "requestedPointsExceedWalletBalance": "I punti richiesti superano il saldo del portafoglio del cliente.",
+    "networkUnavailable": "Impossibile contattare il server. Controlla la connessione e riprova.",
+    "requestTimedOut": "La richiesta ha impiegato troppo tempo. Riprova."
   }
 }

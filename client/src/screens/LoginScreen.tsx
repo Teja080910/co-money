@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
+import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage, getApiResponseError } from '../services/api';
 import { getPendingVerificationEmail, loginUser, savePendingVerificationEmail } from '../services/auth';
@@ -30,6 +33,7 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +52,13 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
   };
 
   const isValid = Boolean(trimmedIdentifier && password);
+  const isDesktopWeb = Platform.OS === 'web' && width >= 1080;
+  const RootContainer = Platform.OS === 'web' ? View : Pressable;
+  const clearSubmitError = useCallback(() => {
+    setSubmitError(null);
+  }, []);
+
+  useAutoDismissMessage(submitError, clearSubmitError, FEEDBACK_AUTO_DISMISS_MS);
 
   const markAllTouched = () => {
     setTouched({
@@ -98,7 +109,10 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
       navigation.replace('Home');
     } catch (error) {
       const responseError = getApiResponseError(error);
-      if (responseError === 'Verifica prima la tua email.') {
+      if (
+        responseError === t('apiErrors.verifyEmailFirst')
+        || responseError === 'Verifica prima la tua email.'
+      ) {
         const verificationEmail = trimmedIdentifier.includes('@')
           ? trimmedIdentifier.toLowerCase()
           : pendingVerificationEmail;
@@ -119,7 +133,10 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
   };
 
   return (
-    <Pressable style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]} onPress={Keyboard.dismiss}>
+    <RootContainer
+      style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]}
+      {...(Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss })}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -127,110 +144,119 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
       >
         <ScrollView
           bounces={false}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 28, 40) }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: Math.max(insets.bottom + 28, 40),
+              paddingTop: isDesktopWeb ? Math.max(insets.top + 32, 42) : 0,
+            },
+          ]}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroWrap}>
-            <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
-              <View style={styles.heroOverlay}>
-                <View style={styles.topRow}>
-                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                    <MaterialCommunityIcons name="login-variant" size={16} color="#FFFFFF" />
-                    <Text style={styles.topPillText}>{t('auth.login.heroBadge')}</Text>
+          <View style={[styles.pageShell, isDesktopWeb ? styles.pageShellDesktop : null]}>
+            <View style={[styles.heroWrap, isDesktopWeb ? styles.heroWrapDesktop : null]}>
+              <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
+                <View style={[styles.heroOverlay, isDesktopWeb ? styles.heroOverlayDesktop : null]}>
+                  <View style={styles.topRow}>
+                    <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                      <MaterialCommunityIcons name="login-variant" size={16} color="#FFFFFF" />
+                      <Text style={styles.topPillText}>{t('auth.login.heroBadge')}</Text>
+                    </View>
+                    <LanguageSwitcher tone="light" />
                   </View>
-                  <LanguageSwitcher tone="light" />
+                  <Image source={logoSource} style={[styles.logo, isDesktopWeb ? styles.logoDesktop : null]} resizeMode="contain" />
+                  <Text style={[styles.heroTitle, isDesktopWeb ? styles.heroTitleDesktop : null]}>{t('auth.login.heroTitle')}</Text>
+                  <Text style={[styles.heroSubtitle, isDesktopWeb ? styles.heroSubtitleDesktop : null]}>{t('auth.login.heroSubtitle')}</Text>
                 </View>
-                <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-                <Text style={styles.heroTitle}>{t('auth.login.heroTitle')}</Text>
-                <Text style={styles.heroSubtitle}>{t('auth.login.heroSubtitle')}</Text>
-              </View>
-            </ImageBackground>
-          </View>
-
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: theme.custom.surfaceStrong,
-                borderColor: 'rgba(243, 111, 33, 0.12)',
-                marginTop: -28,
-              },
-            ]}
-          >
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.login.title')}</Text>
-              <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('auth.login.subtitle')}</Text>
+              </ImageBackground>
             </View>
 
-            <FloatingLabelInput
-              accessibleLabel={t('auth.login.identifierLabel')}
-              autoCapitalize="none"
-              autoComplete="username"
-              error={errors.identifier}
-              helperText={!errors.identifier ? t('auth.login.identifierHelper') : undefined}
-              icon="account-outline"
-              label={t('auth.login.identifierLabel')}
-              onChangeText={text => {
-                setIdentifier(text);
-                setTouched(current => ({ ...current, identifier: true }));
-              }}
-              returnKeyType="next"
-              valid={Boolean(trimmedIdentifier)}
-              value={identifier}
-            />
-
-            <FloatingLabelInput
-              accessibleLabel={t('auth.login.passwordLabel')}
-              autoComplete="password"
-              error={errors.password}
-              helperText={!errors.password ? t('auth.login.passwordHelper') : undefined}
-              icon="lock-outline"
-              label={t('auth.login.passwordLabel')}
-              onChangeText={text => {
-                setPassword(text);
-                setTouched(current => ({ ...current, password: true }));
-              }}
-              onSubmitEditing={handleLogin}
-              onToggleSecureEntry={() => setShowPassword(!showPassword)}
-              returnKeyType="done"
-              secureTextEntry={!showPassword}
-              textContentType="password"
-              valid={Boolean(password)}
-              value={password}
-            />
-
-            {submitError ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{submitError}</Text> : null}
-
-            <PrimaryButton disabled={!isValid} label={t('auth.login.cta')} loading={loading} onPress={handleLogin} />
-
-            {pendingVerificationEmail ? (
-              <View style={styles.resumeRow}>
-                <Text style={[styles.resumeText, { color: theme.custom.textSecondary }]}>
-                  {t('auth.login.resumeVerificationPrompt')}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={10}
-                  onPress={openPendingVerification}
-                  style={({ pressed }) => [styles.inlineAction, pressed ? styles.inlineActionPressed : null]}
-                >
-                  <Text style={styles.footerLink}>{t('auth.login.resumeVerificationAction')}</Text>
-                </Pressable>
+            <View
+              style={[
+                styles.sheet,
+                isDesktopWeb ? styles.sheetDesktop : null,
+                {
+                  backgroundColor: theme.custom.surfaceStrong,
+                  borderColor: 'rgba(243, 111, 33, 0.12)',
+                  marginTop: isDesktopWeb ? 0 : -28,
+                },
+              ]}
+            >
+              <View style={styles.sheetHeader}>
+                <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.login.title')}</Text>
+                <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('auth.login.subtitle')}</Text>
               </View>
-            ) : null}
 
-            <View style={styles.footerRow}>
-              <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.login.footerPrompt')}</Text>
-              <Text style={styles.footerLink} onPress={() => navigation.navigate('Register')}>
-                {t('auth.login.footerAction')}
-              </Text>
+              <FloatingLabelInput
+                accessibleLabel={t('auth.login.identifierLabel')}
+                autoCapitalize="none"
+                autoComplete="username"
+                error={errors.identifier}
+                helperText={!errors.identifier ? t('auth.login.identifierHelper') : undefined}
+                icon="account-outline"
+                label={t('auth.login.identifierLabel')}
+                onChangeText={text => {
+                  setIdentifier(text);
+                  setTouched(current => ({ ...current, identifier: true }));
+                }}
+                returnKeyType="next"
+                valid={Boolean(trimmedIdentifier)}
+                value={identifier}
+              />
+
+              <FloatingLabelInput
+                accessibleLabel={t('auth.login.passwordLabel')}
+                autoComplete="password"
+                error={errors.password}
+                helperText={!errors.password ? t('auth.login.passwordHelper') : undefined}
+                icon="lock-outline"
+                label={t('auth.login.passwordLabel')}
+                onChangeText={text => {
+                  setPassword(text);
+                  setTouched(current => ({ ...current, password: true }));
+                }}
+                onSubmitEditing={handleLogin}
+                onToggleSecureEntry={() => setShowPassword(!showPassword)}
+                returnKeyType="done"
+                secureTextEntry={!showPassword}
+                textContentType="password"
+                valid={Boolean(password)}
+                value={password}
+              />
+
+              {submitError ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{submitError}</Text> : null}
+
+              <PrimaryButton disabled={!isValid} label={t('auth.login.cta')} loading={loading} onPress={handleLogin} />
+
+              {pendingVerificationEmail ? (
+                <View style={styles.resumeRow}>
+                  <Text style={[styles.resumeText, { color: theme.custom.textSecondary }]}>
+                    {t('auth.login.resumeVerificationPrompt')}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={10}
+                    onPress={openPendingVerification}
+                    style={({ pressed }) => [styles.inlineAction, pressed ? styles.inlineActionPressed : null]}
+                  >
+                    <Text style={styles.footerLink}>{t('auth.login.resumeVerificationAction')}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <View style={styles.footerRow}>
+                <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.login.footerPrompt')}</Text>
+                <Text style={styles.footerLink} onPress={() => navigation.navigate('Register')}>
+                  {t('auth.login.footerAction')}
+                </Text>
+              </View>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Pressable>
+    </RootContainer>
   );
 }
 
@@ -241,8 +267,30 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  pageShell: {
+    flexGrow: 1,
+  },
+  pageShellDesktop: {
+    maxWidth: 1220,
+    width: '100%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 22,
+    paddingHorizontal: 22,
+  },
   heroWrap: {
     height: 340,
+  },
+  heroWrapDesktop: {
+    flex: 1.08,
+    minHeight: 760,
+    height: 'auto',
+    borderRadius: 34,
+    overflow: 'hidden',
   },
   heroImage: {
     flex: 1,
@@ -255,6 +303,13 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     justifyContent: 'flex-end',
     alignItems: 'center',
+  },
+  heroOverlayDesktop: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    paddingTop: 72,
+    paddingHorizontal: 38,
+    paddingBottom: 42,
   },
   topRow: {
     position: 'absolute',
@@ -287,6 +342,11 @@ const styles = StyleSheet.create({
     height: 104,
     marginBottom: 12,
   },
+  logoDesktop: {
+    width: 180,
+    height: 124,
+    marginBottom: 18,
+  },
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 30,
@@ -294,12 +354,23 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 8,
   },
+  heroTitleDesktop: {
+    fontSize: 46,
+    lineHeight: 52,
+    maxWidth: 420,
+  },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.92)',
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
     maxWidth: 320,
+  },
+  heroSubtitleDesktop: {
+    maxWidth: 430,
+    textAlign: 'left',
+    fontSize: 16,
+    lineHeight: 24,
   },
   sheet: {
     marginHorizontal: 16,
@@ -313,6 +384,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 12,
+  },
+  sheetDesktop: {
+    flex: 0.92,
+    marginHorizontal: 0,
+    borderRadius: 34,
+    paddingHorizontal: 26,
+    paddingTop: 28,
+    paddingBottom: 28,
+    justifyContent: 'center',
+    alignSelf: 'stretch',
   },
   sheetHeader: {
     marginBottom: 12,

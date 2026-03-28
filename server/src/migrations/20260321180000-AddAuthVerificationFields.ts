@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddAuthVerificationFields1774100000000 implements MigrationInterface {
-    name = 'AddAuthVerificationFields1774100000000'
+export class AddAuthVerificationFields20260321180000 implements MigrationInterface {
+    name = 'AddAuthVerificationFields20260321180000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "users" ADD "firstName" character varying(255)`);

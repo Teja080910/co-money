@@ -1,0 +1,1 @@
+export const FEEDBACK_AUTO_DISMISS_MS = 3000;

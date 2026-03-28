@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Easing,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -36,6 +38,9 @@ type Props = {
   inputRef?: React.RefObject<RNTextInput | null>;
   onFocus?: TextInputProps['onFocus'];
   onBlur?: TextInputProps['onBlur'];
+  multiline?: boolean;
+  numberOfLines?: number;
+  editable?: boolean;
 };
 
 export function FloatingLabelInput({
@@ -58,7 +63,11 @@ export function FloatingLabelInput({
   inputRef,
   onFocus,
   onBlur,
+  multiline = false,
+  numberOfLines,
+  editable = true,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme<AppTheme>();
   const [isFocused, setIsFocused] = useState(false);
   const labelProgress = useRef(new Animated.Value(value ? 1 : 0)).current;
@@ -110,6 +119,15 @@ export function FloatingLabelInput({
     }),
     [hasError, labelProgress, theme.custom.brand, theme.custom.error, theme.custom.textSecondary],
   );
+  const webInputReset = Platform.OS === 'web'
+    ? ({
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      boxShadow: 'none',
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+    } as any)
+    : null;
 
   return (
     <View style={styles.wrapper}>
@@ -132,14 +150,22 @@ export function FloatingLabelInput({
           color={hasError ? theme.custom.error : isFocused ? theme.custom.brand : theme.custom.textSecondary}
           style={styles.leftIcon}
         />
-        <Animated.Text pointerEvents="none" style={[styles.label, labelStyle]}>
+        <Animated.Text
+          numberOfLines={1}
+          ellipsizeMode="clip"
+          pointerEvents="none"
+          style={[styles.label, labelStyle]}
+        >
           {label}
         </Animated.Text>
         <TextInput
           accessibilityLabel={accessibleLabel ?? label}
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
+          editable={editable}
           keyboardType={keyboardType}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
           onBlur={event => {
             setIsFocused(false);
             onBlur?.(event);
@@ -156,13 +182,16 @@ export function FloatingLabelInput({
           ref={inputRef}
           secureTextEntry={secureTextEntry}
           selectionColor={theme.custom.brand}
-          style={[styles.input, { color: theme.custom.textPrimary }]}
+          style={[styles.input, multiline ? styles.multilineInput : null, webInputReset, { color: theme.custom.textPrimary }]}
           textContentType={textContentType}
+          textAlignVertical={multiline ? 'top' : 'center'}
           value={value}
         />
         {onToggleSecureEntry ? (
           <Pressable
-            accessibilityLabel={secureTextEntry ? `Show ${label}` : `Hide ${label}`}
+            accessibilityLabel={secureTextEntry
+              ? t('accessibility.showField', { field: label })
+              : t('accessibility.hideField', { field: label })}
             accessibilityRole="button"
             hitSlop={12}
             onPress={onToggleSecureEntry}
@@ -198,6 +227,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderWidth: 1.2,
     borderRadius: 20,
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -211,6 +241,7 @@ const styles = StyleSheet.create({
   label: {
     position: 'absolute',
     left: 48,
+    right: 48,
     fontWeight: '600',
   },
   input: {
@@ -219,6 +250,10 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 10,
     minHeight: 62,
+  },
+  multilineInput: {
+    minHeight: 104,
+    paddingTop: 28,
   },
   rightAction: {
     minWidth: 24,

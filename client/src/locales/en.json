@@ -20,7 +20,7 @@
       "footerPrompt": "Don't have an account?",
       "footerAction": "Register",
       "errors": {
-        "submit": "Invalid credentials.",
+        "submit": "We couldn't sign you in. Please try again.",
         "identifierRequired": "Enter name or email.",
         "passwordRequired": "Password required."
       }
@@ -48,7 +48,7 @@
       "footerPrompt": "Already have an account?",
       "footerAction": "Login",
       "errors": {
-        "submit": "Registration error.",
+        "submit": "We couldn't complete your registration. Please try again.",
         "firstNameRequired": "Enter your first name.",
         "firstNameShort": "First name must be at least 2 characters.",
         "lastNameRequired": "Enter your last name.",
@@ -92,6 +92,540 @@
     "logout": "Logout",
     "fetchWarning": "Could not fetch users, make sure backend is running"
   },
+  "roles": {
+    "customer": "Customer",
+    "merchant": "Merchant",
+    "representative": "Representative",
+    "admin": "Admin"
+  },
+  "navigation": {
+    "tabs": {
+      "home": "Home",
+      "wallet": "Wallet",
+      "transactions": "History",
+      "profile": "Profile",
+      "customers": "Customers",
+      "add-points": "Add Points",
+      "user-management": "Users",
+      "dashboard": "Dashboard",
+      "shop-management": "Shops",
+      "category-settings": "Categories",
+      "configuration": "Configuration",
+      "promotions": "Promotions",
+      "events": "Events"
+    }
+  },
+  "dashboard": {
+    "overview": "Overview",
+    "logout": "Logout",
+    "welcomeBack": "Welcome back, {{name}}",
+    "bannerSubtitle": "{{section}} for your wallet, transactions, and daily actions.",
+    "sheetSubtitle": "Role-aware wallet and transaction workspace."
+  },
+  "overview": {
+    "customer": {
+      "welcomeBack": "Welcome back",
+      "subtitle": "Your wallet is ready for earning and spending across local shops.",
+      "qrCta": "Show My QR Code",
+      "metrics": {
+        "currentBalance": "Current Balance",
+        "transactions": "Transactions"
+      }
+    },
+    "merchant": {
+      "scanQr": "Scan Customer QR",
+      "recentCustomersTitle": "Recent Customers",
+      "recentCustomersSubtitle": "Customers available for point assignment",
+      "metrics": {
+        "customers": "Customers",
+        "myShops": "My Shops",
+        "transactions": "Transactions"
+      }
+    },
+    "representative": {
+      "shopManagementTitle": "Shop Management",
+      "shopManagementSubtitle": "Representatives can add, update, activate, and deactivate shop records",
+      "snapshotTitle": "Operational Snapshot",
+      "snapshotSubtitle": "Representative reporting",
+      "issued": "Total points issued",
+      "spent": "Total points spent",
+      "activeBalance": "Active balance",
+      "metrics": {
+        "merchants": "Merchants",
+        "customers": "Customers",
+        "transactions": "Transactions",
+        "shops": "Shops"
+      }
+    },
+    "admin": {
+      "summaryTitle": "Executive Summary",
+      "summarySubtitle": "Admin reporting",
+      "recentRepresentativesTitle": "Recent Representatives",
+      "recentRepresentativesSubtitle": "Latest internal representative accounts",
+      "recentMerchantsTitle": "Recent Merchants",
+      "recentMerchantsSubtitle": "Managed merchant accounts",
+      "recentCustomersTitle": "Recent Customers",
+      "recentCustomersSubtitle": "Newest customer accounts in the network",
+      "metrics": {
+        "representatives": "Representatives",
+        "merchants": "Merchants",
+        "customers": "Customers",
+        "transactions": "Transactions"
+      }
+    }
+  },
+  "common": {
+    "role": "Role",
+    "status": "Status",
+    "balance": "Balance",
+    "pointsShort": "pts",
+    "to": "to",
+    "na": "N/A",
+    "reset": "Reset",
+    "cancel": "Cancel",
+    "update": "Update",
+    "edit": "Edit",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "delete": "Delete",
+    "noRecords": "No records available.",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "selectDate": "Select date",
+    "selectOption": "Select an option",
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "summary": "Page {{page}} of {{totalPages}}",
+      "itemsPerPage": "Items per page"
+    }
+  },
+  "accessibility": {
+    "showField": "Show {{field}}",
+    "hideField": "Hide {{field}}"
+  },
+  "statuses": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "deleted": "Deleted"
+  },
+  "pointTypes": {
+    "standard": "Standard",
+    "bonus": "Bonus"
+  },
+  "customers": {
+    "title": "Customers",
+    "subtitle": "Customer-role accounts available for point assignment",
+    "searchLabel": "Search by name, username, or email",
+    "searchHelper": "Filter the customer list to find the right wallet faster.",
+    "selected": "Selected",
+    "select": "Select",
+    "empty": "No customer-role users match your search.",
+    "selectedWalletTitle": "Selected Customer Wallet"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Role-based reporting summary",
+    "customers": "Customers",
+    "shops": "Shops",
+    "issued": "Issued",
+    "cashedIn": "Cashed In",
+    "spent": "Spent",
+    "monthlyIssued": "Monthly Issued",
+    "monthlySpent": "Monthly Spent",
+    "activeBalance": "Active Balance",
+    "topShops": "Top Shops",
+    "empty": "No report data available."
+  },
+  "transactions": {
+    "title": "Transactions",
+    "subtitle": "Track earn and spend activity",
+    "purchase": "Purchase",
+    "discount": "Discount",
+    "payable": "Payable",
+    "earnedInSettlement": "Earned in settlement",
+    "firstTimeBonus": "Welcome bonus",
+    "from": "From",
+    "to": "To",
+    "customer": "Customer",
+    "merchant": "Merchant",
+    "empty": "No transactions match the current filters.",
+    "types": {
+      "earn": "Earn",
+      "spend": "Spend",
+      "adjustment": "Adjustment"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "filters": {
+      "type": {
+        "all": "All",
+        "earn": "Earn",
+        "spend": "Spend"
+      },
+      "status": {
+        "all": "All",
+        "success": "Success",
+        "pending": "Pending",
+        "failed": "Failed"
+      }
+    }
+  },
+  "wallet": {
+    "title": "Wallet",
+    "subtitle": "Current point balance",
+    "availablePoints": "Total available points",
+    "breakdownTitle": "Points Breakdown",
+    "breakdownSubtitle": "Supported point types",
+    "empty": "No point types recorded yet."
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Current authenticated account",
+    "username": "Username",
+    "password": {
+      "title": "Change Password",
+      "subtitle": "Update your sign-in password from the profile section",
+      "currentLabel": "Current password",
+      "currentHelper": "Enter your existing password before choosing a new one.",
+      "newLabel": "New password",
+      "newHelper": "Use at least 8 characters for the new password.",
+      "confirmLabel": "Confirm new password",
+      "confirmHelper": "Re-enter the new password to confirm the change.",
+      "submit": "Update Password",
+      "success": "Password updated successfully.",
+      "errors": {
+        "required": "Current password, new password, and confirmation are required.",
+        "currentRequired": "Current password is required.",
+        "newShort": "New password must be at least 8 characters.",
+        "mustDiffer": "New password must be different from the current password.",
+        "confirmMismatch": "Passwords do not match.",
+        "confirmMatch": "New password and confirm password must match.",
+        "submit": "Unable to update password."
+      }
+    }
+  },
+  "homeScreen": {
+    "errors": {
+      "loadDashboard": "Unable to load dashboard data.",
+      "loadListData": "Unable to load list data.",
+      "loadTransactions": "Unable to load transactions.",
+      "addPointsCustomerRequired": "Select a customer before adding points.",
+      "addPointsShopRequired": "Select a shop before adding points.",
+      "addPointsAmountInvalid": "Enter a valid points amount.",
+      "addPointsSubmit": "Unable to add points.",
+      "spendCustomerRequired": "Select a customer before accepting points.",
+      "spendShopRequired": "Select a shop before accepting points.",
+      "purchaseAmountInvalid": "Enter a valid purchase amount.",
+      "spendPointsRequired": "Enter the requested points to use.",
+      "settlePurchase": "Unable to settle the purchase.",
+      "previewFieldsRequired": "Select customer, shop, purchase amount, and points before previewing.",
+      "previewSettlement": "Unable to preview settlement.",
+      "shopNameRequired": "Shop name is required.",
+      "shopLocationRequired": "Shop location is required.",
+      "shopMerchantRequired": "Select a merchant for the shop.",
+      "shopSave": "Unable to save shop.",
+      "shopStatusUpdate": "Unable to update shop status.",
+      "promotionTitleRequired": "Promotion title is required.",
+      "promotionShopRequired": "Select a shop for the promotion.",
+      "promotionDatesRequired": "Enter both promotion dates.",
+      "promotionSave": "Unable to create promotion.",
+      "promotionDelete": "Unable to delete promotion.",
+      "promotionStatusUpdate": "Unable to update promotion.",
+      "promotionClaim": "Unable to claim promotion.",
+      "eventTitleRequired": "Event title is required.",
+      "eventLocationRequired": "Event location is required.",
+      "eventDatesRequired": "Enter both event dates.",
+      "eventSave": "Unable to create event.",
+      "eventDelete": "Unable to delete event.",
+      "eventStatusUpdate": "Unable to update event.",
+      "categoryShopRequired": "Select a shop for the category.",
+      "categoryNameRequired": "Category name is required.",
+      "categoryDiscountInvalid": "Enter a valid category discount percent.",
+      "categorySave": "Unable to save category.",
+      "categoryStatusUpdate": "Unable to update category.",
+      "categoryDelete": "Unable to delete category.",
+      "configurationFieldsRequired": "Complete all configuration fields before saving.",
+      "configurationSave": "Unable to save system configuration.",
+      "configurationDelete": "Unable to delete system configuration.",
+      "internalUserRequired": "Username, email, and password are required.",
+      "userCreate": "Unable to create user.",
+      "userActivate": "Unable to activate user.",
+      "userDeactivate": "Unable to deactivate user.",
+      "userDelete": "Unable to delete user."
+    },
+    "success": {
+      "pointsAdded": "Points added successfully.",
+      "pointsAddedWithBalance": "Points added successfully. New balance: {{balance}} pts.",
+      "settlementComplete": "Settlement complete. Used {{usedPoints}} pts, payable {{payableAmount}}, earned {{earnedPoints}}{{bonusSuffix}}.",
+      "settlementBonusSuffix": " + {{bonusPoints}} bonus",
+      "shopUpdated": "Shop updated successfully.",
+      "shopCreated": "Shop created successfully.",
+      "shopActivated": "Shop activated successfully.",
+      "shopDeactivated": "Shop deactivated successfully.",
+      "promotionUpdated": "Promotion updated successfully.",
+      "promotionCreated": "Promotion created successfully.",
+      "promotionRemoved": "Promotion removed successfully.",
+      "promotionActivated": "Promotion activated successfully.",
+      "promotionDeactivated": "Promotion deactivated successfully.",
+      "promotionClaimed": "Promotion claimed successfully. {{bonusPoints}} bonus points were added to your wallet.",
+      "eventUpdated": "Event updated successfully.",
+      "eventCreated": "Event created successfully.",
+      "eventRemoved": "Event removed successfully.",
+      "eventActivated": "Event activated successfully.",
+      "eventDeactivated": "Event deactivated successfully.",
+      "categoryUpdated": "Category updated successfully.",
+      "categoryCreated": "Category created successfully.",
+      "categoryActivated": "Category activated successfully.",
+      "categoryDeactivated": "Category deactivated successfully.",
+      "categoryDeleted": "Category deleted successfully.",
+      "configurationUpdated": "System configuration updated successfully.",
+      "configurationDeleted": "System configuration deleted successfully.",
+      "internalUserCreated": "{{role}} account created and credentials emailed successfully.",
+      "userActivated": "User activated successfully.",
+      "userDeactivated": "User deactivated successfully.",
+      "userDeleted": "User deleted successfully."
+    }
+  },
+  "directory": {
+    "customers": {
+      "title": "Customers",
+      "subtitle": "Customer accounts across the network"
+    },
+    "merchants": {
+      "title": "Merchants",
+      "subtitle": "Managed merchant accounts"
+    },
+    "representatives": {
+      "title": "Representatives",
+      "subtitle": "Internal representative accounts"
+    }
+  },
+  "management": {
+    "bottomSheet": {
+      "shop": {
+        "title": "Edit Shop",
+        "subtitle": "Update shop details from the sheet."
+      },
+      "promotion": {
+        "title": "Edit Promotion",
+        "subtitle": "Update promotion details from the sheet."
+      },
+      "event": {
+        "title": "Edit Event",
+        "subtitle": "Update event details from the sheet."
+      },
+      "category": {
+        "title": "Edit Category",
+        "subtitle": "Update category details from the sheet."
+      },
+      "configuration": {
+        "title": "Edit Configuration",
+        "subtitle": "Update configuration details from the sheet."
+      }
+    },
+    "shopDirectory": {
+      "title": "Shops List",
+      "subtitle": "Participating local shops",
+      "empty": "No shops are available yet."
+    },
+    "shopForm": {
+      "nameLabel": "Shop name",
+      "nameHelper": "Use the public-facing shop name customers will recognize.",
+      "locationLabel": "Location",
+      "locationHelper": "Add the branch area or address shown in the shop listing.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Write a short summary about what this shop offers.",
+      "merchant": "Merchant",
+      "update": "Update Shop",
+      "add": "Add Shop"
+    },
+    "managedShops": {
+      "title": "Managed Shops",
+      "subtitle": "Add, update, activate, or deactivate assigned shops",
+      "merchant": "Merchant",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "empty": "No shops available yet."
+    },
+    "promotions": {
+      "editTitle": "Promotions",
+      "editSubtitle": "Create shop offers and bonus campaigns",
+      "titleLabel": "Promotion title",
+      "titleHelper": "Choose a clear campaign name customers can scan quickly.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Explain the offer, reward, or eligibility in one short note.",
+      "shop": "Shop",
+      "bonusLabel": "Bonus points",
+      "bonusHelper": "Enter the extra reward points granted by this promotion.",
+      "startHelper": "Choose when this promotion should become active.",
+      "endHelper": "Choose the last day customers can use this promotion.",
+      "save": "Save Promotion",
+      "update": "Update Promotion",
+      "activeTitle": "Active Promotions",
+      "activeSubtitle": "Offers available across the network",
+      "bonus": "Bonus",
+      "maxDiscount": "Max discount",
+      "claim": "Claim",
+      "claimed": "Claimed",
+      "empty": "No promotions are available right now."
+    },
+    "categories": {
+      "title": "Category Settings",
+      "subtitle": "Manage category discount rules without changing the current shop flow.",
+      "shop": "Shop",
+      "nameLabel": "Category name",
+      "nameHelper": "Use the label merchants recognize during settlement.",
+      "discountLabel": "Discount percent",
+      "discountHelper": "Choose the maximum discount allowed for this category.",
+      "defaultLabel": "Default category",
+      "save": "Save Category",
+      "update": "Update Category",
+      "empty": "No categories are available for the selected scope."
+    },
+    "configuration": {
+      "title": "System Configuration",
+      "subtitle": "Adjust global limits and rewards using the current admin workspace.",
+      "welcomeBonusLabel": "Welcome bonus points",
+      "welcomeBonusHelper": "Bonus granted after registration is verified.",
+      "expirationLabel": "Point expiration days",
+      "expirationHelper": "Number of days before points expire.",
+      "maxPointsLabel": "Max points per transaction",
+      "maxPointsHelper": "Upper limit a single settlement can earn or spend.",
+      "defaultDiscountLabel": "Default max discount percent",
+      "defaultDiscountHelper": "Fallback discount cap when a category does not override it.",
+      "reasonLabel": "Change reason",
+      "reasonHelper": "Optional audit note for the new configuration version.",
+      "save": "Save Configuration",
+      "historyTitle": "Configuration History",
+      "historyEmpty": "No configuration history is available yet."
+    },
+    "events": {
+      "editTitle": "Events",
+      "editSubtitle": "Plan community events and announcements",
+      "titleLabel": "Event title",
+      "titleHelper": "Use the event name that should appear in announcements.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Add a short agenda, purpose, or event summary.",
+      "locationLabel": "Location",
+      "locationHelper": "Mention the venue, branch, or meetup point.",
+      "startHelper": "Pick the first day this event will be visible as active.",
+      "endHelper": "Pick the final day for this event schedule.",
+      "save": "Save Event",
+      "update": "Update Event",
+      "listTitle": "Events",
+      "listSubtitle": "Upcoming network activity",
+      "empty": "No events are scheduled yet."
+    },
+    "users": {
+      "title": "User Management",
+      "subtitle": "Create internal and managed accounts",
+      "firstNameLabel": "First name",
+      "firstNameHelper": "Enter the user's given name for their profile.",
+      "lastNameLabel": "Last name",
+      "lastNameHelper": "Enter the surname used for reporting and account records.",
+      "usernameLabel": "Username",
+      "usernameHelper": "Use a unique sign-in name without spaces.",
+      "emailLabel": "Email",
+      "emailHelper": "Add the email address used for login and notifications.",
+      "passwordLabel": "Password",
+      "passwordHelper": "Set a temporary password with at least 8 characters.",
+      "create": "Create User"
+    },
+    "admin": {
+      "shopManagementTitle": "Shop Management",
+      "shopManagementSubtitle": "Admins can add, update, activate, and deactivate shop records"
+    }
+  },
+  "customerQr": {
+    "badge": "Customer Wallet",
+    "title": "Customer QR",
+    "subtitle": "Show this code to a merchant to identify your wallet securely.",
+    "sheetTitle": "Wallet Pass",
+    "sheetSubtitle": "Refresh anytime to generate a fresh short-lived QR.",
+    "loading": "Loading QR code...",
+    "cachedNotice": "Showing your last valid QR because a live refresh is not available right now.",
+    "expiresAt": "Expires at",
+    "walletId": "Wallet ID",
+    "refresh": "Refresh QR",
+    "loadError": "Unable to load QR code."
+  },
+  "merchantScan": {
+    "badge": "Merchant Scanner",
+    "title": "Scan Customer",
+    "subtitle": "Scan QR to verify a customer and jump back into the add-points flow.",
+    "permissionSubtitle": "Camera access is required to verify a customer QR.",
+    "permissionText": "Allow camera access to scan customer QR codes.",
+    "grantAccess": "Grant Camera Access",
+    "sheetTitle": "Scanner",
+    "sheetSubtitle": "Align the customer QR inside the frame to fetch the wallet details.",
+    "checking": "Checking customer QR...",
+    "ready": "Ready to scan a customer wallet.",
+    "useCustomer": "Use This Customer",
+    "scanAgain": "Scan Again",
+    "scanError": "Unable to scan customer QR.",
+    "lookupLabel": "Manual customer lookup",
+    "lookupHelper": "Search by customer name, username, or email if scanning is unavailable.",
+    "lookupAction": "Find Customer",
+    "lookupError": "Unable to search for customers."
+  },
+  "addPoints": {
+    "customerCard": {
+      "title": "Choose Customer",
+      "subtitle": "Select or scan the customer before running any wallet action."
+    },
+    "selectedCustomer": "Selected Customer",
+    "chooseCustomerHint": "Choose a customer below or from the Customers tab.",
+    "scanQr": "Scan Customer QR",
+    "recentCustomers": "Recent Customers",
+    "chooseCustomer": "Choose Customer",
+    "pointType": "Point Type",
+    "selectShop": "Select Shop",
+    "category": "Category",
+    "noShops": "No merchant shop is available for point assignment.",
+    "preview": {
+      "title": "Settlement Preview",
+      "subtitle": "Check discount, payable amount, and re-earned points before submitting.",
+      "action": "Preview Settlement",
+      "usedPoints": "Used points",
+      "maxDiscount": "Max discount",
+      "discountAmount": "Discount amount",
+      "payableAmount": "Payable amount",
+      "earnedPoints": "Earned points",
+      "bonusPoints": "Bonus points",
+      "predictedBalance": "Predicted balance",
+      "categoryFallback": "Default shop rule"
+    },
+    "fields": {
+      "pointsLabel": "Points",
+      "pointsHelper": "Enter how many points should be added to the customer wallet.",
+      "descriptionLabel": "Description",
+      "descriptionHelper": "Add an optional note explaining why these points were issued.",
+      "purchaseAmountLabel": "Purchase amount",
+      "purchaseAmountHelper": "Enter the bill total before discounts are applied.",
+      "redeemPointsLabel": "Requested points to use",
+      "redeemPointsHelper": "Enter how many customer points should be redeemed.",
+      "settlementDescriptionLabel": "Settlement description",
+      "settlementDescriptionHelper": "Add an optional note for the purchase or redemption context."
+    },
+    "earn": {
+      "title": "Add Points",
+      "subtitle": "Merchant earn transaction for a customer",
+      "submit": "Submit Earn Transaction"
+    },
+    "spend": {
+      "title": "Accept Points",
+      "subtitle": "Settle a purchase with discount, payable amount, and new points",
+      "helper": "Same-shop restriction is enforced automatically and discounts are capped at 30% of the purchase.",
+      "submit": "Submit Purchase Settlement"
+    }
+  },
   "apiErrors": {
     "firstNameRequired": "Enter your first name.",
     "lastNameRequired": "Enter your last name.",
@@ -100,6 +634,7 @@
     "emailInvalid": "Enter a valid email address.",
     "passwordRequired": "Enter a password.",
     "passwordRequiredShort": "Password required.",
+    "confirmPasswordRequired": "Confirm your password.",
     "passwordShort": "Password must be at least 8 characters.",
     "emailAlreadyRegistered": "Email is already registered.",
     "otpRequired": "Enter the OTP code.",
@@ -111,7 +646,14 @@
     "usernameRequired": "Enter a username.",
     "identifierRequired": "Enter username or email.",
     "invalidCredentials": "Invalid credentials.",
+    "emailNotFound": "We couldn't find an account with that email.",
+    "passwordIncorrect": "The password you entered is incorrect.",
     "verifyEmailFirst": "Verify your email first.",
-    "verificationEmailFailed": "We could not send the verification email right now."
+    "verificationEmailFailed": "We could not send the verification email right now.",
+    "accountCredentialsEmailFailed": "We could not send the account credentials email right now.",
+    "pointsNotRedeemableForShop": "Points cannot be redeemed for this shop.",
+    "requestedPointsExceedWalletBalance": "Requested points exceed the customer wallet balance.",
+    "networkUnavailable": "We couldn't reach the server. Check your internet connection and try again.",
+    "requestTimedOut": "The request took too long. Please try again."
   }
 }
