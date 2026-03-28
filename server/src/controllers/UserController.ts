@@ -25,7 +25,8 @@ export class UserController {
                 ? req.query.role.trim().toUpperCase() as UserRole
                 : undefined;
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
-            const users = await this.userService.getAllUsers({ role, status });
+            const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+            const users = await this.userService.getAllUsers({ role, status, search });
             const sanitizedUsers = this.userService.sanitizeUsers(users);
             const pagination = getPaginationParams(req.query);
 
@@ -52,7 +53,8 @@ export class UserController {
             }
 
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
-            const users = await this.userService.getAllUsers({ role: UserRole.CUSTOMER, status });
+            const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+            const users = await this.userService.getAllUsers({ role: UserRole.CUSTOMER, status, search });
             const sanitizedUsers = this.userService.sanitizeUsers(users);
             const pagination = getPaginationParams(req.query);
 
@@ -73,7 +75,8 @@ export class UserController {
             }
 
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
-            const users = await this.userService.getAllUsers({ role: UserRole.MERCHANT, status });
+            const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+            const users = await this.userService.getAllUsers({ role: UserRole.MERCHANT, status, search });
             const sanitizedUsers = this.userService.sanitizeUsers(users);
             const pagination = getPaginationParams(req.query);
 
@@ -94,7 +97,8 @@ export class UserController {
             }
 
             const status = typeof req.query.status === 'string' ? req.query.status : undefined;
-            const users = await this.userService.getAllUsers({ role: UserRole.REPRESENTATIVE, status });
+            const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+            const users = await this.userService.getAllUsers({ role: UserRole.REPRESENTATIVE, status, search });
             const sanitizedUsers = this.userService.sanitizeUsers(users);
             const pagination = getPaginationParams(req.query);
 
@@ -163,7 +167,8 @@ export class UserController {
                 return res.status(400).json({ error: 'Invalid role.' });
             }
 
-            const user = await this.userService.createInternalUser(authenticatedUser, req.body, requestedRole as UserRole);
+            const locale = req.header('accept-language') || undefined;
+            const user = await this.userService.createInternalUser(authenticatedUser, req.body, requestedRole as UserRole, locale);
             return res.status(201).json(this.userService.sanitizeUser(user));
         } catch (error: any) {
             const statusCode = error.message === 'You do not have permission to create this user role.' ? 403 : 400;

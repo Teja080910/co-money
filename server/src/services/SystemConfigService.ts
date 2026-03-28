@@ -39,9 +39,7 @@ export class SystemConfigService {
     }
 
     public async updateConfig(currentUser: CurrentUser, input: SystemConfigInput) {
-        if (currentUser.role !== UserRole.ADMIN) {
-            throw new Error('You do not have permission to manage system configuration.');
-        }
+        this.assertCanManageConfig(currentUser.role);
 
         const currentConfig = await this.getCurrentConfig();
         const nextConfig = this.systemConfigRepository.create({
@@ -58,13 +56,38 @@ export class SystemConfigService {
     }
 
     public async getConfigHistory(currentUser: CurrentUser) {
-        if (currentUser.role !== UserRole.ADMIN) {
-            throw new Error('You do not have permission to manage system configuration.');
-        }
+        this.assertCanManageConfig(currentUser.role);
 
         return this.systemConfigRepository.find({
             order: { version: 'DESC', createdAt: 'DESC' },
         });
+    }
+
+    public async updateConfigEntry(currentUser: CurrentUser, configId: string, input: SystemConfigInput) {
+        this.assertCanManageConfig(currentUser.role);
+
+        const config = await this.getConfigEntry(configId);
+
+        config.welcomeBonusPoints = this.normalizeInteger(input.welcomeBonusPoints, config.welcomeBonusPoints, 'Welcome bonus points must be a non-negative integer.');
+        config.pointExpirationDays = this.normalizeInteger(input.pointExpirationDays, config.pointExpirationDays, 'Point expiration days must be a positive integer.', 1);
+        config.maxPointsPerTransaction = this.normalizeInteger(input.maxPointsPerTransaction, config.maxPointsPerTransaction, 'Max points per transaction must be a positive integer.', 1);
+        config.defaultMaxDiscountPercent = this.normalizePercentage(input.defaultMaxDiscountPercent, config.defaultMaxDiscountPercent);
+        config.updatedByUserId = currentUser.id;
+
+        if (input.changeReason !== undefined) {
+            config.changeReason = input.changeReason?.trim() || null;
+        }
+
+        return this.systemConfigRepository.save(config);
+    }
+
+    public async deleteConfigEntry(currentUser: CurrentUser, configId: string) {
+        this.assertCanManageConfig(currentUser.role);
+
+        const config = await this.getConfigEntry(configId);
+        await this.systemConfigRepository.remove(config);
+
+        return { id: configId };
     }
 
     private normalizeInteger(value: number | undefined, fallback: number, errorMessage: string, min = 0) {
@@ -89,5 +112,25 @@ export class SystemConfigService {
         }
 
         return value;
+    }
+
+    private async getConfigEntry(configId: string) {
+        const id = configId.trim();
+        if (!id) {
+            throw new Error('System configuration id is required.');
+        }
+
+        const config = await this.systemConfigRepository.findOneBy({ id });
+        if (!config) {
+            throw new Error('System configuration not found.');
+        }
+
+        return config;
+    }
+
+    private assertCanManageConfig(role: UserRole) {
+        if (role !== UserRole.ADMIN) {
+            throw new Error('You do not have permission to manage system configuration.');
+        }
     }
 }

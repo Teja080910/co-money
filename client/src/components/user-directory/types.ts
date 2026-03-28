@@ -15,4 +15,20 @@ export type DirectoryUserAction = 'activate' | 'deactivate' | 'delete';
 export type DirectoryUserActionLoadingState = {
   userId: string;
   action: DirectoryUserAction;
+  role: string;
 } | null;
+
+export type DirectoryPaginationProps = {
+  loading?: boolean;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  totalItems?: number;
+  onPageChange?: (nextPage: number) => void;
+  onPageSizeChange?: (nextPageSize: number) => void;
+};
+
+export type DirectoryFeedbackProps = {
+  errorMessage?: string;
+  successMessage?: string;
+};

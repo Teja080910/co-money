@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Easing,
@@ -65,6 +66,7 @@ export function FloatingLabelInput({
   numberOfLines,
   editable = true,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme<AppTheme>();
   const [isFocused, setIsFocused] = useState(false);
   const labelProgress = useRef(new Animated.Value(value ? 1 : 0)).current;
@@ -177,7 +179,9 @@ export function FloatingLabelInput({
         />
         {onToggleSecureEntry ? (
           <Pressable
-            accessibilityLabel={secureTextEntry ? `Show ${label}` : `Hide ${label}`}
+            accessibilityLabel={secureTextEntry
+              ? t('accessibility.showField', { field: label })
+              : t('accessibility.hideField', { field: label })}
             accessibilityRole="button"
             hitSlop={12}
             onPress={onToggleSecureEntry}

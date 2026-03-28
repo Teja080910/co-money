@@ -183,13 +183,26 @@
     "na": "N/A",
     "reset": "Reset",
     "cancel": "Cancel",
+    "update": "Update",
     "edit": "Edit",
     "activate": "Activate",
     "deactivate": "Deactivate",
     "delete": "Delete",
     "noRecords": "No records available.",
     "startDate": "Start date",
-    "endDate": "End date"
+    "endDate": "End date",
+    "selectDate": "Select date",
+    "selectOption": "Select an option",
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "summary": "Page {{page}} of {{totalPages}}",
+      "itemsPerPage": "Items per page"
+    }
+  },
+  "accessibility": {
+    "showField": "Show {{field}}",
+    "hideField": "Hide {{field}}"
   },
   "statuses": {
     "active": "Active",
@@ -258,11 +271,6 @@
         "pending": "Pending",
         "failed": "Failed"
       }
-    },
-    "pagination": {
-      "previous": "Previous",
-      "next": "Next",
-      "summary": "Page {{page}} of {{totalPages}}"
     }
   },
   "wallet": {
@@ -286,7 +294,98 @@
       "newHelper": "Use at least 8 characters for the new password.",
       "confirmLabel": "Confirm new password",
       "confirmHelper": "Re-enter the new password to confirm the change.",
-      "submit": "Update Password"
+      "submit": "Update Password",
+      "success": "Password updated successfully.",
+      "errors": {
+        "required": "Current password, new password, and confirmation are required.",
+        "currentRequired": "Current password is required.",
+        "newShort": "New password must be at least 8 characters.",
+        "mustDiffer": "New password must be different from the current password.",
+        "confirmMismatch": "Passwords do not match.",
+        "confirmMatch": "New password and confirm password must match.",
+        "submit": "Unable to update password."
+      }
+    }
+  },
+  "homeScreen": {
+    "errors": {
+      "loadDashboard": "Unable to load dashboard data.",
+      "loadListData": "Unable to load list data.",
+      "loadTransactions": "Unable to load transactions.",
+      "addPointsCustomerRequired": "Select a customer before adding points.",
+      "addPointsShopRequired": "Select a shop before adding points.",
+      "addPointsAmountInvalid": "Enter a valid points amount.",
+      "addPointsSubmit": "Unable to add points.",
+      "spendCustomerRequired": "Select a customer before accepting points.",
+      "spendShopRequired": "Select a shop before accepting points.",
+      "purchaseAmountInvalid": "Enter a valid purchase amount.",
+      "spendPointsRequired": "Enter the requested points to use.",
+      "settlePurchase": "Unable to settle the purchase.",
+      "previewFieldsRequired": "Select customer, shop, purchase amount, and points before previewing.",
+      "previewSettlement": "Unable to preview settlement.",
+      "shopNameRequired": "Shop name is required.",
+      "shopLocationRequired": "Shop location is required.",
+      "shopMerchantRequired": "Select a merchant for the shop.",
+      "shopSave": "Unable to save shop.",
+      "shopStatusUpdate": "Unable to update shop status.",
+      "promotionTitleRequired": "Promotion title is required.",
+      "promotionShopRequired": "Select a shop for the promotion.",
+      "promotionDatesRequired": "Enter both promotion dates.",
+      "promotionSave": "Unable to create promotion.",
+      "promotionDelete": "Unable to delete promotion.",
+      "promotionStatusUpdate": "Unable to update promotion.",
+      "promotionClaim": "Unable to claim promotion.",
+      "eventTitleRequired": "Event title is required.",
+      "eventLocationRequired": "Event location is required.",
+      "eventDatesRequired": "Enter both event dates.",
+      "eventSave": "Unable to create event.",
+      "eventDelete": "Unable to delete event.",
+      "eventStatusUpdate": "Unable to update event.",
+      "categoryShopRequired": "Select a shop for the category.",
+      "categoryNameRequired": "Category name is required.",
+      "categoryDiscountInvalid": "Enter a valid category discount percent.",
+      "categorySave": "Unable to save category.",
+      "categoryStatusUpdate": "Unable to update category.",
+      "categoryDelete": "Unable to delete category.",
+      "configurationFieldsRequired": "Complete all configuration fields before saving.",
+      "configurationSave": "Unable to save system configuration.",
+      "configurationDelete": "Unable to delete system configuration.",
+      "internalUserRequired": "Username, email, and password are required.",
+      "userCreate": "Unable to create user.",
+      "userActivate": "Unable to activate user.",
+      "userDeactivate": "Unable to deactivate user.",
+      "userDelete": "Unable to delete user."
+    },
+    "success": {
+      "pointsAdded": "Points added successfully.",
+      "settlementComplete": "Settlement complete. Used {{usedPoints}} pts, payable {{payableAmount}}, earned {{earnedPoints}}{{bonusSuffix}}.",
+      "settlementBonusSuffix": " + {{bonusPoints}} bonus",
+      "shopUpdated": "Shop updated successfully.",
+      "shopCreated": "Shop created successfully.",
+      "shopActivated": "Shop activated successfully.",
+      "shopDeactivated": "Shop deactivated successfully.",
+      "promotionUpdated": "Promotion updated successfully.",
+      "promotionCreated": "Promotion created successfully.",
+      "promotionRemoved": "Promotion removed successfully.",
+      "promotionActivated": "Promotion activated successfully.",
+      "promotionDeactivated": "Promotion deactivated successfully.",
+      "promotionClaimed": "Promotion claimed successfully. {{bonusPoints}} bonus points were added to your wallet.",
+      "eventUpdated": "Event updated successfully.",
+      "eventCreated": "Event created successfully.",
+      "eventRemoved": "Event removed successfully.",
+      "eventActivated": "Event activated successfully.",
+      "eventDeactivated": "Event deactivated successfully.",
+      "categoryUpdated": "Category updated successfully.",
+      "categoryCreated": "Category created successfully.",
+      "categoryActivated": "Category activated successfully.",
+      "categoryDeactivated": "Category deactivated successfully.",
+      "categoryDeleted": "Category deleted successfully.",
+      "configurationUpdated": "System configuration updated successfully.",
+      "configurationDeleted": "System configuration deleted successfully.",
+      "internalUserCreated": "{{role}} account created and credentials emailed successfully.",
+      "userActivated": "User activated successfully.",
+      "userDeactivated": "User deactivated successfully.",
+      "userDeleted": "User deleted successfully."
     }
   },
   "directory": {
@@ -304,6 +403,28 @@
     }
   },
   "management": {
+    "bottomSheet": {
+      "shop": {
+        "title": "Edit Shop",
+        "subtitle": "Update shop details from the sheet."
+      },
+      "promotion": {
+        "title": "Edit Promotion",
+        "subtitle": "Update promotion details from the sheet."
+      },
+      "event": {
+        "title": "Edit Event",
+        "subtitle": "Update event details from the sheet."
+      },
+      "category": {
+        "title": "Edit Category",
+        "subtitle": "Update category details from the sheet."
+      },
+      "configuration": {
+        "title": "Edit Configuration",
+        "subtitle": "Update configuration details from the sheet."
+      }
+    },
     "shopDirectory": {
       "title": "Shops List",
       "subtitle": "Participating local shops",
@@ -526,6 +647,7 @@
     "passwordIncorrect": "The password you entered is incorrect.",
     "verifyEmailFirst": "Verify your email first.",
     "verificationEmailFailed": "We could not send the verification email right now.",
+    "accountCredentialsEmailFailed": "We could not send the account credentials email right now.",
     "pointsNotRedeemableForShop": "Points cannot be redeemed for this shop.",
     "requestedPointsExceedWalletBalance": "Requested points exceed the customer wallet balance.",
     "networkUnavailable": "We couldn't reach the server. Check your internet connection and try again.",

@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Menu, useTheme } from 'react-native-paper';
 import type { AppTheme } from '../../theme/theme';
@@ -25,14 +26,16 @@ export function SelectField({
   value,
   options,
   onSelect,
-  placeholder = 'Select an option',
+  placeholder,
   helperText,
   disabled = false,
   icon = 'chevron-down',
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme<AppTheme>();
   const [visible, setVisible] = useState(false);
   const [anchorWidth, setAnchorWidth] = useState(0);
+  const resolvedPlaceholder = placeholder ?? t('common.selectOption');
 
   const selectedLabel = useMemo(
     () => options.find(option => option.value === value)?.label ?? '',
@@ -80,7 +83,7 @@ export function SelectField({
                 },
               ]}
             >
-              {selectedLabel || placeholder}
+              {selectedLabel || resolvedPlaceholder}
             </Text>
             <MaterialCommunityIcons
               name={icon}

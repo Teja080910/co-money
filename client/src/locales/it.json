@@ -183,13 +183,26 @@
     "na": "N/D",
     "reset": "Reimposta",
     "cancel": "Annulla",
+    "update": "Aggiorna",
     "edit": "Modifica",
     "activate": "Attiva",
     "deactivate": "Disattiva",
     "delete": "Elimina",
     "noRecords": "Nessun record disponibile.",
     "startDate": "Data inizio",
-    "endDate": "Data fine"
+    "endDate": "Data fine",
+    "selectDate": "Seleziona data",
+    "selectOption": "Seleziona un'opzione",
+    "pagination": {
+      "previous": "Precedente",
+      "next": "Successiva",
+      "summary": "Pagina {{page}} di {{totalPages}}",
+      "itemsPerPage": "Elementi per pagina"
+    }
+  },
+  "accessibility": {
+    "showField": "Mostra {{field}}",
+    "hideField": "Nascondi {{field}}"
   },
   "statuses": {
     "active": "Attivo",
@@ -258,11 +271,6 @@
         "pending": "In attesa",
         "failed": "Fallita"
       }
-    },
-    "pagination": {
-      "previous": "Precedente",
-      "next": "Successiva",
-      "summary": "Pagina {{page}} di {{totalPages}}"
     }
   },
   "wallet": {
@@ -286,7 +294,98 @@
       "newHelper": "Usa almeno 8 caratteri per la nuova password.",
       "confirmLabel": "Conferma nuova password",
       "confirmHelper": "Reinserisci la nuova password per confermare la modifica.",
-      "submit": "Aggiorna Password"
+      "submit": "Aggiorna Password",
+      "success": "Password aggiornata con successo.",
+      "errors": {
+        "required": "Password attuale, nuova password e conferma sono obbligatorie.",
+        "currentRequired": "La password attuale e obbligatoria.",
+        "newShort": "La nuova password deve contenere almeno 8 caratteri.",
+        "mustDiffer": "La nuova password deve essere diversa da quella attuale.",
+        "confirmMismatch": "Le password non coincidono.",
+        "confirmMatch": "Nuova password e conferma password devono coincidere.",
+        "submit": "Impossibile aggiornare la password."
+      }
+    }
+  },
+  "homeScreen": {
+    "errors": {
+      "loadDashboard": "Impossibile caricare i dati della dashboard.",
+      "loadListData": "Impossibile caricare i dati dell'elenco.",
+      "loadTransactions": "Impossibile caricare le transazioni.",
+      "addPointsCustomerRequired": "Seleziona un cliente prima di aggiungere punti.",
+      "addPointsShopRequired": "Seleziona un negozio prima di aggiungere punti.",
+      "addPointsAmountInvalid": "Inserisci una quantita di punti valida.",
+      "addPointsSubmit": "Impossibile aggiungere punti.",
+      "spendCustomerRequired": "Seleziona un cliente prima di accettare punti.",
+      "spendShopRequired": "Seleziona un negozio prima di accettare punti.",
+      "purchaseAmountInvalid": "Inserisci un importo acquisto valido.",
+      "spendPointsRequired": "Inserisci i punti richiesti da utilizzare.",
+      "settlePurchase": "Impossibile completare il regolamento dell'acquisto.",
+      "previewFieldsRequired": "Seleziona cliente, negozio, importo acquisto e punti prima di visualizzare l'anteprima.",
+      "previewSettlement": "Impossibile visualizzare l'anteprima del regolamento.",
+      "shopNameRequired": "Il nome negozio e obbligatorio.",
+      "shopLocationRequired": "La posizione del negozio e obbligatoria.",
+      "shopMerchantRequired": "Seleziona un esercente per il negozio.",
+      "shopSave": "Impossibile salvare il negozio.",
+      "shopStatusUpdate": "Impossibile aggiornare lo stato del negozio.",
+      "promotionTitleRequired": "Il titolo della promozione e obbligatorio.",
+      "promotionShopRequired": "Seleziona un negozio per la promozione.",
+      "promotionDatesRequired": "Inserisci entrambe le date della promozione.",
+      "promotionSave": "Impossibile creare la promozione.",
+      "promotionDelete": "Impossibile eliminare la promozione.",
+      "promotionStatusUpdate": "Impossibile aggiornare la promozione.",
+      "promotionClaim": "Impossibile riscattare la promozione.",
+      "eventTitleRequired": "Il titolo dell'evento e obbligatorio.",
+      "eventLocationRequired": "La posizione dell'evento e obbligatoria.",
+      "eventDatesRequired": "Inserisci entrambe le date dell'evento.",
+      "eventSave": "Impossibile creare l'evento.",
+      "eventDelete": "Impossibile eliminare l'evento.",
+      "eventStatusUpdate": "Impossibile aggiornare l'evento.",
+      "categoryShopRequired": "Seleziona un negozio per la categoria.",
+      "categoryNameRequired": "Il nome categoria e obbligatorio.",
+      "categoryDiscountInvalid": "Inserisci una percentuale di sconto categoria valida.",
+      "categorySave": "Impossibile salvare la categoria.",
+      "categoryStatusUpdate": "Impossibile aggiornare la categoria.",
+      "categoryDelete": "Impossibile eliminare la categoria.",
+      "configurationFieldsRequired": "Completa tutti i campi configurazione prima di salvare.",
+      "configurationSave": "Impossibile salvare la configurazione di sistema.",
+      "configurationDelete": "Impossibile eliminare la configurazione di sistema.",
+      "internalUserRequired": "Nome utente, email e password sono obbligatori.",
+      "userCreate": "Impossibile creare l'utente.",
+      "userActivate": "Impossibile attivare l'utente.",
+      "userDeactivate": "Impossibile disattivare l'utente.",
+      "userDelete": "Impossibile eliminare l'utente."
+    },
+    "success": {
+      "pointsAdded": "Punti aggiunti con successo.",
+      "settlementComplete": "Regolamento completato. Usati {{usedPoints}} pt, da pagare {{payableAmount}}, guadagnati {{earnedPoints}}{{bonusSuffix}}.",
+      "settlementBonusSuffix": " + {{bonusPoints}} bonus",
+      "shopUpdated": "Negozio aggiornato con successo.",
+      "shopCreated": "Negozio creato con successo.",
+      "shopActivated": "Negozio attivato con successo.",
+      "shopDeactivated": "Negozio disattivato con successo.",
+      "promotionUpdated": "Promozione aggiornata con successo.",
+      "promotionCreated": "Promozione creata con successo.",
+      "promotionRemoved": "Promozione rimossa con successo.",
+      "promotionActivated": "Promozione attivata con successo.",
+      "promotionDeactivated": "Promozione disattivata con successo.",
+      "promotionClaimed": "Promozione riscattata con successo. {{bonusPoints}} punti bonus sono stati aggiunti al tuo portafoglio.",
+      "eventUpdated": "Evento aggiornato con successo.",
+      "eventCreated": "Evento creato con successo.",
+      "eventRemoved": "Evento rimosso con successo.",
+      "eventActivated": "Evento attivato con successo.",
+      "eventDeactivated": "Evento disattivato con successo.",
+      "categoryUpdated": "Categoria aggiornata con successo.",
+      "categoryCreated": "Categoria creata con successo.",
+      "categoryActivated": "Categoria attivata con successo.",
+      "categoryDeactivated": "Categoria disattivata con successo.",
+      "categoryDeleted": "Categoria eliminata con successo.",
+      "configurationUpdated": "Configurazione di sistema aggiornata con successo.",
+      "configurationDeleted": "Configurazione di sistema eliminata con successo.",
+      "internalUserCreated": "Account {{role}} creato con successo e credenziali inviate via email.",
+      "userActivated": "Utente attivato con successo.",
+      "userDeactivated": "Utente disattivato con successo.",
+      "userDeleted": "Utente eliminato con successo."
     }
   },
   "directory": {
@@ -304,6 +403,28 @@
     }
   },
   "management": {
+    "bottomSheet": {
+      "shop": {
+        "title": "Modifica Negozio",
+        "subtitle": "Aggiorna i dettagli del negozio dal pannello."
+      },
+      "promotion": {
+        "title": "Modifica Promozione",
+        "subtitle": "Aggiorna i dettagli della promozione dal pannello."
+      },
+      "event": {
+        "title": "Modifica Evento",
+        "subtitle": "Aggiorna i dettagli dell'evento dal pannello."
+      },
+      "category": {
+        "title": "Modifica Categoria",
+        "subtitle": "Aggiorna i dettagli della categoria dal pannello."
+      },
+      "configuration": {
+        "title": "Modifica Configurazione",
+        "subtitle": "Aggiorna i dettagli della configurazione dal pannello."
+      }
+    },
     "shopDirectory": {
       "title": "Lista Negozi",
       "subtitle": "Negozi locali partecipanti",
@@ -526,6 +647,7 @@
     "passwordIncorrect": "La password inserita non e corretta.",
     "verifyEmailFirst": "Verifica prima la tua email.",
     "verificationEmailFailed": "Impossibile inviare l'email di verifica in questo momento.",
+    "accountCredentialsEmailFailed": "Impossibile inviare l'email con le credenziali dell'account in questo momento.",
     "pointsNotRedeemableForShop": "I punti non possono essere riscattati per questo negozio.",
     "requestedPointsExceedWalletBalance": "I punti richiesti superano il saldo del portafoglio del cliente.",
     "networkUnavailable": "Impossibile contattare il server. Controlla la connessione e riprova.",

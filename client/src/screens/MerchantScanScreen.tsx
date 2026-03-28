@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import { Button, Card, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
+import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
+import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import type { ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
 import type { AppTheme } from '../theme/theme';
@@ -41,6 +43,11 @@ export function MerchantScanScreen({ navigation }: ScreenProps<'MerchantScan'>) 
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupResults, setLookupResults] = useState<CustomerLookupItem[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  useAutoDismissMessage(error, clearError, FEEDBACK_AUTO_DISMISS_MS);
 
   const handleBarcodeScanned = async ({ data }: { data: string }) => {
     if (hasScanned || isSubmitting) {

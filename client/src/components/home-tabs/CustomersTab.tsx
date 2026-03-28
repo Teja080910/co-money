@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
-import { Card, Chip } from 'react-native-paper';
+import { ActivityIndicator, Card, Chip } from 'react-native-paper';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
+import { PaginationControls } from '../common/PaginationControls';
 
 type Props = {
   context: any;
@@ -15,7 +16,14 @@ export function CustomersTab({ context }: Props) {
     styles,
     customerSearch,
     setCustomerSearch,
-    filteredCustomers,
+    customerListItems,
+    customerListLoading,
+    customerListPage,
+    customerListPageSize,
+    customerListTotalPages,
+    customerListTotalItems,
+    handleCustomerListPageChange,
+    handleCustomerListPageSizeChange,
     selectedCustomerId,
     setSelectedCustomerId,
     selectedCustomerWallet,
@@ -34,8 +42,10 @@ export function CustomersTab({ context }: Props) {
             onChangeText={setCustomerSearch}
             autoCapitalize="none"
           />
-          {filteredCustomers.length ? (
-            filteredCustomers.map((customer: any) => {
+          {customerListLoading ? (
+            <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+          ) : customerListItems.length ? (
+            customerListItems.map((customer: any) => {
               const selected = selectedCustomerId === customer.id;
               const customerName = [customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.username;
 
@@ -67,6 +77,15 @@ export function CustomersTab({ context }: Props) {
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('customers.empty')}</Text>
           )}
+          <PaginationControls
+            page={customerListPage}
+            pageSize={customerListPageSize}
+            totalPages={customerListTotalPages}
+            totalItems={customerListTotalItems}
+            loading={customerListLoading}
+            onPageChange={handleCustomerListPageChange}
+            onPageSizeChange={handleCustomerListPageSizeChange}
+          />
         </Card.Content>
       </Card>
 
