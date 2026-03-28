@@ -35,7 +35,10 @@ export class PromotionController {
             }
 
             const promotion = await this.promotionService.createPromotion(authenticatedUser, req.body);
-            return res.status(201).json(promotion);
+            return res.status(201).json({
+                ...promotion,
+                message: 'Promotion added successfully.',
+            });
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -50,7 +53,10 @@ export class PromotionController {
             }
 
             const promotion = await this.promotionService.updatePromotion(authenticatedUser, req.params.id as string, req.body);
-            return res.status(200).json(promotion);
+            return res.status(200).json({
+                ...promotion,
+                message: 'Promotion updated successfully.',
+            });
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }
@@ -80,7 +86,10 @@ export class PromotionController {
             }
 
             const result = await this.promotionService.deletePromotion(authenticatedUser, req.params.id as string);
-            return res.status(200).json(result);
+            return res.status(200).json({
+                ...result,
+                message: 'Promotion deleted successfully.',
+            });
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
         }

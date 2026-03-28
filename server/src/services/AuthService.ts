@@ -19,6 +19,7 @@ type RegisterInput = {
     email: string;
     password: string;
     username?: string;
+    locale?: string;
 };
 
 type AuthPayload = {
@@ -74,7 +75,7 @@ export class AuthService {
         });
         
         await this.userRepository.save(user);
-        await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
+        await this.deliverOtpEmail(user.email, verificationCode, user.firstName, input.locale);
 
         return {
             message: 'Registrazione completata con successo!',
@@ -167,7 +168,7 @@ export class AuthService {
         };
     }
 
-    public async resendOtp(emailInput: string): Promise<AuthPayload> {
+    public async resendOtp(emailInput: string, locale?: string): Promise<AuthPayload> {
         const email = this.requireValue(emailInput, 'Email richiesta.').toLowerCase();
         const user = await this.userRepository.findOneBy({ email });
 
@@ -187,7 +188,7 @@ export class AuthService {
         user.verificationCode = verificationCode;
         user.verificationCodeExpiresAt = this.getOtpExpiryDate();
         await this.userRepository.save(user);
-        await this.deliverOtpEmail(user.email, verificationCode, user.firstName);
+        await this.deliverOtpEmail(user.email, verificationCode, user.firstName, locale);
 
         return {
             message: 'Codice OTP reinviato alla tua email.',
@@ -361,12 +362,13 @@ export class AuthService {
         return { debugOtp: otp };
     }
 
-    private async deliverOtpEmail(email: string, otp: string, firstName?: string | null): Promise<void> {
+    private async deliverOtpEmail(email: string, otp: string, firstName?: string | null, locale?: string): Promise<void> {
         try {
             await this.emailService.sendOtpEmail({
                 to: email,
                 otp,
                 firstName,
+                locale,
             });
         } catch (error) {
             console.error('Failed to send OTP email:', error);

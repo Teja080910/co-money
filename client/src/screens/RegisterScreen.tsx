@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -20,6 +20,8 @@ import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
+import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import { useRegisterForm } from '../hooks/useRegisterForm';
 import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage } from '../services/api';
@@ -54,6 +56,11 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
     setPasswordVisible,
     setConfirmPasswordVisible,
   } = useRegisterForm();
+  const clearSubmitError = useCallback(() => {
+    setSubmitError(null);
+  }, []);
+
+  useAutoDismissMessage(submitError, clearSubmitError, FEEDBACK_AUTO_DISMISS_MS);
 
   const handleRegister = async () => {
     if (!isValid) {

@@ -1,9 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserDirectoryCard } from './UserDirectoryCard';
-import type { DirectoryUser, DirectoryUserActionLoadingState } from './types';
+import type { DirectoryFeedbackProps, DirectoryPaginationProps, DirectoryUser, DirectoryUserActionLoadingState } from './types';
 
-type Props = {
+type Props = DirectoryPaginationProps & DirectoryFeedbackProps & {
   users: DirectoryUser[];
   showStatus?: boolean;
   onActivate?: (user: DirectoryUser) => void;
@@ -12,7 +12,7 @@ type Props = {
   actionLoadingState?: DirectoryUserActionLoadingState;
 };
 
-export function MerchantDirectoryCard(props: Props) {
+export const MerchantDirectoryCard = React.memo(function MerchantDirectoryCard(props: Props) {
   const { t } = useTranslation();
   return (
     <UserDirectoryCard
@@ -21,4 +21,4 @@ export function MerchantDirectoryCard(props: Props) {
       {...props}
     />
   );
-}
+});

@@ -1,10 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
-import { Button, Card, Chip } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, Chip } from 'react-native-paper';
 import { UserRole } from '../../constants/userRoles';
 import { FloatingLabelInput } from '../auth/FloatingLabelInput';
 import { SelectField } from '../common/SelectField';
+import { PaginationControls } from '../common/PaginationControls';
 import { CustomerDirectoryCard } from '../user-directory/CustomerDirectoryCard';
 import { MerchantDirectoryCard } from '../user-directory/MerchantDirectoryCard';
 import { RepresentativeDirectoryCard } from '../user-directory/RepresentativeDirectoryCard';
@@ -13,6 +14,30 @@ import { CustomersTab } from './CustomersTab';
 type Props = {
   context: any;
 };
+
+function renderScopedFeedback(feedback: any, target: string, styles: any, theme: any) {
+  if (feedback?.target !== target) {
+    return null;
+  }
+
+  if (feedback.error) {
+    return (
+      <Text style={[styles.message, { color: theme.custom.error }]}>
+        {feedback.error}
+      </Text>
+    );
+  }
+
+  if (feedback.success) {
+    return (
+      <Text style={[styles.message, { color: theme.custom.success }]}>
+        {feedback.success}
+      </Text>
+    );
+  }
+
+  return null;
+}
 
 export function UserListSection({ context, title, subtitle, users }: Props & { title: string; subtitle: string; users: any[] }) {
   const { t } = useTranslation();
@@ -43,14 +68,27 @@ export function UserListSection({ context, title, subtitle, users }: Props & { t
 
 export function ShopDirectorySection({ context }: Props) {
   const { t } = useTranslation();
-  const { theme, styles, shops } = context;
-  const safeShops = shops ?? [];
+  const {
+    theme,
+    styles,
+    shopListItems,
+    shopListLoading,
+    shopListPage,
+    shopListPageSize,
+    shopListTotalPages,
+    shopListTotalItems,
+    handleShopListPageChange,
+    handleShopListPageSizeChange,
+  } = context;
+  const safeShops = shopListItems ?? [];
 
   return (
     <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
       <Card.Title title={t('management.shopDirectory.title')} subtitle={t('management.shopDirectory.subtitle')} />
       <Card.Content>
-        {safeShops.length ? (
+        {shopListLoading ? (
+          <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+        ) : safeShops.length ? (
           safeShops.map((shop: any) => (
             <View key={shop.id} style={styles.listItem}>
               <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>{shop.name}</Text>
@@ -63,6 +101,15 @@ export function ShopDirectorySection({ context }: Props) {
         ) : (
           <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.shopDirectory.empty')}</Text>
         )}
+        <PaginationControls
+          page={shopListPage}
+          pageSize={shopListPageSize}
+          totalPages={shopListTotalPages}
+          totalItems={shopListTotalItems}
+          loading={shopListLoading}
+          onPageChange={handleShopListPageChange}
+          onPageSizeChange={handleShopListPageSizeChange}
+        />
       </Card.Content>
     </Card>
   );
@@ -83,16 +130,26 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
     shopMerchantId,
     setShopMerchantId,
     shopSubmitting,
+    shopStatusLoadingId,
+    managementFeedback,
     handleSaveShop,
     editingShopId,
     resetShopForm,
     shops,
+    shopListItems,
+    shopListLoading,
+    shopListPage,
+    shopListPageSize,
+    shopListTotalPages,
+    shopListTotalItems,
+    handleShopListPageChange,
+    handleShopListPageSizeChange,
     merchantNameMap,
     handleEditShop,
     handleToggleShopStatus,
   } = context;
   const safeMerchants = merchants ?? [];
-  const safeShops = shops ?? [];
+  const safeShops = shopListItems ?? [];
 
   return (
     <>
@@ -118,6 +175,7 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
                 {t('management.shopForm.add')}
               </Button>
             </View>
+            {renderScopedFeedback(managementFeedback, 'shopForm', styles, theme)}
           </Card.Content>
         </Card>
       ) : null}
@@ -125,7 +183,9 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.managedShops.title')} subtitle={t('management.managedShops.subtitle')} />
         <Card.Content>
-          {safeShops.length ? (
+          {shopListLoading ? (
+            <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+          ) : safeShops.length ? (
             safeShops.map((shop: any) => (
               <View key={shop.id} style={styles.shopRow}>
                 <View style={styles.shopRowBody}>
@@ -136,8 +196,8 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
                   <Text style={[styles.listMeta, { color: shop.isActive ? theme.custom.success : theme.custom.error }]}>{t('management.managedShops.status')}: {shop.isActive ? t('management.managedShops.active') : t('management.managedShops.inactive')}</Text>
                 </View>
                 <View style={styles.shopActions}>
-                  <Button compact mode="outlined" onPress={() => handleEditShop(shop)}>{t('common.edit')}</Button>
-                  <Button compact mode="text" textColor={shop.isActive ? theme.custom.error : theme.custom.success} onPress={() => void handleToggleShopStatus(shop)}>
+                  <Button compact mode="outlined" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} disabled={shopStatusLoadingId === shop.id} onPress={() => handleEditShop(shop)}>{t('common.edit')}</Button>
+                  <Button compact mode="text" style={styles.rowActionButtonWide} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} loading={shopStatusLoadingId === shop.id} disabled={shopStatusLoadingId === shop.id} textColor={shop.isActive ? theme.custom.error : theme.custom.success} onPress={() => void handleToggleShopStatus(shop)}>
                     {shop.isActive ? t('management.managedShops.deactivate') : t('management.managedShops.activate')}
                   </Button>
                 </View>
@@ -146,6 +206,16 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.managedShops.empty')}</Text>
           )}
+          {renderScopedFeedback(managementFeedback, 'shopList', styles, theme)}
+          <PaginationControls
+            page={shopListPage}
+            pageSize={shopListPageSize}
+            totalPages={shopListTotalPages}
+            totalItems={shopListTotalItems}
+            loading={shopListLoading}
+            onPageChange={handleShopListPageChange}
+            onPageSizeChange={handleShopListPageSizeChange}
+          />
         </Card.Content>
       </Card>
     </>
@@ -154,16 +224,107 @@ export function ShopManagementSection({ context, title, subtitle }: Props & { ti
 
 export function PromotionsSection({ context, editable }: Props & { editable: boolean }) {
   const { t } = useTranslation();
-  const { theme, styles, authUser, promotions, claimingPromotionId, handleDeletePromotion, handleClaimPromotion, formatDate, handleEditPromotion, handleTogglePromotionStatus } = context;
-  const safePromotions = promotions ?? [];
+  const {
+    theme,
+    styles,
+    authUser,
+    managementFeedback,
+    promotionTitle,
+    setPromotionTitle,
+    promotionDescription,
+    setPromotionDescription,
+    manageablePromotionShops,
+    promotionShopId,
+    setPromotionShopId,
+    promotionBonusPoints,
+    setPromotionBonusPoints,
+    renderDateField,
+    promotionStartDate,
+    promotionEndDate,
+    promotionSubmitting,
+    promotionActionLoadingState,
+    handleCreatePromotion,
+    resetPromotionForm,
+    editingPromotionId,
+    promotionListItems,
+    promotionListLoading,
+    promotionListPage,
+    promotionListPageSize,
+    promotionListTotalPages,
+    promotionListTotalItems,
+    handlePromotionListPageChange,
+    handlePromotionListPageSizeChange,
+    claimingPromotionId,
+    handleDeletePromotion,
+    handleClaimPromotion,
+    formatDate,
+    handleEditPromotion,
+    handleTogglePromotionStatus,
+  } = context;
+  const safePromotionShops = manageablePromotionShops ?? [];
+  const safePromotions = promotionListItems ?? [];
   const isCustomerView = authUser?.role === UserRole.CUSTOMER;
 
   return (
     <>
+      {editable && !editingPromotionId ? (
+        <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
+          <Card.Title title={t('management.promotions.editTitle')} subtitle={t('management.promotions.editSubtitle')} />
+          <Card.Content>
+            <FloatingLabelInput
+              icon="tag-outline"
+              label={t('management.promotions.titleLabel')}
+              helperText={t('management.promotions.titleHelper')}
+              value={promotionTitle}
+              onChangeText={setPromotionTitle}
+              autoCapitalize="sentences"
+            />
+            <FloatingLabelInput
+              icon="text-box-outline"
+              label={t('management.promotions.descriptionLabel')}
+              helperText={t('management.promotions.descriptionHelper')}
+              value={promotionDescription}
+              onChangeText={setPromotionDescription}
+              autoCapitalize="sentences"
+              multiline
+              numberOfLines={3}
+            />
+            <SelectField
+              label={t('management.promotions.shop')}
+              value={promotionShopId}
+              onSelect={setPromotionShopId}
+              options={safePromotionShops.map((shop: any) => ({
+                value: shop.id,
+                label: shop.name,
+              }))}
+            />
+            <FloatingLabelInput
+              icon="star-four-points-outline"
+              label={t('management.promotions.bonusLabel')}
+              helperText={t('management.promotions.bonusHelper')}
+              keyboardType="number-pad"
+              value={promotionBonusPoints}
+              onChangeText={setPromotionBonusPoints}
+            />
+            {renderDateField(t('common.startDate'), promotionStartDate, 'promotion-start', t('management.promotions.startHelper'))}
+            {renderDateField(t('common.endDate'), promotionEndDate, 'promotion-end', t('management.promotions.endHelper'))}
+            <View style={styles.actionRow}>
+              <Button mode="contained" loading={promotionSubmitting} onPress={() => void handleCreatePromotion()}>
+                {t('management.promotions.save')}
+              </Button>
+              <Button mode="outlined" onPress={resetPromotionForm}>{t('common.reset')}</Button>
+            </View>
+            {renderScopedFeedback(managementFeedback, 'promotionForm', styles, theme)}
+          </Card.Content>
+        </Card>
+      ) : null}
+
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.promotions.activeTitle')} subtitle={t('management.promotions.activeSubtitle')} />
         <Card.Content>
-          {safePromotions.length ? (
+          {promotionListLoading ? (
+            <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+          ) : safePromotions.length ? (
             safePromotions.map((promotion: any) => (
               <View key={promotion.id} style={styles.shopRow}>
                 <View style={styles.shopRowBody}>
@@ -175,11 +336,11 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
                 </View>
                 {editable ? (
                   <View style={styles.shopActions}>
-                    <Button compact mode="outlined" onPress={() => handleEditPromotion(promotion)}>{t('common.edit')}</Button>
-                    <Button compact mode="text" onPress={() => void handleTogglePromotionStatus(promotion)}>
+                    <Button compact mode="outlined" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} disabled={promotionActionLoadingState?.id === promotion.id} onPress={() => handleEditPromotion(promotion)}>{t('common.edit')}</Button>
+                    <Button compact mode="text" style={styles.rowActionButtonWide} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} loading={promotionActionLoadingState?.id === promotion.id && promotionActionLoadingState.action === 'status'} disabled={promotionActionLoadingState?.id === promotion.id} onPress={() => void handleTogglePromotionStatus(promotion)}>
                       {promotion.isActive ? t('common.deactivate') : t('common.activate')}
                     </Button>
-                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeletePromotion(promotion.id)}>{t('common.delete')}</Button>
+                    <Button compact mode="text" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} textColor={theme.custom.error} loading={promotionActionLoadingState?.id === promotion.id && promotionActionLoadingState.action === 'delete'} disabled={promotionActionLoadingState?.id === promotion.id} onPress={() => void handleDeletePromotion(promotion.id)}>{t('common.delete')}</Button>
                   </View>
                 ) : isCustomerView ? (
                   <View style={styles.shopActions}>
@@ -199,6 +360,16 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.promotions.empty')}</Text>
           )}
+          {renderScopedFeedback(managementFeedback, 'promotionList', styles, theme)}
+          <PaginationControls
+            page={promotionListPage}
+            pageSize={promotionListPageSize}
+            totalPages={promotionListTotalPages}
+            totalItems={promotionListTotalItems}
+            loading={promotionListLoading}
+            onPageChange={handlePromotionListPageChange}
+            onPageSizeChange={handlePromotionListPageSizeChange}
+          />
         </Card.Content>
       </Card>
     </>
@@ -207,8 +378,38 @@ export function PromotionsSection({ context, editable }: Props & { editable: boo
 
 export function EventsSection({ context, editable }: Props & { editable: boolean }) {
   const { t } = useTranslation();
-  const { theme, styles, eventTitle, setEventTitle, eventDescription, setEventDescription, eventLocation, setEventLocation, renderDateField, eventStartDate, eventEndDate, eventSubmitting, handleCreateEvent, resetEventForm, events, handleDeleteEvent, formatDate, handleEditEvent, editingEventId, handleToggleEventStatus } = context;
-  const safeEvents = events ?? [];
+  const {
+    theme,
+    styles,
+    eventTitle,
+    setEventTitle,
+    eventDescription,
+    setEventDescription,
+    eventLocation,
+    setEventLocation,
+    renderDateField,
+    eventStartDate,
+    eventEndDate,
+    eventSubmitting,
+    eventActionLoadingState,
+    managementFeedback,
+    handleCreateEvent,
+    resetEventForm,
+    eventListItems,
+    eventListLoading,
+    eventListPage,
+    eventListPageSize,
+    eventListTotalPages,
+    eventListTotalItems,
+    handleEventListPageChange,
+    handleEventListPageSizeChange,
+    handleDeleteEvent,
+    formatDate,
+    handleEditEvent,
+    editingEventId,
+    handleToggleEventStatus,
+  } = context;
+  const safeEvents = eventListItems ?? [];
 
   return (
     <>
@@ -227,6 +428,7 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
               </Button>
               <Button mode="outlined" onPress={resetEventForm}>{t('common.reset')}</Button>
             </View>
+            {renderScopedFeedback(managementFeedback, 'eventForm', styles, theme)}
           </Card.Content>
         </Card>
       ) : null}
@@ -234,7 +436,9 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.events.listTitle')} subtitle={t('management.events.listSubtitle')} />
         <Card.Content>
-          {safeEvents.length ? (
+          {eventListLoading ? (
+            <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+          ) : safeEvents.length ? (
             safeEvents.map((event: any) => (
               <View key={event.id} style={styles.shopRow}>
                 <View style={styles.shopRowBody}>
@@ -245,11 +449,11 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
                 </View>
                 {editable ? (
                   <View style={styles.shopActions}>
-                    <Button compact mode="outlined" onPress={() => handleEditEvent(event)}>{t('common.edit')}</Button>
-                    <Button compact mode="text" onPress={() => void handleToggleEventStatus(event)}>
+                    <Button compact mode="outlined" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} disabled={eventActionLoadingState?.id === event.id} onPress={() => handleEditEvent(event)}>{t('common.edit')}</Button>
+                    <Button compact mode="text" style={styles.rowActionButtonWide} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} loading={eventActionLoadingState?.id === event.id && eventActionLoadingState.action === 'status'} disabled={eventActionLoadingState?.id === event.id} onPress={() => void handleToggleEventStatus(event)}>
                       {event.isActive ? t('common.deactivate') : t('common.activate')}
                     </Button>
-                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteEvent(event.id)}>{t('common.delete')}</Button>
+                    <Button compact mode="text" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} textColor={theme.custom.error} loading={eventActionLoadingState?.id === event.id && eventActionLoadingState.action === 'delete'} disabled={eventActionLoadingState?.id === event.id} onPress={() => void handleDeleteEvent(event.id)}>{t('common.delete')}</Button>
                   </View>
                 ) : null}
               </View>
@@ -257,6 +461,16 @@ export function EventsSection({ context, editable }: Props & { editable: boolean
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.events.empty')}</Text>
           )}
+          {renderScopedFeedback(managementFeedback, 'eventList', styles, theme)}
+          <PaginationControls
+            page={eventListPage}
+            pageSize={eventListPageSize}
+            totalPages={eventListTotalPages}
+            totalItems={eventListTotalItems}
+            loading={eventListLoading}
+            onPageChange={handleEventListPageChange}
+            onPageSizeChange={handleEventListPageSizeChange}
+          />
         </Card.Content>
       </Card>
     </>
@@ -278,16 +492,25 @@ export function CategorySettingsSection({ context }: Props) {
     categoryIsDefault,
     setCategoryIsDefault,
     categorySubmitting,
+    categoryActionLoadingState,
+    managementFeedback,
     handleSaveCategory,
     resetCategoryForm,
     editingCategoryId,
-    categories,
+    categoryListItems,
+    categoryListLoading,
+    categoryListPage,
+    categoryListPageSize,
+    categoryListTotalPages,
+    categoryListTotalItems,
+    handleCategoryListPageChange,
+    handleCategoryListPageSizeChange,
     handleEditCategory,
     handleToggleCategoryStatus,
     handleDeleteCategory,
   } = context;
   const safeShops = availableShops ?? [];
-  const safeCategories = categories ?? [];
+  const safeCategories = categoryListItems ?? [];
 
   return (
     <>
@@ -317,6 +540,7 @@ export function CategorySettingsSection({ context }: Props) {
               </Button>
               <Button mode="outlined" onPress={resetCategoryForm}>{t('common.reset')}</Button>
             </View>
+            {renderScopedFeedback(managementFeedback, 'categoryForm', styles, theme)}
           </Card.Content>
         </Card>
       ) : null}
@@ -324,7 +548,9 @@ export function CategorySettingsSection({ context }: Props) {
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.categories.title')} subtitle={t('management.categories.subtitle')} />
         <Card.Content>
-          {safeCategories.length ? (
+          {categoryListLoading ? (
+            <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+          ) : safeCategories.length ? (
             safeCategories.map((category: any) => (
               <View key={category.id} style={styles.shopRow}>
                 <View style={styles.shopRowBody}>
@@ -336,12 +562,12 @@ export function CategorySettingsSection({ context }: Props) {
                   </Text>
                 </View>
                 <View style={styles.shopActions}>
-                  <Button compact mode="outlined" onPress={() => handleEditCategory(category)}>{t('common.edit')}</Button>
-                  <Button compact mode="text" onPress={() => void handleToggleCategoryStatus(category)}>
+                  <Button compact mode="outlined" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} disabled={categoryActionLoadingState?.id === category.id} onPress={() => handleEditCategory(category)}>{t('common.edit')}</Button>
+                  <Button compact mode="text" style={styles.rowActionButtonWide} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} loading={categoryActionLoadingState?.id === category.id && categoryActionLoadingState.action === 'status'} disabled={categoryActionLoadingState?.id === category.id} onPress={() => void handleToggleCategoryStatus(category)}>
                     {category.isActive ? t('common.deactivate') : t('common.activate')}
                   </Button>
                   {!category.isDefault ? (
-                    <Button compact mode="text" textColor={theme.custom.error} onPress={() => void handleDeleteCategory(category.id)}>
+                    <Button compact mode="text" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} textColor={theme.custom.error} loading={categoryActionLoadingState?.id === category.id && categoryActionLoadingState.action === 'delete'} disabled={categoryActionLoadingState?.id === category.id} onPress={() => void handleDeleteCategory(category.id)}>
                       {t('common.delete')}
                     </Button>
                   ) : null}
@@ -351,6 +577,16 @@ export function CategorySettingsSection({ context }: Props) {
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.categories.empty')}</Text>
           )}
+          {renderScopedFeedback(managementFeedback, 'categoryList', styles, theme)}
+          <PaginationControls
+            page={categoryListPage}
+            pageSize={categoryListPageSize}
+            totalPages={categoryListTotalPages}
+            totalItems={categoryListTotalItems}
+            loading={categoryListLoading}
+            onPageChange={handleCategoryListPageChange}
+            onPageSizeChange={handleCategoryListPageSizeChange}
+          />
         </Card.Content>
       </Card>
     </>
@@ -362,6 +598,7 @@ export function SystemConfigurationSection({ context }: Props) {
   const {
     theme,
     styles,
+    managementFeedback,
     configWelcomeBonusPoints,
     setConfigWelcomeBonusPoints,
     configPointExpirationDays,
@@ -373,10 +610,21 @@ export function SystemConfigurationSection({ context }: Props) {
     configChangeReason,
     setConfigChangeReason,
     configSubmitting,
+    configHistoryActionLoadingState,
     handleSaveConfiguration,
-    systemConfigHistory,
+    systemConfigHistoryItems,
+    systemConfigHistoryLoading,
+    systemConfigHistoryPage,
+    systemConfigHistoryPageSize,
+    systemConfigHistoryTotalPages,
+    systemConfigHistoryTotalItems,
+    handleSystemConfigHistoryPageChange,
+    handleSystemConfigHistoryPageSizeChange,
+    handleEditConfiguration,
+    handleDeleteConfiguration,
+    formatDate,
   } = context;
-  const safeHistory = systemConfigHistory ?? [];
+  const safeHistory = systemConfigHistoryItems ?? [];
 
   return (
     <>
@@ -391,27 +639,55 @@ export function SystemConfigurationSection({ context }: Props) {
           <Button mode="contained" loading={configSubmitting} onPress={() => void handleSaveConfiguration()}>
             {t('management.configuration.save')}
           </Button>
+          {renderScopedFeedback(managementFeedback, 'configurationForm', styles, theme)}
         </Card.Content>
       </Card>
 
       <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
         <Card.Title title={t('management.configuration.historyTitle')} />
         <Card.Content>
-          {safeHistory.length ? (
+          {systemConfigHistoryLoading ? (
+            <ActivityIndicator animating size="small" style={styles.secondaryAction} />
+          ) : safeHistory.length ? (
             safeHistory.map((entry: any) => (
-              <View key={entry.id || entry.version} style={styles.listItem}>
-                <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>v{entry.version}</Text>
-                <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
-                  {entry.welcomeBonusPoints} / {entry.pointExpirationDays} / {entry.maxPointsPerTransaction} / {entry.defaultMaxDiscountPercent}%
-                </Text>
-                {entry.changeReason ? (
-                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{entry.changeReason}</Text>
-                ) : null}
+              <View key={entry.id || entry.version} style={styles.shopRow}>
+                <View style={styles.shopRowBody}>
+                  <Text style={[styles.listTitle, { color: theme.custom.textPrimary }]}>v{entry.version}</Text>
+                  <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                    {entry.welcomeBonusPoints} / {entry.pointExpirationDays} / {entry.maxPointsPerTransaction} / {entry.defaultMaxDiscountPercent}%
+                  </Text>
+                  {entry.changeReason ? (
+                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>{entry.changeReason}</Text>
+                  ) : null}
+                  {entry.createdAt ? (
+                    <Text style={[styles.listMeta, { color: theme.custom.textSecondary }]}>
+                      {formatDate(entry.createdAt)}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.shopActions}>
+                  <Button compact mode="outlined" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} disabled={configHistoryActionLoadingState?.id === entry.id} onPress={() => handleEditConfiguration(entry)}>
+                    {t('common.edit')}
+                  </Button>
+                  <Button compact mode="text" style={styles.rowActionButtonCompact} contentStyle={styles.rowActionButtonContent} labelStyle={styles.rowActionButtonLabel} textColor={theme.custom.error} loading={configHistoryActionLoadingState?.id === entry.id && configHistoryActionLoadingState.action === 'delete'} disabled={configHistoryActionLoadingState?.id === entry.id} onPress={() => void handleDeleteConfiguration(entry.id)}>
+                    {t('common.delete')}
+                  </Button>
+                </View>
               </View>
             ))
           ) : (
             <Text style={[styles.emptyText, { color: theme.custom.textSecondary }]}>{t('management.configuration.historyEmpty')}</Text>
           )}
+          {renderScopedFeedback(managementFeedback, 'configurationList', styles, theme)}
+          <PaginationControls
+            page={systemConfigHistoryPage}
+            pageSize={systemConfigHistoryPageSize}
+            totalPages={systemConfigHistoryTotalPages}
+            totalItems={systemConfigHistoryTotalItems}
+            loading={systemConfigHistoryLoading}
+            onPageChange={handleSystemConfigHistoryPageChange}
+            onPageSizeChange={handleSystemConfigHistoryPageSizeChange}
+          />
         </Card.Content>
       </Card>
     </>
@@ -420,7 +696,7 @@ export function SystemConfigurationSection({ context }: Props) {
 
 export function InternalUserManagementSection({ context }: Props) {
   const { t } = useTranslation();
-  const { theme, styles, allowedInternalRoles, internalRole, setInternalRole, internalFirstName, setInternalFirstName, internalLastName, setInternalLastName, trimmedInternalUsername, internalUsername, setInternalUsername, setInternalTouched, internalEmailError, trimmedInternalEmail, internalEmail, setInternalEmail, internalPasswordError, internalPasswordVisible, setInternalPasswordVisible, internalPassword, setInternalPassword, userSubmitting, handleCreateInternalUser, resetInternalUserForm } = context;
+  const { theme, styles, managementFeedback, allowedInternalRoles, internalRole, setInternalRole, internalFirstName, setInternalFirstName, internalLastName, setInternalLastName, trimmedInternalUsername, internalUsername, setInternalUsername, setInternalTouched, internalEmailError, trimmedInternalEmail, internalEmail, setInternalEmail, internalPasswordError, internalPasswordVisible, setInternalPasswordVisible, internalPassword, setInternalPassword, userSubmitting, handleCreateInternalUser, resetInternalUserForm } = context;
   const safeAllowedRoles = allowedInternalRoles ?? [];
 
   if (!safeAllowedRoles.length) {
@@ -449,32 +725,159 @@ export function InternalUserManagementSection({ context }: Props) {
           <Button mode="contained" loading={userSubmitting} onPress={() => void handleCreateInternalUser()}>{t('management.users.create')}</Button>
           <Button mode="outlined" onPress={resetInternalUserForm}>{t('common.reset')}</Button>
         </View>
+        {renderScopedFeedback(managementFeedback, 'internalUserForm', styles, theme)}
       </Card.Content>
     </Card>
   );
 }
 
 export function AdminUserManagementSection({ context }: Props) {
-  const { representatives, merchants, customers, handleActivateUser, handleDeactivateUser, handleDeleteUser, userActionLoadingState } = context;
+  const {
+    managementFeedback,
+    representativeListItems,
+    representativeListLoading,
+    representativeListPage,
+    representativeListPageSize,
+    representativeListTotalPages,
+    representativeListTotalItems,
+    handleRepresentativeListPageChange,
+    handleRepresentativeListPageSizeChange,
+    merchantListItems,
+    merchantListLoading,
+    merchantListPage,
+    merchantListPageSize,
+    merchantListTotalPages,
+    merchantListTotalItems,
+    handleMerchantListPageChange,
+    handleMerchantListPageSizeChange,
+    directoryCustomerListItems,
+    directoryCustomerListLoading,
+    directoryCustomerListPage,
+    directoryCustomerListPageSize,
+    directoryCustomerListTotalPages,
+    directoryCustomerListTotalItems,
+    handleDirectoryCustomerListPageChange,
+    handleDirectoryCustomerListPageSizeChange,
+    handleActivateUser,
+    handleDeactivateUser,
+    handleDeleteUser,
+  } = context;
+
+  const representativeError = managementFeedback?.target === 'representativesList' ? managementFeedback.error : undefined;
+  const representativeSuccess = managementFeedback?.target === 'representativesList' ? managementFeedback.success : undefined;
+  const merchantError = managementFeedback?.target === 'merchantsList' ? managementFeedback.error : undefined;
+  const merchantSuccess = managementFeedback?.target === 'merchantsList' ? managementFeedback.success : undefined;
+  const customerError = managementFeedback?.target === 'customersList' ? managementFeedback.error : undefined;
+  const customerSuccess = managementFeedback?.target === 'customersList' ? managementFeedback.success : undefined;
 
   return (
     <>
       <InternalUserManagementSection context={context} />
-      <RepresentativeDirectoryCard users={representatives} showStatus onActivate={handleActivateUser} onDeactivate={handleDeactivateUser} onDelete={handleDeleteUser} actionLoadingState={userActionLoadingState} />
-      <MerchantDirectoryCard users={merchants} showStatus onActivate={handleActivateUser} onDeactivate={handleDeactivateUser} onDelete={handleDeleteUser} actionLoadingState={userActionLoadingState} />
-      <CustomerDirectoryCard users={customers} showStatus onActivate={handleActivateUser} onDeactivate={handleDeactivateUser} onDelete={handleDeleteUser} actionLoadingState={userActionLoadingState} />
+      <RepresentativeDirectoryCard
+        users={representativeListItems}
+        showStatus
+        onActivate={handleActivateUser}
+        onDeactivate={handleDeactivateUser}
+        onDelete={handleDeleteUser}
+        loading={representativeListLoading}
+        page={representativeListPage}
+        pageSize={representativeListPageSize}
+        totalPages={representativeListTotalPages}
+        totalItems={representativeListTotalItems}
+        onPageChange={handleRepresentativeListPageChange}
+        onPageSizeChange={handleRepresentativeListPageSizeChange}
+        errorMessage={representativeError}
+        successMessage={representativeSuccess}
+      />
+      <MerchantDirectoryCard
+        users={merchantListItems}
+        showStatus
+        onActivate={handleActivateUser}
+        onDeactivate={handleDeactivateUser}
+        onDelete={handleDeleteUser}
+        loading={merchantListLoading}
+        page={merchantListPage}
+        pageSize={merchantListPageSize}
+        totalPages={merchantListTotalPages}
+        totalItems={merchantListTotalItems}
+        onPageChange={handleMerchantListPageChange}
+        onPageSizeChange={handleMerchantListPageSizeChange}
+        errorMessage={merchantError}
+        successMessage={merchantSuccess}
+      />
+      <CustomerDirectoryCard
+        users={directoryCustomerListItems}
+        showStatus
+        onActivate={handleActivateUser}
+        onDeactivate={handleDeactivateUser}
+        onDelete={handleDeleteUser}
+        loading={directoryCustomerListLoading}
+        page={directoryCustomerListPage}
+        pageSize={directoryCustomerListPageSize}
+        totalPages={directoryCustomerListTotalPages}
+        totalItems={directoryCustomerListTotalItems}
+        onPageChange={handleDirectoryCustomerListPageChange}
+        onPageSizeChange={handleDirectoryCustomerListPageSizeChange}
+        errorMessage={customerError}
+        successMessage={customerSuccess}
+      />
     </>
   );
 }
 
 export function RepresentativeUserManagementSection({ context }: Props) {
-  const { merchants, customers } = context;
+  const {
+    managementFeedback,
+    merchantListItems,
+    merchantListLoading,
+    merchantListPage,
+    merchantListPageSize,
+    merchantListTotalPages,
+    merchantListTotalItems,
+    handleMerchantListPageChange,
+    handleMerchantListPageSizeChange,
+    directoryCustomerListItems,
+    directoryCustomerListLoading,
+    directoryCustomerListPage,
+    directoryCustomerListPageSize,
+    directoryCustomerListTotalPages,
+    directoryCustomerListTotalItems,
+    handleDirectoryCustomerListPageChange,
+    handleDirectoryCustomerListPageSizeChange,
+  } = context;
+
+  const merchantError = managementFeedback?.target === 'merchantsList' ? managementFeedback.error : undefined;
+  const merchantSuccess = managementFeedback?.target === 'merchantsList' ? managementFeedback.success : undefined;
+  const customerError = managementFeedback?.target === 'customersList' ? managementFeedback.error : undefined;
+  const customerSuccess = managementFeedback?.target === 'customersList' ? managementFeedback.success : undefined;
 
   return (
     <>
       <InternalUserManagementSection context={context} />
-      <MerchantDirectoryCard users={merchants} />
-      <CustomerDirectoryCard users={customers} />
+      <MerchantDirectoryCard
+        users={merchantListItems}
+        loading={merchantListLoading}
+        page={merchantListPage}
+        pageSize={merchantListPageSize}
+        totalPages={merchantListTotalPages}
+        totalItems={merchantListTotalItems}
+        onPageChange={handleMerchantListPageChange}
+        onPageSizeChange={handleMerchantListPageSizeChange}
+        errorMessage={merchantError}
+        successMessage={merchantSuccess}
+      />
+      <CustomerDirectoryCard
+        users={directoryCustomerListItems}
+        loading={directoryCustomerListLoading}
+        page={directoryCustomerListPage}
+        pageSize={directoryCustomerListPageSize}
+        totalPages={directoryCustomerListTotalPages}
+        totalItems={directoryCustomerListTotalItems}
+        onPageChange={handleDirectoryCustomerListPageChange}
+        onPageSizeChange={handleDirectoryCustomerListPageSizeChange}
+        errorMessage={customerError}
+        successMessage={customerSuccess}
+      />
       <CustomersTab context={context} />
     </>
   );

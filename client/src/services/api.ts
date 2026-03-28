@@ -75,6 +75,7 @@ const API_ERROR_KEY_BY_MESSAGE: Record<string, string> = {
   'Password non corretta.': 'apiErrors.passwordIncorrect',
   'Verifica prima la tua email.': 'apiErrors.verifyEmailFirst',
   "Impossibile inviare l'email di verifica in questo momento.": 'apiErrors.verificationEmailFailed',
+  'Unable to send the account credentials email right now.': 'apiErrors.accountCredentialsEmailFailed',
   'Inserisci la password attuale.': 'apiErrors.passwordRequired',
   'Inserisci la nuova password.': 'apiErrors.passwordRequired',
   'Conferma la nuova password.': 'apiErrors.confirmPasswordRequired',

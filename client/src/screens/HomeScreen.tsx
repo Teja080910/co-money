@@ -11,9 +11,10 @@ import {
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Button, Portal, Snackbar, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Button, Portal, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserRole } from '../constants/userRoles';
+import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { SelectField } from '../components/common/SelectField';
@@ -35,6 +36,7 @@ import { ReportsTab } from '../components/home-tabs/ReportsTab';
 import { TransactionsTab } from '../components/home-tabs/TransactionsTab';
 import { WalletTab } from '../components/home-tabs/WalletTab';
 import { BottomTabBar } from '../components/navigation/BottomTabBar';
+import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import { getRoutesForRole } from '../navigation/homeTabConfig';
 import type { HomeTabParamList, ScreenProps } from '../navigation/types';
 import { apiClient, getApiErrorMessage } from '../services/api';
@@ -141,6 +143,7 @@ type Promotion = {
   endsAt: string;
   isActive: boolean;
   isClaimed?: boolean;
+  message?: string;
 };
 
 type EventItem = {
@@ -204,8 +207,45 @@ type PaginatedResponse<T> = {
   };
 };
 
-type ActiveEditSheet = 'shop' | 'promotion' | 'event' | 'category' | null;
+type PaginatedListState<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  loading: boolean;
+};
+
+type ActiveEditSheet = 'shop' | 'promotion' | 'event' | 'category' | 'configuration' | null;
 type WalletActionFeedback = 'earn' | 'spend' | 'preview' | null;
+type ManagementFeedbackTarget =
+  | 'shopForm'
+  | 'shopList'
+  | 'promotionForm'
+  | 'promotionList'
+  | 'eventForm'
+  | 'eventList'
+  | 'categoryForm'
+  | 'categoryList'
+  | 'configurationForm'
+  | 'configurationList'
+  | 'internalUserForm'
+  | 'representativesList'
+  | 'merchantsList'
+  | 'customersList'
+  | 'editSheet';
+
+type ManagementFeedbackState = {
+  target: ManagementFeedbackTarget | null;
+  error: string | null;
+  success: string | null;
+};
+
+const createEmptyManagementFeedback = (): ManagementFeedbackState => ({
+  target: null,
+  error: null,
+  success: null,
+});
 
 const roleTitles: Record<AuthUser['role'], string> = {
   [UserRole.CUSTOMER]: 'roles.customer',
@@ -218,9 +258,63 @@ const transactionTypeOptions = ['ALL', 'EARN', 'SPEND'];
 const transactionStatusOptions = ['ALL', 'SUCCESS', 'PENDING', 'FAILED'];
 const pointTypeOptions: Array<'STANDARD' | 'BONUS'> = ['STANDARD', 'BONUS'];
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const defaultPageSize = 5;
+
+function createInitialPaginatedListState<T>(): PaginatedListState<T> {
+  return {
+    items: [],
+    page: 1,
+    pageSize: defaultPageSize,
+    totalItems: 0,
+    totalPages: 0,
+    loading: false,
+  };
+}
+
+function toPaginatedListState<T>(response: PaginatedResponse<T>): PaginatedListState<T> {
+  return {
+    items: response.items,
+    page: response.pagination.page,
+    pageSize: response.pagination.pageSize,
+    totalItems: response.pagination.totalItems,
+    totalPages: response.pagination.totalPages,
+    loading: false,
+  };
+}
+
+function mergeItemsById<T extends { id?: string | null }>(items: T[], updatedItem: Partial<T> & { id: string }) {
+  return items.map(item => (item.id === updatedItem.id ? { ...item, ...updatedItem } : item));
+}
+
+function removeItemFromPaginatedListState<T extends { id?: string | null }>(state: PaginatedListState<T>, itemId: string): PaginatedListState<T> {
+  const nextItems = state.items.filter(item => item.id !== itemId);
+  const removedCount = state.items.length - nextItems.length;
+  const totalItems = Math.max(state.totalItems - removedCount, 0);
+  const totalPages = totalItems ? Math.ceil(totalItems / state.pageSize) : 0;
+  const page = totalPages === 0 ? 1 : Math.min(state.page, totalPages);
+
+  return {
+    ...state,
+    items: nextItems,
+    page,
+    totalItems,
+    totalPages,
+  };
+}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
+}
+
+function getManagedUserFeedbackTarget(role: AuthUser['role']): Extract<ManagementFeedbackTarget, 'representativesList' | 'merchantsList' | 'customersList'> {
+  switch (role) {
+    case UserRole.REPRESENTATIVE:
+      return 'representativesList';
+    case UserRole.MERCHANT:
+      return 'merchantsList';
+    default:
+      return 'customersList';
+  }
 }
 
 function formatDateInputValue(date: Date) {
@@ -245,7 +339,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [selectedCustomerWallet, setSelectedCustomerWallet] = useState<WalletResponse | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [transactionPage, setTransactionPage] = useState(1);
-  const [transactionPageSize] = useState(10);
+  const [transactionPageSize, setTransactionPageSize] = useState(defaultPageSize);
   const [transactionTotalItems, setTransactionTotalItems] = useState(0);
   const [transactionTotalPages, setTransactionTotalPages] = useState(0);
   const [transactionLoading, setTransactionLoading] = useState(false);
@@ -259,23 +353,40 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [categories, setCategories] = useState<ShopCategory[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
   const [systemConfigHistory, setSystemConfigHistory] = useState<SystemConfig[]>([]);
+  const [customerListState, setCustomerListState] = useState<PaginatedListState<UserSummary>>(createInitialPaginatedListState());
+  const [directoryCustomerListState, setDirectoryCustomerListState] = useState<PaginatedListState<UserSummary>>(createInitialPaginatedListState());
+  const [merchantListState, setMerchantListState] = useState<PaginatedListState<UserSummary>>(createInitialPaginatedListState());
+  const [representativeListState, setRepresentativeListState] = useState<PaginatedListState<UserSummary>>(createInitialPaginatedListState());
+  const [shopListState, setShopListState] = useState<PaginatedListState<Shop>>(createInitialPaginatedListState());
+  const [promotionListState, setPromotionListState] = useState<PaginatedListState<Promotion>>(createInitialPaginatedListState());
+  const [eventListState, setEventListState] = useState<PaginatedListState<EventItem>>(createInitialPaginatedListState());
+  const [categoryListState, setCategoryListState] = useState<PaginatedListState<ShopCategory>>(createInitialPaginatedListState());
+  const [systemConfigHistoryListState, setSystemConfigHistoryListState] = useState<PaginatedListState<SystemConfig>>(createInitialPaginatedListState());
+  const [listRefreshNonce, setListRefreshNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [shopSubmitting, setShopSubmitting] = useState(false);
+  const [shopUpdateSubmitting, setShopUpdateSubmitting] = useState(false);
+  const [shopStatusLoadingId, setShopStatusLoadingId] = useState('');
   const [promotionSubmitting, setPromotionSubmitting] = useState(false);
+  const [promotionUpdateSubmitting, setPromotionUpdateSubmitting] = useState(false);
+  const [promotionActionLoadingState, setPromotionActionLoadingState] = useState<{ id: string; action: 'status' | 'delete' } | null>(null);
   const [claimingPromotionId, setClaimingPromotionId] = useState('');
   const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [eventUpdateSubmitting, setEventUpdateSubmitting] = useState(false);
+  const [eventActionLoadingState, setEventActionLoadingState] = useState<{ id: string; action: 'status' | 'delete' } | null>(null);
   const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [categoryUpdateSubmitting, setCategoryUpdateSubmitting] = useState(false);
+  const [categoryActionLoadingState, setCategoryActionLoadingState] = useState<{ id: string; action: 'status' | 'delete' } | null>(null);
   const [userSubmitting, setUserSubmitting] = useState(false);
   const [configSubmitting, setConfigSubmitting] = useState(false);
-  const [userActionLoadingState, setUserActionLoadingState] = useState<{
-    userId: string;
-    action: 'activate' | 'deactivate' | 'delete';
-  } | null>(null);
+  const [configUpdateSubmitting, setConfigUpdateSubmitting] = useState(false);
+  const [configHistoryActionLoadingState, setConfigHistoryActionLoadingState] = useState<{ id: string; action: 'delete' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [managementFeedback, setManagementFeedback] = useState<ManagementFeedbackState>(createEmptyManagementFeedback);
   const [walletActionFeedback, setWalletActionFeedback] = useState<WalletActionFeedback>(null);
   const [activeTabKey, setActiveTabKey] = useState<keyof HomeTabParamList>('home');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -317,6 +428,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [configMaxPointsPerTransaction, setConfigMaxPointsPerTransaction] = useState('');
   const [configDefaultMaxDiscountPercent, setConfigDefaultMaxDiscountPercent] = useState('');
   const [configChangeReason, setConfigChangeReason] = useState('');
+  const [editingConfigurationId, setEditingConfigurationId] = useState('');
   const [internalRole, setInternalRole] = useState<AuthUser['role']>(UserRole.MERCHANT);
   const [internalFirstName, setInternalFirstName] = useState('');
   const [internalLastName, setInternalLastName] = useState('');
@@ -350,7 +462,36 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
   >(null);
 
-  const notificationVisible = Boolean(error || successMessage);
+  const clearManagementFeedback = useCallback(() => {
+    setManagementFeedback(createEmptyManagementFeedback());
+  }, []);
+
+  const clearGlobalFeedback = useCallback(() => {
+    setError(null);
+    setSuccessMessage(null);
+    setWalletActionFeedback(null);
+  }, []);
+
+  const showManagementFeedback = useCallback((
+    target: ManagementFeedbackTarget,
+    next: { error?: string | null; success?: string | null },
+  ) => {
+    setManagementFeedback({
+      target,
+      error: next.error ?? null,
+      success: next.success ?? null,
+    });
+  }, []);
+
+  const activeGlobalFeedbackMessage = error || successMessage
+    ? `${walletActionFeedback ?? 'global'}:${error ?? successMessage}`
+    : null;
+  const activeManagementFeedbackMessage = managementFeedback.error || managementFeedback.success
+    ? `${managementFeedback.target ?? 'management'}:${managementFeedback.error ?? managementFeedback.success}`
+    : null;
+
+  useAutoDismissMessage(activeGlobalFeedbackMessage, clearGlobalFeedback, FEEDBACK_AUTO_DISMISS_MS);
+  useAutoDismissMessage(activeManagementFeedbackMessage, clearManagementFeedback, FEEDBACK_AUTO_DISMISS_MS);
 
   const routes = useMemo(() => {
     if (!authUser) {
@@ -498,20 +639,37 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const trimmedInternalUsername = internalUsername.trim();
   const trimmedInternalEmail = internalEmail.trim();
   const internalEmailError = internalTouched.email && trimmedInternalEmail && !emailPattern.test(trimmedInternalEmail)
-    ? 'Enter a valid email address.'
+    ? t('apiErrors.emailInvalid')
     : undefined;
   const internalPasswordError = internalTouched.password && internalPassword && internalPassword.length < 8
-    ? 'Password must be at least 8 characters.'
+    ? t('apiErrors.passwordShort')
     : undefined;
   const currentPasswordError = passwordTouched.current && !currentPassword.trim()
-    ? 'Current password is required.'
+    ? t('profile.password.errors.currentRequired')
     : undefined;
   const newPasswordError = passwordTouched.next && newPassword.trim() && newPassword.trim().length < 8
-    ? 'New password must be at least 8 characters.'
+    ? t('profile.password.errors.newShort')
     : undefined;
   const confirmPasswordError = passwordTouched.confirm && confirmPassword.trim() && confirmPassword !== newPassword
-    ? 'Passwords do not match.'
+    ? t('profile.password.errors.confirmMismatch')
     : undefined;
+
+  const applyConfigurationFormValues = useCallback((config: SystemConfig | null) => {
+    if (!config) {
+      setConfigWelcomeBonusPoints('');
+      setConfigPointExpirationDays('');
+      setConfigMaxPointsPerTransaction('');
+      setConfigDefaultMaxDiscountPercent('');
+      setConfigChangeReason('');
+      return;
+    }
+
+    setConfigWelcomeBonusPoints(String(config.welcomeBonusPoints));
+    setConfigPointExpirationDays(String(config.pointExpirationDays));
+    setConfigMaxPointsPerTransaction(String(config.maxPointsPerTransaction));
+    setConfigDefaultMaxDiscountPercent(String(config.defaultMaxDiscountPercent));
+    setConfigChangeReason(config.changeReason || '');
+  }, []);
 
   const fetchSelectedCustomerWallet = useCallback(async (customerId: string) => {
     if (!customerId.trim() || !authUser || authUser.role === UserRole.CUSTOMER) {
@@ -621,6 +779,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setTransactionPage(transactionsResponse.data.pagination.page);
       setTransactionTotalItems(transactionsResponse.data.pagination.totalItems);
       setTransactionTotalPages(transactionsResponse.data.pagination.totalPages);
+      setListRefreshNonce(current => current + 1);
     } catch (loadError: any) {
       if (loadError?.response?.status === 401) {
         await logoutUser();
@@ -628,14 +787,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         return;
       }
 
-      setError(loadError?.response?.data?.error || 'Unable to load dashboard data.');
+      setError(loadError?.response?.data?.error || t('homeScreen.errors.loadDashboard'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [navigation, transactionPage, transactionPageSize, transactionStatusFilter, transactionTypeFilter]);
 
-  const loadTransactions = useCallback(async (nextPage = transactionPage) => {
+  const loadTransactions = useCallback(async (nextPage = transactionPage, nextPageSize = transactionPageSize) => {
     if (!authUser) {
       return;
     }
@@ -646,7 +805,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       const response = await apiClient.get<PaginatedResponse<WalletTransaction>>('/api/wallet/transactions', {
         params: {
           page: nextPage,
-          pageSize: transactionPageSize,
+          pageSize: nextPageSize,
           type: transactionTypeFilter === 'ALL' ? undefined : transactionTypeFilter,
           status: transactionStatusFilter === 'ALL' ? undefined : transactionStatusFilter,
         },
@@ -657,15 +816,423 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       setTransactionTotalItems(response.data.pagination.totalItems);
       setTransactionTotalPages(response.data.pagination.totalPages);
     } catch (loadError) {
-      setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadTransactions')));
     } finally {
       setTransactionLoading(false);
     }
   }, [authUser, transactionPage, transactionPageSize, transactionStatusFilter, transactionTypeFilter]);
 
+  const loadCustomerListPage = useCallback(async (nextPage = customerListState.page) => {
+    if (!authUser || authUser.role === UserRole.CUSTOMER) {
+      setCustomerListState(createInitialPaginatedListState<UserSummary>());
+      return;
+    }
+
+    setCustomerListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<UserSummary>>('/api/users/customers', {
+        params: {
+          page: nextPage,
+          pageSize: customerListState.pageSize,
+          search: customerSearch.trim() || undefined,
+        },
+      });
+
+      setCustomerListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setCustomerListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, customerListState.page, customerListState.pageSize, customerSearch, t]);
+
+  const loadDirectoryCustomerListPage = useCallback(async (nextPage = directoryCustomerListState.page) => {
+    if (!authUser || (authUser.role !== UserRole.REPRESENTATIVE && authUser.role !== UserRole.ADMIN)) {
+      setDirectoryCustomerListState(createInitialPaginatedListState<UserSummary>());
+      return;
+    }
+
+    setDirectoryCustomerListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<UserSummary>>('/api/users/customers', {
+        params: {
+          page: nextPage,
+          pageSize: directoryCustomerListState.pageSize,
+        },
+      });
+
+      setDirectoryCustomerListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setDirectoryCustomerListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, directoryCustomerListState.page, directoryCustomerListState.pageSize, t]);
+
+  const loadMerchantListPage = useCallback(async (nextPage = merchantListState.page) => {
+    if (!authUser || (authUser.role !== UserRole.REPRESENTATIVE && authUser.role !== UserRole.ADMIN)) {
+      setMerchantListState(createInitialPaginatedListState<UserSummary>());
+      return;
+    }
+
+    setMerchantListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<UserSummary>>('/api/users/merchants', {
+        params: {
+          page: nextPage,
+          pageSize: merchantListState.pageSize,
+        },
+      });
+
+      setMerchantListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setMerchantListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, merchantListState.page, merchantListState.pageSize, t]);
+
+  const loadRepresentativeListPage = useCallback(async (nextPage = representativeListState.page) => {
+    if (!authUser || authUser.role !== UserRole.ADMIN) {
+      setRepresentativeListState(createInitialPaginatedListState<UserSummary>());
+      return;
+    }
+
+    setRepresentativeListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<UserSummary>>('/api/users/representatives', {
+        params: {
+          page: nextPage,
+          pageSize: representativeListState.pageSize,
+        },
+      });
+
+      setRepresentativeListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setRepresentativeListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, representativeListState.page, representativeListState.pageSize, t]);
+
+  const loadShopListPage = useCallback(async (nextPage = shopListState.page) => {
+    if (!authUser) {
+      setShopListState(createInitialPaginatedListState<Shop>());
+      return;
+    }
+
+    setShopListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<Shop>>('/api/shops', {
+        params: {
+          page: nextPage,
+          pageSize: shopListState.pageSize,
+        },
+      });
+
+      setShopListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setShopListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, shopListState.page, shopListState.pageSize, t]);
+
+  const applyShopUpdate = useCallback((updatedShop: Shop) => {
+    const mergeShop = (items: Shop[]) => items.map(item => (item.id === updatedShop.id ? { ...item, ...updatedShop } : item));
+    setShops(current => mergeShop(current));
+    setShopListState(current => ({ ...current, items: mergeShop(current.items) }));
+  }, []);
+
+  const applyPromotionUpdate = useCallback((updatedPromotion: Partial<Promotion> & { id: string }) => {
+    setPromotions(current => mergeItemsById(current, updatedPromotion));
+    setPromotionListState(current => ({ ...current, items: mergeItemsById(current.items, updatedPromotion) }));
+  }, []);
+
+  const removePromotion = useCallback((promotionId: string) => {
+    setPromotions(current => current.filter(item => item.id !== promotionId));
+    setPromotionListState(current => removeItemFromPaginatedListState(current, promotionId));
+  }, []);
+
+  const applyEventUpdate = useCallback((updatedEvent: Partial<EventItem> & { id: string }) => {
+    setEvents(current => mergeItemsById(current, updatedEvent));
+    setEventListState(current => ({ ...current, items: mergeItemsById(current.items, updatedEvent) }));
+  }, []);
+
+  const removeEvent = useCallback((eventId: string) => {
+    setEvents(current => current.filter(item => item.id !== eventId));
+    setEventListState(current => removeItemFromPaginatedListState(current, eventId));
+  }, []);
+
+  const applyCategoryUpdate = useCallback((updatedCategory: Partial<ShopCategory> & { id: string }) => {
+    setCategories(current => mergeItemsById(current, updatedCategory));
+    setCategoryListState(current => ({ ...current, items: mergeItemsById(current.items, updatedCategory) }));
+  }, []);
+
+  const removeCategory = useCallback((categoryId: string) => {
+    setCategories(current => current.filter(item => item.id !== categoryId));
+    setCategoryListState(current => removeItemFromPaginatedListState(current, categoryId));
+  }, []);
+
+  const applySystemConfigUpdate = useCallback((updatedConfig: Partial<SystemConfig> & { id: string }) => {
+    setSystemConfigHistory(current => mergeItemsById(current, updatedConfig));
+    setSystemConfigHistoryListState(current => ({ ...current, items: mergeItemsById(current.items, updatedConfig) }));
+    if (systemConfig?.id === updatedConfig.id) {
+      setSystemConfig(current => (current ? { ...current, ...updatedConfig } : current));
+    }
+  }, [systemConfig?.id]);
+
+  const removeSystemConfigEntry = useCallback((configId: string) => {
+    setSystemConfigHistory(current => current.filter(item => item.id !== configId));
+    setSystemConfigHistoryListState(current => removeItemFromPaginatedListState(current, configId));
+    if (systemConfig?.id === configId) {
+      setSystemConfig(null);
+    }
+  }, [systemConfig?.id]);
+
+  const loadPromotionListPage = useCallback(async (nextPage = promotionListState.page) => {
+    if (!authUser) {
+      setPromotionListState(createInitialPaginatedListState<Promotion>());
+      return;
+    }
+
+    setPromotionListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<Promotion>>('/api/promotions', {
+        params: {
+          page: nextPage,
+          pageSize: promotionListState.pageSize,
+        },
+      });
+
+      setPromotionListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setPromotionListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, promotionListState.page, promotionListState.pageSize, t]);
+
+  const loadEventListPage = useCallback(async (nextPage = eventListState.page) => {
+    if (!authUser) {
+      setEventListState(createInitialPaginatedListState<EventItem>());
+      return;
+    }
+
+    setEventListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<EventItem>>('/api/events', {
+        params: {
+          page: nextPage,
+          pageSize: eventListState.pageSize,
+        },
+      });
+
+      setEventListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setEventListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, eventListState.page, eventListState.pageSize, t]);
+
+  const loadCategoryListPage = useCallback(async (nextPage = categoryListState.page) => {
+    if (!authUser || authUser.role === UserRole.CUSTOMER) {
+      setCategoryListState(createInitialPaginatedListState<ShopCategory>());
+      return;
+    }
+
+    setCategoryListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<ShopCategory>>('/api/categories', {
+        params: {
+          page: nextPage,
+          pageSize: categoryListState.pageSize,
+          shopId: categoryShopId.trim() || undefined,
+        },
+      });
+
+      setCategoryListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setCategoryListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, categoryListState.page, categoryListState.pageSize, categoryShopId, t]);
+
+  const loadSystemConfigHistoryListPage = useCallback(async (nextPage = systemConfigHistoryListState.page) => {
+    if (!authUser || authUser.role !== UserRole.ADMIN) {
+      setSystemConfigHistoryListState(createInitialPaginatedListState<SystemConfig>());
+      return;
+    }
+
+    setSystemConfigHistoryListState(current => ({ ...current, loading: true }));
+
+    try {
+      const response = await apiClient.get<PaginatedResponse<SystemConfig>>('/api/system-config/history', {
+        params: {
+          page: nextPage,
+          pageSize: systemConfigHistoryListState.pageSize,
+        },
+      });
+
+      setSystemConfigHistoryListState(toPaginatedListState(response.data));
+    } catch (loadError) {
+      setSystemConfigHistoryListState(current => ({ ...current, loading: false }));
+      setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadListData')));
+    }
+  }, [authUser, systemConfigHistoryListState.page, systemConfigHistoryListState.pageSize, t]);
+
+  const applyManagedUserUpdate = useCallback((updatedUser: UserSummary) => {
+    const mergeUser = (items: UserSummary[]) => items.map(item => (item.id === updatedUser.id ? { ...item, ...updatedUser } : item));
+
+    switch (updatedUser.role) {
+      case UserRole.CUSTOMER:
+        setCustomers(current => mergeUser(current));
+        setCustomerListState(current => ({ ...current, items: mergeUser(current.items) }));
+        setDirectoryCustomerListState(current => ({ ...current, items: mergeUser(current.items) }));
+        break;
+      case UserRole.MERCHANT:
+        setMerchants(current => mergeUser(current));
+        setMerchantListState(current => ({ ...current, items: mergeUser(current.items) }));
+        break;
+      case UserRole.REPRESENTATIVE:
+        setRepresentatives(current => mergeUser(current));
+        setRepresentativeListState(current => ({ ...current, items: mergeUser(current.items) }));
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const refreshManagedUsersByRole = useCallback(async (role: AuthUser['role']) => {
+    switch (role) {
+      case UserRole.CUSTOMER: {
+        const requests: Array<Promise<any>> = [
+          apiClient.get<UserSummary[]>('/api/users/customers'),
+          loadCustomerListPage(1),
+        ];
+
+        if (authUser && (authUser.role === UserRole.REPRESENTATIVE || authUser.role === UserRole.ADMIN)) {
+          requests.push(loadDirectoryCustomerListPage(1));
+        }
+
+        const [customersResponse] = await Promise.all(requests);
+        setCustomers(customersResponse.data);
+        return;
+      }
+      case UserRole.MERCHANT: {
+        if (!authUser || (authUser.role !== UserRole.REPRESENTATIVE && authUser.role !== UserRole.ADMIN)) {
+          return;
+        }
+
+        const [merchantsResponse] = await Promise.all([
+          apiClient.get<UserSummary[]>('/api/users/merchants'),
+          loadMerchantListPage(1),
+        ]);
+        setMerchants(merchantsResponse.data);
+        return;
+      }
+      case UserRole.REPRESENTATIVE: {
+        if (!authUser || authUser.role !== UserRole.ADMIN) {
+          return;
+        }
+
+        const [representativesResponse] = await Promise.all([
+          apiClient.get<UserSummary[]>('/api/users/representatives'),
+          loadRepresentativeListPage(1),
+        ]);
+        setRepresentatives(representativesResponse.data);
+        return;
+      }
+      default:
+        return;
+    }
+  }, [authUser, loadCustomerListPage, loadDirectoryCustomerListPage, loadMerchantListPage, loadRepresentativeListPage]);
+
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    setCustomerListState(current => (current.page === 1 ? current : { ...current, page: 1 }));
+  }, [customerSearch]);
+
+  useEffect(() => {
+    setCategoryListState(current => (current.page === 1 ? current : { ...current, page: 1 }));
+  }, [categoryShopId]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadCustomerListPage();
+  }, [authUser?.role, customerListState.page, customerListState.pageSize, customerSearch, listRefreshNonce, loadCustomerListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadDirectoryCustomerListPage();
+  }, [authUser?.role, directoryCustomerListState.page, directoryCustomerListState.pageSize, listRefreshNonce, loadDirectoryCustomerListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadMerchantListPage();
+  }, [authUser?.role, merchantListState.page, merchantListState.pageSize, listRefreshNonce, loadMerchantListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadRepresentativeListPage();
+  }, [authUser?.role, representativeListState.page, representativeListState.pageSize, listRefreshNonce, loadRepresentativeListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadShopListPage();
+  }, [authUser?.role, shopListState.page, shopListState.pageSize, listRefreshNonce, loadShopListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadPromotionListPage();
+  }, [authUser?.role, promotionListState.page, promotionListState.pageSize, listRefreshNonce, loadPromotionListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadEventListPage();
+  }, [authUser?.role, eventListState.page, eventListState.pageSize, listRefreshNonce, loadEventListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadCategoryListPage();
+  }, [authUser?.role, categoryListState.page, categoryListState.pageSize, categoryShopId, listRefreshNonce, loadCategoryListPage]);
+
+  useEffect(() => {
+    if (!listRefreshNonce) {
+      return;
+    }
+
+    void loadSystemConfigHistoryListPage();
+  }, [authUser?.role, systemConfigHistoryListState.page, systemConfigHistoryListState.pageSize, listRefreshNonce, loadSystemConfigHistoryListPage]);
 
   useEffect(() => {
     void fetchSelectedCustomerWallet(selectedCustomerId);
@@ -718,13 +1285,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
   useEffect(() => {
     if (systemConfig) {
-      setConfigWelcomeBonusPoints(String(systemConfig.welcomeBonusPoints));
-      setConfigPointExpirationDays(String(systemConfig.pointExpirationDays));
-      setConfigMaxPointsPerTransaction(String(systemConfig.maxPointsPerTransaction));
-      setConfigDefaultMaxDiscountPercent(String(systemConfig.defaultMaxDiscountPercent));
+      applyConfigurationFormValues(systemConfig);
       setConfigChangeReason('');
+      setEditingConfigurationId('');
     }
-  }, [systemConfig]);
+  }, [applyConfigurationFormValues, systemConfig]);
 
   useEffect(() => {
     if (allowedInternalRoles.length && !allowedInternalRoles.includes(internalRole)) {
@@ -789,7 +1354,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setTransactionTotalItems(response.data.pagination.totalItems);
         setTransactionTotalPages(response.data.pagination.totalPages);
       } catch (loadError) {
-        setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+        setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadTransactions')));
       } finally {
         setTransactionLoading(false);
       }
@@ -815,7 +1380,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setTransactionTotalItems(response.data.pagination.totalItems);
         setTransactionTotalPages(response.data.pagination.totalPages);
       } catch (loadError) {
-        setError(getApiErrorMessage(loadError, 'Unable to load transactions.'));
+        setError(getApiErrorMessage(loadError, t('homeScreen.errors.loadTransactions')));
       } finally {
         setTransactionLoading(false);
       }
@@ -825,6 +1390,84 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const handleTransactionPageChange = useCallback(async (nextPage: number) => {
     await loadTransactions(nextPage);
   }, [loadTransactions]);
+
+  const handleTransactionPageSizeChange = useCallback(async (nextPageSize: number) => {
+    setTransactionPageSize(nextPageSize);
+    setTransactionPage(1);
+    await loadTransactions(1, nextPageSize);
+  }, [loadTransactions]);
+
+  const handleCustomerListPageChange = useCallback((nextPage: number) => {
+    setCustomerListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleCustomerListPageSizeChange = useCallback((nextPageSize: number) => {
+    setCustomerListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleDirectoryCustomerListPageChange = useCallback((nextPage: number) => {
+    setDirectoryCustomerListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleDirectoryCustomerListPageSizeChange = useCallback((nextPageSize: number) => {
+    setDirectoryCustomerListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleMerchantListPageChange = useCallback((nextPage: number) => {
+    setMerchantListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleMerchantListPageSizeChange = useCallback((nextPageSize: number) => {
+    setMerchantListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleRepresentativeListPageChange = useCallback((nextPage: number) => {
+    setRepresentativeListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleRepresentativeListPageSizeChange = useCallback((nextPageSize: number) => {
+    setRepresentativeListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleShopListPageChange = useCallback((nextPage: number) => {
+    setShopListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleShopListPageSizeChange = useCallback((nextPageSize: number) => {
+    setShopListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handlePromotionListPageChange = useCallback((nextPage: number) => {
+    setPromotionListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handlePromotionListPageSizeChange = useCallback((nextPageSize: number) => {
+    setPromotionListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleEventListPageChange = useCallback((nextPage: number) => {
+    setEventListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleEventListPageSizeChange = useCallback((nextPageSize: number) => {
+    setEventListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleCategoryListPageChange = useCallback((nextPage: number) => {
+    setCategoryListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleCategoryListPageSizeChange = useCallback((nextPageSize: number) => {
+    setCategoryListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
+
+  const handleSystemConfigHistoryPageChange = useCallback((nextPage: number) => {
+    setSystemConfigHistoryListState(current => ({ ...current, page: nextPage }));
+  }, []);
+
+  const handleSystemConfigHistoryPageSizeChange = useCallback((nextPageSize: number) => {
+    setSystemConfigHistoryListState(current => ({ ...current, page: 1, pageSize: nextPageSize }));
+  }, []);
 
   const resetShopForm = () => {
     setEditingShopId('');
@@ -864,6 +1507,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setCategoryShopId(availableShops[0]?.id || '');
     setActiveEditSheet(current => (current === 'category' ? null : current));
   };
+
+  const resetConfigurationForm = useCallback(() => {
+    setEditingConfigurationId('');
+    applyConfigurationFormValues(systemConfig);
+    setConfigChangeReason('');
+    setError(null);
+    setSuccessMessage(null);
+    setActiveEditSheet(current => (current === 'configuration' ? null : current));
+  }, [applyConfigurationFormValues, systemConfig]);
 
   const resetInternalUserForm = () => {
     setInternalFirstName('');
@@ -941,7 +1593,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         style={[styles.dateField, { borderColor: theme.custom.border, backgroundColor: theme.custom.background }]}
       >
         <Text style={[styles.dateFieldValue, { color: value ? theme.custom.textPrimary : theme.custom.textSecondary }]}>
-          {value || 'Select date'}
+          {value || t('common.selectDate')}
         </Text>
         <MaterialCommunityIcons name="calendar-month-outline" size={20} color={theme.custom.textSecondary} />
       </Pressable>
@@ -951,17 +1603,17 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
   const handleAddPoints = async () => {
     if (!selectedCustomerId.trim()) {
-      setError('Select a customer before adding points.');
+      setError(t('homeScreen.errors.addPointsCustomerRequired'));
       return;
     }
 
     if (!selectedShopId.trim()) {
-      setError('Select a shop before adding points.');
+      setError(t('homeScreen.errors.addPointsShopRequired'));
       return;
     }
 
     if (!points.trim() || Number(points) <= 0) {
-      setError('Enter a valid points amount.');
+      setError(t('homeScreen.errors.addPointsAmountInvalid'));
       return;
     }
 
@@ -979,13 +1631,13 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         description: description.trim() || undefined,
       });
 
-      setSuccessMessage('Points added successfully.');
+      setSuccessMessage(t('homeScreen.success.pointsAdded'));
       setPoints('');
       setDescription('');
       await loadDashboard();
       await fetchSelectedCustomerWallet(selectedCustomerId);
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to add points.');
+      setError(submitError?.response?.data?.error || t('homeScreen.errors.addPointsSubmit'));
     } finally {
       setSubmitting(false);
     }
@@ -993,22 +1645,22 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
   const handleSpendPoints = async () => {
     if (!selectedCustomerId.trim()) {
-      setError('Select a customer before accepting points.');
+      setError(t('homeScreen.errors.spendCustomerRequired'));
       return;
     }
 
     if (!selectedShopId.trim()) {
-      setError('Select a shop before accepting points.');
+      setError(t('homeScreen.errors.spendShopRequired'));
       return;
     }
 
     if (!purchaseAmount.trim() || Number(purchaseAmount) <= 0) {
-      setError('Enter a valid purchase amount.');
+      setError(t('homeScreen.errors.purchaseAmountInvalid'));
       return;
     }
 
     if (!spendPoints.trim() || Number(spendPoints) <= 0) {
-      setError('Enter the requested points to use.');
+      setError(t('homeScreen.errors.spendPointsRequired'));
       return;
     }
 
@@ -1033,9 +1685,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       });
 
       const result = response.data;
-      setSuccessMessage(
-        `Settlement complete. Used ${result.usedPoints} pts, payable ${result.payableAmount}, earned ${result.earnedPoints}${result.bonusPoints ? ` + ${result.bonusPoints} bonus` : ''}.`,
-      );
+      setSuccessMessage(t('homeScreen.success.settlementComplete', {
+        usedPoints: result.usedPoints,
+        payableAmount: result.payableAmount,
+        earnedPoints: result.earnedPoints,
+        bonusSuffix: result.bonusPoints
+          ? t('homeScreen.success.settlementBonusSuffix', { bonusPoints: result.bonusPoints })
+          : '',
+      }));
       setPurchaseAmount('');
       setSpendPoints('');
       setSpendDescription('');
@@ -1043,7 +1700,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       await loadDashboard();
       await fetchSelectedCustomerWallet(selectedCustomerId);
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to settle the purchase.');
+      setError(submitError?.response?.data?.error || t('homeScreen.errors.settlePurchase'));
     } finally {
       setSubmitting(false);
     }
@@ -1051,7 +1708,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
   const handlePreviewSettlement = async () => {
     if (!selectedCustomerId.trim() || !selectedShopId.trim() || !purchaseAmount.trim() || !spendPoints.trim()) {
-      setError('Select customer, shop, purchase amount, and points before previewing.');
+      setError(t('homeScreen.errors.previewFieldsRequired'));
       return;
     }
 
@@ -1071,7 +1728,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       });
       setSettlementPreview(response.data);
     } catch (previewError: any) {
-      setError(getApiErrorMessage(previewError, 'Unable to preview settlement.'));
+      setError(getApiErrorMessage(previewError, t('homeScreen.errors.previewSettlement')));
     } finally {
       setPreviewLoading(false);
     }
@@ -1083,32 +1740,37 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setShopLocation(shop.location);
     setShopDescription(shop.description || '');
     setShopMerchantId(shop.merchantId);
-    setSuccessMessage(null);
-    setError(null);
+    clearManagementFeedback();
     setActiveEditSheet('shop');
   };
 
   const handleSaveShop = async () => {
     const resolvedMerchantId = shopMerchantId.trim() || merchants[0]?.id || '';
+    const isEditingShop = Boolean(editingShopId);
+    const feedbackTarget = isEditingShop ? 'shopList' : 'shopForm';
+    const successTarget = isEditingShop ? 'shopList' : 'shopForm';
 
     if (!shopName.trim()) {
-      setError('Shop name is required.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.shopNameRequired') });
       return;
     }
 
     if (!shopLocation.trim()) {
-      setError('Shop location is required.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.shopLocationRequired') });
       return;
     }
 
     if (!resolvedMerchantId) {
-      setError('Select a merchant for the shop.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.shopMerchantRequired') });
       return;
     }
 
-    setShopSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    if (isEditingShop) {
+      setShopUpdateSubmitting(true);
+    } else {
+      setShopSubmitting(true);
+    }
+    clearManagementFeedback();
 
     const payload = {
       name: shopName.trim(),
@@ -1118,59 +1780,75 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     };
 
     try {
-      if (editingShopId) {
+      if (isEditingShop) {
         await apiClient.put(`/api/shops/${editingShopId}`, payload);
-        setSuccessMessage('Shop updated successfully.');
+        showManagementFeedback(successTarget, { success: t('homeScreen.success.shopUpdated') });
       } else {
         await apiClient.post('/api/shops', payload);
-        setSuccessMessage('Shop created successfully.');
+        showManagementFeedback(successTarget, { success: t('homeScreen.success.shopCreated') });
       }
 
       resetShopForm();
       await loadDashboard();
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to save shop.');
+      showManagementFeedback(feedbackTarget, {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.shopSave'),
+      });
     } finally {
-      setShopSubmitting(false);
+      if (isEditingShop) {
+        setShopUpdateSubmitting(false);
+      } else {
+        setShopSubmitting(false);
+      }
     }
   };
 
   const handleToggleShopStatus = async (shop: Shop) => {
-    setShopSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setShopStatusLoadingId(shop.id);
+    clearManagementFeedback();
 
     try {
       const nextStatus = !shop.isActive;
-      await apiClient.put(`/api/shops/${shop.id}`, { isActive: nextStatus });
-      setSuccessMessage(`Shop ${nextStatus ? 'activated' : 'deactivated'} successfully.`);
-      await loadDashboard();
+      const response = await apiClient.put<Shop>(`/api/shops/${shop.id}`, { isActive: nextStatus });
+      applyShopUpdate(response.data);
+      showManagementFeedback('shopList', {
+        success: t(nextStatus ? 'homeScreen.success.shopActivated' : 'homeScreen.success.shopDeactivated'),
+      });
     } catch (updateError: any) {
-      setError(updateError?.response?.data?.error || 'Unable to update shop status.');
+      showManagementFeedback('shopList', {
+        error: updateError?.response?.data?.error || t('homeScreen.errors.shopStatusUpdate'),
+      });
     } finally {
-      setShopSubmitting(false);
+      setShopStatusLoadingId('');
     }
   };
 
   const handleCreatePromotion = async () => {
+    const isEditingPromotion = Boolean(editingPromotionId);
+    const feedbackTarget = isEditingPromotion ? 'promotionList' : 'promotionForm';
+    const successTarget = isEditingPromotion ? 'promotionList' : 'promotionForm';
+
     if (!promotionTitle.trim()) {
-      setError('Promotion title is required.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.promotionTitleRequired') });
       return;
     }
 
     if (!promotionShopId.trim()) {
-      setError('Select a shop for the promotion.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.promotionShopRequired') });
       return;
     }
 
     if (!promotionStartDate.trim() || !promotionEndDate.trim()) {
-      setError('Enter both promotion dates.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.promotionDatesRequired') });
       return;
     }
 
-    setPromotionSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    if (isEditingPromotion) {
+      setPromotionUpdateSubmitting(true);
+    } else {
+      setPromotionSubmitting(true);
+    }
+    clearManagementFeedback();
 
     try {
       const payload = {
@@ -1182,36 +1860,47 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         endsAt: `${promotionEndDate.trim()}T23:59:59.000Z`,
       };
 
-      if (editingPromotionId) {
-        await apiClient.put(`/api/promotions/${editingPromotionId}`, payload);
-        setSuccessMessage('Promotion updated successfully.');
+      if (isEditingPromotion) {
+        const response = await apiClient.put<Promotion>(`/api/promotions/${editingPromotionId}`, payload);
+        showManagementFeedback(successTarget, {
+          success: response.data.message || t('homeScreen.success.promotionUpdated'),
+        });
       } else {
-        await apiClient.post('/api/promotions', payload);
-        setSuccessMessage('Promotion created successfully.');
+        const response = await apiClient.post<Promotion>('/api/promotions', payload);
+        showManagementFeedback(successTarget, {
+          success: response.data.message || t('homeScreen.success.promotionCreated'),
+        });
       }
 
       resetPromotionForm();
       await loadDashboard();
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to create promotion.');
+      showManagementFeedback(feedbackTarget, {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.promotionSave'),
+      });
     } finally {
-      setPromotionSubmitting(false);
+      if (isEditingPromotion) {
+        setPromotionUpdateSubmitting(false);
+      } else {
+        setPromotionSubmitting(false);
+      }
     }
   };
 
   const handleDeletePromotion = async (promotionId: string) => {
-    setPromotionSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setPromotionActionLoadingState({ id: promotionId, action: 'delete' });
+    clearManagementFeedback();
 
     try {
-      await apiClient.delete(`/api/promotions/${promotionId}`);
-      setSuccessMessage('Promotion removed successfully.');
-      await loadDashboard();
+      await apiClient.delete<{ id: string; message?: string }>(`/api/promotions/${promotionId}`);
+      removePromotion(promotionId);
+      showManagementFeedback('promotionList', { success: t('homeScreen.success.promotionRemoved') });
     } catch (deleteError: any) {
-      setError(deleteError?.response?.data?.error || 'Unable to delete promotion.');
+      showManagementFeedback('promotionList', {
+        error: deleteError?.response?.data?.error || t('homeScreen.errors.promotionDelete'),
+      });
     } finally {
-      setPromotionSubmitting(false);
+      setPromotionActionLoadingState(null);
     }
   };
 
@@ -1223,26 +1912,34 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setPromotionStartDate(promotion.startsAt.split('T')[0] || '');
     setPromotionEndDate(promotion.endsAt.split('T')[0] || '');
     setPromotionShopId(promotion.shopId);
-    setError(null);
-    setSuccessMessage(null);
+    clearManagementFeedback();
     setActiveEditSheet('promotion');
   };
 
   const handleTogglePromotionStatus = async (promotion: Promotion) => {
-    setPromotionSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setPromotionActionLoadingState({ id: promotion.id, action: 'status' });
+    clearManagementFeedback();
 
     try {
-      await apiClient.put(`/api/promotions/${promotion.id}`, {
+      const response = await apiClient.put<Promotion>(`/api/promotions/${promotion.id}`, {
         isActive: !promotion.isActive,
       });
-      setSuccessMessage(`Promotion ${promotion.isActive ? 'deactivated' : 'activated'} successfully.`);
-      await loadDashboard();
+      applyPromotionUpdate({
+        ...response.data,
+        id: promotion.id,
+        shopName: promotion.shopName,
+        shopLocation: promotion.shopLocation,
+        isClaimed: promotion.isClaimed,
+      });
+      showManagementFeedback('promotionList', {
+        success: t(promotion.isActive ? 'homeScreen.success.promotionDeactivated' : 'homeScreen.success.promotionActivated'),
+      });
     } catch (updateError: any) {
-      setError(updateError?.response?.data?.error || 'Unable to update promotion.');
+      showManagementFeedback('promotionList', {
+        error: updateError?.response?.data?.error || t('homeScreen.errors.promotionStatusUpdate'),
+      });
     } finally {
-      setPromotionSubmitting(false);
+      setPromotionActionLoadingState(null);
     }
   };
 
@@ -1252,40 +1949,50 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }
 
     setClaimingPromotionId(promotionId);
-    setError(null);
-    setSuccessMessage(null);
+    clearManagementFeedback();
 
     try {
       const response = await apiClient.post<{ bonusPoints: number; balance: number }>(`/api/promotions/${promotionId}/claim`);
       const result = response.data;
-      setSuccessMessage(`Promotion claimed successfully. ${result.bonusPoints} bonus points were added to your wallet.`);
+      showManagementFeedback('promotionList', {
+        success: t('homeScreen.success.promotionClaimed', { bonusPoints: result.bonusPoints }),
+      });
       await loadDashboard();
     } catch (claimError: any) {
-      setError(claimError?.response?.data?.error || 'Unable to claim promotion.');
+      showManagementFeedback('promotionList', {
+        error: claimError?.response?.data?.error || t('homeScreen.errors.promotionClaim'),
+      });
     } finally {
       setClaimingPromotionId('');
     }
   };
 
   const handleCreateEvent = async () => {
+    const isEditingEvent = Boolean(editingEventId);
+    const feedbackTarget = isEditingEvent ? 'eventList' : 'eventForm';
+    const successTarget = isEditingEvent ? 'eventList' : 'eventForm';
+
     if (!eventTitle.trim()) {
-      setError('Event title is required.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.eventTitleRequired') });
       return;
     }
 
     if (!eventLocation.trim()) {
-      setError('Event location is required.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.eventLocationRequired') });
       return;
     }
 
     if (!eventStartDate.trim() || !eventEndDate.trim()) {
-      setError('Enter both event dates.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.eventDatesRequired') });
       return;
     }
 
-    setEventSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    if (isEditingEvent) {
+      setEventUpdateSubmitting(true);
+    } else {
+      setEventSubmitting(true);
+    }
+    clearManagementFeedback();
 
     try {
       const payload = {
@@ -1296,36 +2003,43 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         endsAt: `${eventEndDate.trim()}T23:59:59.000Z`,
       };
 
-      if (editingEventId) {
+      if (isEditingEvent) {
         await apiClient.put(`/api/events/${editingEventId}`, payload);
-        setSuccessMessage('Event updated successfully.');
+        showManagementFeedback(successTarget, { success: t('homeScreen.success.eventUpdated') });
       } else {
         await apiClient.post('/api/events', payload);
-        setSuccessMessage('Event created successfully.');
+        showManagementFeedback(successTarget, { success: t('homeScreen.success.eventCreated') });
       }
 
       resetEventForm();
       await loadDashboard();
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to create event.');
+      showManagementFeedback(feedbackTarget, {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.eventSave'),
+      });
     } finally {
-      setEventSubmitting(false);
+      if (isEditingEvent) {
+        setEventUpdateSubmitting(false);
+      } else {
+        setEventSubmitting(false);
+      }
     }
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    setEventSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setEventActionLoadingState({ id: eventId, action: 'delete' });
+    clearManagementFeedback();
 
     try {
       await apiClient.delete(`/api/events/${eventId}`);
-      setSuccessMessage('Event removed successfully.');
-      await loadDashboard();
+      removeEvent(eventId);
+      showManagementFeedback('eventList', { success: t('homeScreen.success.eventRemoved') });
     } catch (deleteError: any) {
-      setError(deleteError?.response?.data?.error || 'Unable to delete event.');
+      showManagementFeedback('eventList', {
+        error: deleteError?.response?.data?.error || t('homeScreen.errors.eventDelete'),
+      });
     } finally {
-      setEventSubmitting(false);
+      setEventActionLoadingState(null);
     }
   };
 
@@ -1336,26 +2050,28 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setEventLocation(event.location);
     setEventStartDate(event.startsAt.split('T')[0] || '');
     setEventEndDate(event.endsAt.split('T')[0] || '');
-    setError(null);
-    setSuccessMessage(null);
+    clearManagementFeedback();
     setActiveEditSheet('event');
   };
 
   const handleToggleEventStatus = async (event: EventItem) => {
-    setEventSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setEventActionLoadingState({ id: event.id, action: 'status' });
+    clearManagementFeedback();
 
     try {
-      await apiClient.put(`/api/events/${event.id}`, {
+      const response = await apiClient.put<EventItem>(`/api/events/${event.id}`, {
         isActive: !event.isActive,
       });
-      setSuccessMessage(`Event ${event.isActive ? 'deactivated' : 'activated'} successfully.`);
-      await loadDashboard();
+      applyEventUpdate(response.data);
+      showManagementFeedback('eventList', {
+        success: t(event.isActive ? 'homeScreen.success.eventDeactivated' : 'homeScreen.success.eventActivated'),
+      });
     } catch (updateError: any) {
-      setError(updateError?.response?.data?.error || 'Unable to update event.');
+      showManagementFeedback('eventList', {
+        error: updateError?.response?.data?.error || t('homeScreen.errors.eventStatusUpdate'),
+      });
     } finally {
-      setEventSubmitting(false);
+      setEventActionLoadingState(null);
     }
   };
 
@@ -1365,30 +2081,36 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setCategoryName(category.formattedName || category.name);
     setCategoryDiscountPercent(String(category.discountPercent));
     setCategoryIsDefault(category.isDefault);
-    setError(null);
-    setSuccessMessage(null);
+    clearManagementFeedback();
     setActiveEditSheet('category');
   };
 
   const handleSaveCategory = async () => {
+    const isEditingCategory = Boolean(editingCategoryId);
+    const feedbackTarget = isEditingCategory ? 'categoryList' : 'categoryForm';
+    const successTarget = isEditingCategory ? 'categoryList' : 'categoryForm';
+
     if (!categoryShopId.trim()) {
-      setError('Select a shop for the category.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.categoryShopRequired') });
       return;
     }
 
     if (!categoryName.trim()) {
-      setError('Category name is required.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.categoryNameRequired') });
       return;
     }
 
     if (!categoryDiscountPercent.trim() || Number(categoryDiscountPercent) < 0) {
-      setError('Enter a valid category discount percent.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.categoryDiscountInvalid') });
       return;
     }
 
-    setCategorySubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    if (isEditingCategory) {
+      setCategoryUpdateSubmitting(true);
+    } else {
+      setCategorySubmitting(true);
+    }
+    clearManagementFeedback();
 
     const payload = {
       shopId: categoryShopId.trim(),
@@ -1398,92 +2120,165 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     };
 
     try {
-      if (editingCategoryId) {
+      if (isEditingCategory) {
         await apiClient.put(`/api/categories/${editingCategoryId}`, payload);
-        setSuccessMessage('Category updated successfully.');
+        showManagementFeedback(successTarget, { success: t('homeScreen.success.categoryUpdated') });
       } else {
         await apiClient.post('/api/categories', payload);
-        setSuccessMessage('Category created successfully.');
+        showManagementFeedback(successTarget, { success: t('homeScreen.success.categoryCreated') });
       }
 
       resetCategoryForm();
       await loadDashboard();
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to save category.');
+      showManagementFeedback(feedbackTarget, {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.categorySave'),
+      });
     } finally {
-      setCategorySubmitting(false);
+      if (isEditingCategory) {
+        setCategoryUpdateSubmitting(false);
+      } else {
+        setCategorySubmitting(false);
+      }
     }
   };
 
   const handleToggleCategoryStatus = async (category: ShopCategory) => {
-    setCategorySubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setCategoryActionLoadingState({ id: category.id, action: 'status' });
+    clearManagementFeedback();
 
     try {
-      await apiClient.put(`/api/categories/${category.id}`, {
+      const response = await apiClient.put<ShopCategory>(`/api/categories/${category.id}`, {
         isActive: !category.isActive,
       });
-      setSuccessMessage(`Category ${category.isActive ? 'deactivated' : 'activated'} successfully.`);
-      await loadDashboard();
+      applyCategoryUpdate({
+        ...response.data,
+        id: category.id,
+        shopName: category.shopName,
+      });
+      showManagementFeedback('categoryList', {
+        success: t(category.isActive ? 'homeScreen.success.categoryDeactivated' : 'homeScreen.success.categoryActivated'),
+      });
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to update category.');
+      showManagementFeedback('categoryList', {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.categoryStatusUpdate'),
+      });
     } finally {
-      setCategorySubmitting(false);
+      setCategoryActionLoadingState(null);
     }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    setCategorySubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setCategoryActionLoadingState({ id: categoryId, action: 'delete' });
+    clearManagementFeedback();
 
     try {
       await apiClient.delete(`/api/categories/${categoryId}`);
-      setSuccessMessage('Category deleted successfully.');
-      await loadDashboard();
+      removeCategory(categoryId);
+      showManagementFeedback('categoryList', { success: t('homeScreen.success.categoryDeleted') });
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to delete category.');
+      showManagementFeedback('categoryList', {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.categoryDelete'),
+      });
     } finally {
-      setCategorySubmitting(false);
+      setCategoryActionLoadingState(null);
     }
   };
 
+  const handleEditConfiguration = useCallback((config: SystemConfig) => {
+    setEditingConfigurationId(config.id || '');
+    applyConfigurationFormValues(config);
+    clearManagementFeedback();
+    setActiveEditSheet('configuration');
+  }, [applyConfigurationFormValues, clearManagementFeedback]);
+
   const handleSaveConfiguration = async () => {
+    const isEditingConfiguration = Boolean(editingConfigurationId);
+    const feedbackTarget = isEditingConfiguration ? 'configurationList' : 'configurationForm';
+    const successTarget = isEditingConfiguration ? 'configurationList' : 'configurationForm';
+
     if (
       !configWelcomeBonusPoints.trim() ||
       !configPointExpirationDays.trim() ||
       !configMaxPointsPerTransaction.trim() ||
       !configDefaultMaxDiscountPercent.trim()
     ) {
-      setError('Complete all configuration fields before saving.');
+      showManagementFeedback(feedbackTarget, { error: t('homeScreen.errors.configurationFieldsRequired') });
       return;
     }
 
-    setConfigSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    if (isEditingConfiguration) {
+      setConfigUpdateSubmitting(true);
+    } else {
+      setConfigSubmitting(true);
+    }
+    clearManagementFeedback();
 
     try {
-      await apiClient.post<SystemConfig>('/api/system-config', {
+      const payload = {
         welcomeBonusPoints: Number(configWelcomeBonusPoints),
         pointExpirationDays: Number(configPointExpirationDays),
         maxPointsPerTransaction: Number(configMaxPointsPerTransaction),
         defaultMaxDiscountPercent: Number(configDefaultMaxDiscountPercent),
         changeReason: configChangeReason.trim() || undefined,
-      });
-      setSuccessMessage('System configuration updated successfully.');
+      };
+
+      if (isEditingConfiguration) {
+        const response = await apiClient.put<SystemConfig & { message?: string }>(`/api/system-config/${editingConfigurationId}`, payload);
+        showManagementFeedback(successTarget, {
+          success: response.data.message || t('homeScreen.success.configurationUpdated'),
+        });
+        setActiveEditSheet(current => (current === 'configuration' ? null : current));
+      } else {
+        const response = await apiClient.post<SystemConfig & { message?: string }>('/api/system-config', payload);
+        showManagementFeedback(successTarget, {
+          success: response.data.message || t('homeScreen.success.configurationUpdated'),
+        });
+      }
+
+      setEditingConfigurationId('');
       await loadDashboard();
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to save system configuration.');
+      showManagementFeedback(feedbackTarget, {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.configurationSave'),
+      });
     } finally {
-      setConfigSubmitting(false);
+      if (isEditingConfiguration) {
+        setConfigUpdateSubmitting(false);
+      } else {
+        setConfigSubmitting(false);
+      }
+    }
+  };
+
+  const handleDeleteConfiguration = async (configId: string) => {
+    setConfigHistoryActionLoadingState({ id: configId, action: 'delete' });
+    clearManagementFeedback();
+
+    try {
+      const response = await apiClient.delete<{ id: string; message?: string }>(`/api/system-config/${configId}`);
+      removeSystemConfigEntry(configId);
+      const currentConfigResponse = await apiClient.get<SystemConfig>('/api/system-config');
+      setSystemConfig(currentConfigResponse.data);
+      if (editingConfigurationId === configId) {
+        setEditingConfigurationId('');
+        setActiveEditSheet(current => (current === 'configuration' ? null : current));
+      }
+      showManagementFeedback('configurationList', {
+        success: response.data.message || t('homeScreen.success.configurationDeleted'),
+      });
+    } catch (submitError: any) {
+      showManagementFeedback('configurationList', {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.configurationDelete'),
+      });
+    } finally {
+      setConfigHistoryActionLoadingState(null);
     }
   };
 
   const handleCreateInternalUser = async () => {
     if (!trimmedInternalEmail || !trimmedInternalUsername || !internalPassword.trim()) {
-      setError('Username, email, and password are required.');
+      showManagementFeedback('internalUserForm', { error: t('homeScreen.errors.internalUserRequired') });
       setInternalTouched({
         username: true,
         email: true,
@@ -1493,88 +2288,95 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     }
 
     if (!emailPattern.test(trimmedInternalEmail)) {
-      setError('Enter a valid email address.');
+      showManagementFeedback('internalUserForm', { error: t('apiErrors.emailInvalid') });
       setInternalTouched(current => ({ ...current, email: true }));
       return;
     }
 
     if (internalPassword.trim().length < 8) {
-      setError('Password must be at least 8 characters.');
+      showManagementFeedback('internalUserForm', { error: t('apiErrors.passwordShort') });
       setInternalTouched(current => ({ ...current, password: true }));
       return;
     }
 
     setUserSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    clearManagementFeedback();
 
     try {
+      const createdRole = internalRole;
+
       await apiClient.post('/api/users/internal', {
         firstName: internalFirstName.trim() || undefined,
         lastName: internalLastName.trim() || undefined,
         username: internalUsername.trim(),
         email: trimmedInternalEmail,
         password: internalPassword.trim(),
-        role: internalRole,
+        role: createdRole,
       });
 
-      setSuccessMessage(`${internalRole} account created successfully.`);
+      showManagementFeedback('internalUserForm', {
+        success: t('homeScreen.success.internalUserCreated', {
+          role: t(`roles.${createdRole.toLowerCase()}`),
+        }),
+      });
       resetInternalUserForm();
-      await loadDashboard();
+      await refreshManagedUsersByRole(createdRole);
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to create user.');
+      showManagementFeedback('internalUserForm', {
+        error: getApiErrorMessage(submitError, t('homeScreen.errors.userCreate')),
+      });
     } finally {
       setUserSubmitting(false);
     }
   };
 
-  const handleActivateUser = async (user: UserSummary) => {
-    setUserActionLoadingState({ userId: user.id, action: 'activate' });
-    setError(null);
-    setSuccessMessage(null);
+  const handleActivateUser = useCallback(async (user: UserSummary) => {
+    clearManagementFeedback();
 
     try {
-      await apiClient.post(`/api/users/${user.id}/activate`, {});
-      setSuccessMessage('User activated successfully.');
-      await loadDashboard();
+      const response = await apiClient.post<UserSummary>(`/api/users/${user.id}/activate`, {});
+      applyManagedUserUpdate(response.data);
+      showManagementFeedback(getManagedUserFeedbackTarget(user.role), {
+        success: t('homeScreen.success.userActivated'),
+      });
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to activate user.');
-    } finally {
-      setUserActionLoadingState(null);
+      showManagementFeedback(getManagedUserFeedbackTarget(user.role), {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.userActivate'),
+      });
     }
-  };
+  }, [applyManagedUserUpdate, clearManagementFeedback, showManagementFeedback, t]);
 
-  const handleDeactivateUser = async (user: UserSummary) => {
-    setUserActionLoadingState({ userId: user.id, action: 'deactivate' });
-    setError(null);
-    setSuccessMessage(null);
+  const handleDeactivateUser = useCallback(async (user: UserSummary) => {
+    clearManagementFeedback();
 
     try {
-      await apiClient.post(`/api/users/${user.id}/deactivate`, {});
-      setSuccessMessage('User deactivated successfully.');
-      await loadDashboard();
+      const response = await apiClient.post<UserSummary>(`/api/users/${user.id}/deactivate`, {});
+      applyManagedUserUpdate(response.data);
+      showManagementFeedback(getManagedUserFeedbackTarget(user.role), {
+        success: t('homeScreen.success.userDeactivated'),
+      });
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to deactivate user.');
-    } finally {
-      setUserActionLoadingState(null);
+      showManagementFeedback(getManagedUserFeedbackTarget(user.role), {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.userDeactivate'),
+      });
     }
-  };
+  }, [applyManagedUserUpdate, clearManagementFeedback, showManagementFeedback, t]);
 
-  const handleDeleteUser = async (user: UserSummary) => {
-    setUserActionLoadingState({ userId: user.id, action: 'delete' });
-    setError(null);
-    setSuccessMessage(null);
+  const handleDeleteUser = useCallback(async (user: UserSummary) => {
+    clearManagementFeedback();
 
     try {
-      await apiClient.post(`/api/users/${user.id}/delete`, {});
-      setSuccessMessage('User deleted successfully.');
-      await loadDashboard();
+      const response = await apiClient.post<UserSummary>(`/api/users/${user.id}/delete`, {});
+      applyManagedUserUpdate(response.data);
+      showManagementFeedback(getManagedUserFeedbackTarget(user.role), {
+        success: t('homeScreen.success.userDeleted'),
+      });
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to delete user.');
-    } finally {
-      setUserActionLoadingState(null);
+      showManagementFeedback(getManagedUserFeedbackTarget(user.role), {
+        error: submitError?.response?.data?.error || t('homeScreen.errors.userDelete'),
+      });
     }
-  };
+  }, [applyManagedUserUpdate, clearManagementFeedback, showManagementFeedback, t]);
 
   const handleChangePassword = async () => {
     const trimmedCurrentPassword = currentPassword.trim();
@@ -1587,24 +2389,24 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         next: true,
         confirm: true,
       });
-      setError('Current password, new password, and confirmation are required.');
+      setError(t('profile.password.errors.required'));
       return;
     }
 
     if (trimmedNewPassword.length < 8) {
       setPasswordTouched(current => ({ ...current, next: true }));
-      setError('New password must be at least 8 characters.');
+      setError(t('profile.password.errors.newShort'));
       return;
     }
 
     if (trimmedCurrentPassword === trimmedNewPassword) {
-      setError('New password must be different from the current password.');
+      setError(t('profile.password.errors.mustDiffer'));
       return;
     }
 
     if (trimmedNewPassword !== trimmedConfirmPassword) {
       setPasswordTouched(current => ({ ...current, confirm: true }));
-      setError('New password and confirm password must match.');
+      setError(t('profile.password.errors.confirmMatch'));
       return;
     }
 
@@ -1618,10 +2420,10 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         newPassword: trimmedNewPassword,
         confirmPassword: trimmedConfirmPassword,
       });
-      setSuccessMessage(response.message || 'Password updated successfully.');
+      setSuccessMessage(response.message || t('profile.password.success'));
       resetPasswordForm();
     } catch (submitError: any) {
-      setError(submitError?.response?.data?.error || 'Unable to update password.');
+      setError(submitError?.response?.data?.error || t('profile.password.errors.submit'));
     } finally {
       setPasswordSubmitting(false);
     }
@@ -1647,7 +2449,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         style={styles.bottomSheetPrimaryButton}
         contentStyle={styles.bottomSheetButtonContent}
       >
-        Update
+        {t('common.update')}
       </Button>
       <Button
         mode="outlined"
@@ -1655,10 +2457,47 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         style={styles.bottomSheetSecondaryButton}
         contentStyle={styles.bottomSheetButtonContent}
       >
-        Cancel
+        {t('common.cancel')}
       </Button>
     </View>
   );
+
+  const renderSheetFeedback = () => {
+    const activeListTarget =
+      activeEditSheet === 'shop'
+        ? 'shopList'
+        : activeEditSheet === 'promotion'
+          ? 'promotionList'
+          : activeEditSheet === 'event'
+            ? 'eventList'
+            : activeEditSheet === 'category'
+              ? 'categoryList'
+              : activeEditSheet === 'configuration'
+                ? 'configurationList'
+                : null;
+
+    if (managementFeedback.target !== 'editSheet' && managementFeedback.target !== activeListTarget) {
+      return null;
+    }
+
+    if (managementFeedback.error) {
+      return (
+        <Text style={[styles.message, { color: theme.custom.error }]}>
+          {managementFeedback.error}
+        </Text>
+      );
+    }
+
+    if (managementFeedback.success) {
+      return (
+        <Text style={[styles.message, { color: theme.custom.success }]}>
+          {managementFeedback.success}
+        </Text>
+      );
+    }
+
+    return null;
+  };
 
   const renderEditSheetContent = () => {
     switch (activeEditSheet) {
@@ -1666,13 +2505,13 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         return (
           <>
             <View style={styles.bottomSheetHandle} />
-            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Shop</Text>
-            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update shop details from the sheet.</Text>
-            <FloatingLabelInput icon="store-outline" label="Shop Name" value={shopName} onChangeText={setShopName} autoCapitalize="words" />
-            <FloatingLabelInput icon="map-marker-outline" label="Location" value={shopLocation} onChangeText={setShopLocation} autoCapitalize="words" />
-            <FloatingLabelInput icon="text-box-outline" label="Description" value={shopDescription} onChangeText={setShopDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('management.bottomSheet.shop.title')}</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('management.bottomSheet.shop.subtitle')}</Text>
+            <FloatingLabelInput icon="store-outline" label={t('management.shopForm.nameLabel')} value={shopName} onChangeText={setShopName} autoCapitalize="words" />
+            <FloatingLabelInput icon="map-marker-outline" label={t('management.shopForm.locationLabel')} value={shopLocation} onChangeText={setShopLocation} autoCapitalize="words" />
+            <FloatingLabelInput icon="text-box-outline" label={t('management.shopForm.descriptionLabel')} value={shopDescription} onChangeText={setShopDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
             <SelectField
-              label="Merchant"
+              label={t('management.shopForm.merchant')}
               value={shopMerchantId}
               onSelect={setShopMerchantId}
               options={merchants.map(merchant => ({
@@ -1680,58 +2519,77 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 label: [merchant.firstName, merchant.lastName].filter(Boolean).join(' ') || merchant.username,
               }))}
             />
-            {renderSheetActions(handleSaveShop, resetShopForm, shopSubmitting)}
+            {renderSheetActions(handleSaveShop, resetShopForm, shopUpdateSubmitting)}
+            {renderSheetFeedback()}
           </>
         );
       case 'promotion':
         return (
           <>
             <View style={styles.bottomSheetHandle} />
-            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Promotion</Text>
-            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update promotion details from the sheet.</Text>
-            <FloatingLabelInput icon="tag-outline" label="Title" value={promotionTitle} onChangeText={setPromotionTitle} autoCapitalize="sentences" />
-            <FloatingLabelInput icon="text-box-outline" label="Description" value={promotionDescription} onChangeText={setPromotionDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('management.bottomSheet.promotion.title')}</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('management.bottomSheet.promotion.subtitle')}</Text>
+            <FloatingLabelInput icon="tag-outline" label={t('management.promotions.titleLabel')} value={promotionTitle} onChangeText={setPromotionTitle} autoCapitalize="sentences" />
+            <FloatingLabelInput icon="text-box-outline" label={t('management.promotions.descriptionLabel')} value={promotionDescription} onChangeText={setPromotionDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
             <SelectField
-              label="Shop"
+              label={t('management.promotions.shop')}
               value={promotionShopId}
               onSelect={setPromotionShopId}
               options={manageablePromotionShops.map(shop => ({ value: shop.id, label: shop.name }))}
             />
-            <FloatingLabelInput icon="star-four-points-outline" label="Bonus Points" keyboardType="number-pad" value={promotionBonusPoints} onChangeText={setPromotionBonusPoints} />
-            {renderDateField('Start Date', promotionStartDate, 'promotion-start', 'Select the promotion start date.')}
-            {renderDateField('End Date', promotionEndDate, 'promotion-end', 'Select the promotion end date.')}
-            {renderSheetActions(handleCreatePromotion, resetPromotionForm, promotionSubmitting)}
+            <FloatingLabelInput icon="star-four-points-outline" label={t('management.promotions.bonusLabel')} keyboardType="number-pad" value={promotionBonusPoints} onChangeText={setPromotionBonusPoints} />
+            {renderDateField(t('common.startDate'), promotionStartDate, 'promotion-start', t('management.promotions.startHelper'))}
+            {renderDateField(t('common.endDate'), promotionEndDate, 'promotion-end', t('management.promotions.endHelper'))}
+            {renderSheetActions(handleCreatePromotion, resetPromotionForm, promotionUpdateSubmitting)}
+            {renderSheetFeedback()}
           </>
         );
       case 'event':
         return (
           <>
             <View style={styles.bottomSheetHandle} />
-            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Event</Text>
-            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update event details from the sheet.</Text>
-            <FloatingLabelInput icon="calendar-text-outline" label="Title" value={eventTitle} onChangeText={setEventTitle} autoCapitalize="sentences" />
-            <FloatingLabelInput icon="text-box-outline" label="Description" value={eventDescription} onChangeText={setEventDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
-            <FloatingLabelInput icon="map-marker-outline" label="Location" value={eventLocation} onChangeText={setEventLocation} autoCapitalize="words" />
-            {renderDateField('Start Date', eventStartDate, 'event-start', 'Select the event start date.')}
-            {renderDateField('End Date', eventEndDate, 'event-end', 'Select the event end date.')}
-            {renderSheetActions(handleCreateEvent, resetEventForm, eventSubmitting)}
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('management.bottomSheet.event.title')}</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('management.bottomSheet.event.subtitle')}</Text>
+            <FloatingLabelInput icon="calendar-text-outline" label={t('management.events.titleLabel')} value={eventTitle} onChangeText={setEventTitle} autoCapitalize="sentences" />
+            <FloatingLabelInput icon="text-box-outline" label={t('management.events.descriptionLabel')} value={eventDescription} onChangeText={setEventDescription} autoCapitalize="sentences" multiline numberOfLines={3} />
+            <FloatingLabelInput icon="map-marker-outline" label={t('management.events.locationLabel')} value={eventLocation} onChangeText={setEventLocation} autoCapitalize="words" />
+            {renderDateField(t('common.startDate'), eventStartDate, 'event-start', t('management.events.startHelper'))}
+            {renderDateField(t('common.endDate'), eventEndDate, 'event-end', t('management.events.endHelper'))}
+            {renderSheetActions(handleCreateEvent, resetEventForm, eventUpdateSubmitting)}
+            {renderSheetFeedback()}
           </>
         );
       case 'category':
         return (
           <>
             <View style={styles.bottomSheetHandle} />
-            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>Edit Category</Text>
-            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>Update category details from the sheet.</Text>
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('management.bottomSheet.category.title')}</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('management.bottomSheet.category.subtitle')}</Text>
             <SelectField
-              label="Shop"
+              label={t('management.categories.shop')}
               value={categoryShopId}
               onSelect={setCategoryShopId}
               options={availableShops.map(shop => ({ value: shop.id, label: shop.name }))}
             />
-            <FloatingLabelInput icon="shape-outline" label="Category Name" value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
-            <FloatingLabelInput icon="percent-outline" label="Discount Percent" value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
-            {renderSheetActions(handleSaveCategory, resetCategoryForm, categorySubmitting)}
+            <FloatingLabelInput icon="shape-outline" label={t('management.categories.nameLabel')} value={categoryName} onChangeText={setCategoryName} autoCapitalize="words" />
+            <FloatingLabelInput icon="percent-outline" label={t('management.categories.discountLabel')} value={categoryDiscountPercent} onChangeText={setCategoryDiscountPercent} keyboardType="number-pad" />
+            {renderSheetActions(handleSaveCategory, resetCategoryForm, categoryUpdateSubmitting)}
+            {renderSheetFeedback()}
+          </>
+        );
+      case 'configuration':
+        return (
+          <>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('management.bottomSheet.configuration.title')}</Text>
+            <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>{t('management.bottomSheet.configuration.subtitle')}</Text>
+            <FloatingLabelInput icon="gift-outline" label={t('management.configuration.welcomeBonusLabel')} value={configWelcomeBonusPoints} onChangeText={setConfigWelcomeBonusPoints} keyboardType="number-pad" />
+            <FloatingLabelInput icon="calendar-clock-outline" label={t('management.configuration.expirationLabel')} value={configPointExpirationDays} onChangeText={setConfigPointExpirationDays} keyboardType="number-pad" />
+            <FloatingLabelInput icon="counter" label={t('management.configuration.maxPointsLabel')} value={configMaxPointsPerTransaction} onChangeText={setConfigMaxPointsPerTransaction} keyboardType="number-pad" />
+            <FloatingLabelInput icon="percent-outline" label={t('management.configuration.defaultDiscountLabel')} value={configDefaultMaxDiscountPercent} onChangeText={setConfigDefaultMaxDiscountPercent} keyboardType="number-pad" />
+            <FloatingLabelInput icon="text-box-outline" label={t('management.configuration.reasonLabel')} value={configChangeReason} onChangeText={setConfigChangeReason} autoCapitalize="sentences" multiline numberOfLines={3} />
+            {renderSheetActions(handleSaveConfiguration, resetConfigurationForm, configUpdateSubmitting)}
+            {renderSheetFeedback()}
           </>
         );
       default:
@@ -1755,6 +2613,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     setSelectedShopId,
     availableShops,
     filteredCustomers,
+    customerListItems: customerListState.items,
+    customerListLoading: customerListState.loading,
+    customerListPage: customerListState.page,
+    customerListPageSize: customerListState.pageSize,
+    customerListTotalPages: customerListState.totalPages,
+    customerListTotalItems: customerListState.totalItems,
+    handleCustomerListPageChange,
+    handleCustomerListPageSizeChange,
     customerSearch,
     setCustomerSearch,
     pointTypeOptions,
@@ -1777,6 +2643,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     settlementPreview,
     error,
     successMessage,
+    managementFeedback,
     walletActionFeedback,
     handlePreviewSettlement,
     submitting,
@@ -1807,13 +2674,23 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     filteredTransactions: transactions,
     transactionLoading,
     transactionPage,
+    transactionPageSize,
     transactionTotalPages,
     transactionTotalItems,
     handleTransactionPageChange,
+    handleTransactionPageSizeChange,
     shops,
     merchants,
     customers,
     representatives,
+    shopListItems: shopListState.items,
+    shopListLoading: shopListState.loading,
+    shopListPage: shopListState.page,
+    shopListPageSize: shopListState.pageSize,
+    shopListTotalPages: shopListState.totalPages,
+    shopListTotalItems: shopListState.totalItems,
+    handleShopListPageChange,
+    handleShopListPageSizeChange,
     shopName,
     setShopName,
     shopLocation,
@@ -1823,6 +2700,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     shopMerchantId,
     setShopMerchantId,
     shopSubmitting,
+    shopStatusLoadingId,
     handleSaveShop,
     editingShopId,
     resetShopForm,
@@ -1845,10 +2723,19 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     promotionStartDate,
     promotionEndDate,
     promotionSubmitting,
+    promotionActionLoadingState,
     claimingPromotionId,
     handleCreatePromotion,
     resetPromotionForm,
     promotions,
+    promotionListItems: promotionListState.items,
+    promotionListLoading: promotionListState.loading,
+    promotionListPage: promotionListState.page,
+    promotionListPageSize: promotionListState.pageSize,
+    promotionListTotalPages: promotionListState.totalPages,
+    promotionListTotalItems: promotionListState.totalItems,
+    handlePromotionListPageChange,
+    handlePromotionListPageSizeChange,
     handleEditPromotion,
     handleTogglePromotionStatus,
     handleDeletePromotion,
@@ -1863,9 +2750,18 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     eventEndDate,
     editingEventId,
     eventSubmitting,
+    eventActionLoadingState,
     handleCreateEvent,
     resetEventForm,
     events,
+    eventListItems: eventListState.items,
+    eventListLoading: eventListState.loading,
+    eventListPage: eventListState.page,
+    eventListPageSize: eventListState.pageSize,
+    eventListTotalPages: eventListState.totalPages,
+    eventListTotalItems: eventListState.totalItems,
+    handleEventListPageChange,
+    handleEventListPageSizeChange,
     handleEditEvent,
     handleToggleEventStatus,
     handleDeleteEvent,
@@ -1879,8 +2775,17 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     categoryIsDefault,
     setCategoryIsDefault,
     categorySubmitting,
+    categoryActionLoadingState,
     editingCategoryId,
     categories: manageableCategories,
+    categoryListItems: categoryListState.items,
+    categoryListLoading: categoryListState.loading,
+    categoryListPage: categoryListState.page,
+    categoryListPageSize: categoryListState.pageSize,
+    categoryListTotalPages: categoryListState.totalPages,
+    categoryListTotalItems: categoryListState.totalItems,
+    handleCategoryListPageChange,
+    handleCategoryListPageSizeChange,
     handleEditCategory,
     handleSaveCategory,
     handleToggleCategoryStatus,
@@ -1888,6 +2793,15 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     resetCategoryForm,
     systemConfig,
     systemConfigHistory,
+    systemConfigHistoryItems: systemConfigHistoryListState.items,
+    systemConfigHistoryLoading: systemConfigHistoryListState.loading,
+    systemConfigHistoryPage: systemConfigHistoryListState.page,
+    systemConfigHistoryPageSize: systemConfigHistoryListState.pageSize,
+    systemConfigHistoryTotalPages: systemConfigHistoryListState.totalPages,
+    systemConfigHistoryTotalItems: systemConfigHistoryListState.totalItems,
+    handleSystemConfigHistoryPageChange,
+    handleSystemConfigHistoryPageSizeChange,
+    editingConfigurationId,
     configWelcomeBonusPoints,
     setConfigWelcomeBonusPoints,
     configPointExpirationDays,
@@ -1899,7 +2813,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     configChangeReason,
     setConfigChangeReason,
     configSubmitting,
+    configHistoryActionLoadingState,
     handleSaveConfiguration,
+    resetConfigurationForm,
+    handleEditConfiguration,
+    handleDeleteConfiguration,
     allowedInternalRoles,
     internalRole,
     setInternalRole,
@@ -1910,6 +2828,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     trimmedInternalUsername,
     internalUsername,
     setInternalUsername,
+    setInternalTouched,
     internalEmailError,
     trimmedInternalEmail,
     internalEmail,
@@ -1920,7 +2839,30 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     internalPassword,
     setInternalPassword,
     userSubmitting,
-    userActionLoadingState,
+    directoryCustomerListItems: directoryCustomerListState.items,
+    directoryCustomerListLoading: directoryCustomerListState.loading,
+    directoryCustomerListPage: directoryCustomerListState.page,
+    directoryCustomerListPageSize: directoryCustomerListState.pageSize,
+    directoryCustomerListTotalPages: directoryCustomerListState.totalPages,
+    directoryCustomerListTotalItems: directoryCustomerListState.totalItems,
+    handleDirectoryCustomerListPageChange,
+    handleDirectoryCustomerListPageSizeChange,
+    merchantListItems: merchantListState.items,
+    merchantListLoading: merchantListState.loading,
+    merchantListPage: merchantListState.page,
+    merchantListPageSize: merchantListState.pageSize,
+    merchantListTotalPages: merchantListState.totalPages,
+    merchantListTotalItems: merchantListState.totalItems,
+    handleMerchantListPageChange,
+    handleMerchantListPageSizeChange,
+    representativeListItems: representativeListState.items,
+    representativeListLoading: representativeListState.loading,
+    representativeListPage: representativeListState.page,
+    representativeListPageSize: representativeListState.pageSize,
+    representativeListTotalPages: representativeListState.totalPages,
+    representativeListTotalItems: representativeListState.totalItems,
+    handleRepresentativeListPageChange,
+    handleRepresentativeListPageSizeChange,
     handleCreateInternalUser,
     handleActivateUser,
     handleDeactivateUser,
@@ -1985,42 +2927,6 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         <View style={styles.backdropGlowOrange} />
         <View style={styles.backdropGrid} />
       </View>
-      <Portal>
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.toastOverlay,
-            {
-              top: Math.max(insets.top + 8, 16),
-            },
-          ]}
-        >
-          <Snackbar
-            visible={notificationVisible}
-            onDismiss={() => {
-              setError(null);
-              setSuccessMessage(null);
-            }}
-            duration={3200}
-            style={[
-              styles.snackbar,
-              {
-                backgroundColor: error ? theme.custom.error : theme.custom.success,
-              },
-            ]}
-            action={{
-              label: 'Dismiss',
-              textColor: '#FFFFFF',
-              onPress: () => {
-                setError(null);
-                setSuccessMessage(null);
-              },
-            }}
-          >
-            {error || successMessage || ''}
-          </Snackbar>
-        </View>
-      </Portal>
       {activeEditSheet ? (
         <Portal>
           <View style={styles.bottomSheetOverlay}>
@@ -2042,6 +2948,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                   resetEventForm();
                 } else if (activeEditSheet === 'category') {
                   resetCategoryForm();
+                } else if (activeEditSheet === 'configuration') {
+                  resetConfigurationForm();
                 }
               }}
             />
@@ -2470,17 +3378,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
-  },
-  snackbar: {
-    borderRadius: 16,
-    elevation: 8,
-  },
-  toastOverlay: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    zIndex: 20,
-    elevation: 20,
+    width: '100%',
+    alignSelf: 'center',
+    textAlign: 'center',
   },
   filterRow: {
     flexDirection: 'row',
@@ -2683,6 +3583,22 @@ const styles = StyleSheet.create({
   shopActions: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'nowrap',
+    width: '100%',
+  },
+  rowActionButtonCompact: {
+    flex: 1,
+  },
+  rowActionButtonWide: {
+    flex: 1,
+  },
+  rowActionButtonContent: {
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  rowActionButtonLabel: {
+    fontSize: 12,
+    marginHorizontal: 4,
   },
   walletBalanceValue: {
     fontSize: 40,

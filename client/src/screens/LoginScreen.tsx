@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { FloatingLabelInput } from '../components/auth/FloatingLabelInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
+import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import { ScreenProps } from '../navigation/types';
 import { getApiErrorMessage, getApiResponseError } from '../services/api';
 import { getPendingVerificationEmail, loginUser, savePendingVerificationEmail } from '../services/auth';
@@ -48,6 +50,11 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
   };
 
   const isValid = Boolean(trimmedIdentifier && password);
+  const clearSubmitError = useCallback(() => {
+    setSubmitError(null);
+  }, []);
+
+  useAutoDismissMessage(submitError, clearSubmitError, FEEDBACK_AUTO_DISMISS_MS);
 
   const markAllTouched = () => {
     setTouched({
@@ -98,7 +105,10 @@ export function LoginScreen({ navigation }: ScreenProps<'Login'>) {
       navigation.replace('Home');
     } catch (error) {
       const responseError = getApiResponseError(error);
-      if (responseError === 'Verifica prima la tua email.') {
+      if (
+        responseError === t('apiErrors.verifyEmailFirst')
+        || responseError === 'Verifica prima la tua email.'
+      ) {
         const verificationEmail = trimmedIdentifier.includes('@')
           ? trimmedIdentifier.toLowerCase()
           : pendingVerificationEmail;

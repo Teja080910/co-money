@@ -6,6 +6,8 @@ import QRCode from 'react-native-qrcode-svg';
 import { Button, Card, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { FEEDBACK_AUTO_DISMISS_MS } from '../constants/feedback';
+import { useAutoDismissMessage } from '../hooks/useAutoDismissMessage';
 import type { ScreenProps } from '../navigation/types';
 import { apiClient } from '../services/api';
 import type { AppTheme } from '../theme/theme';
@@ -35,6 +37,11 @@ export function CustomerQrScreen({ navigation }: ScreenProps<'CustomerQr'>) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  useAutoDismissMessage(error, clearError, FEEDBACK_AUTO_DISMISS_MS);
 
   const loadQr = useCallback(async () => {
     setError(null);

@@ -2,6 +2,7 @@ import { AppDataSource } from '../config/db';
 import { UserRole } from '../constants/userRoles';
 import { User } from '../models/User';
 import { UserManagementAudit } from '../models/UserManagementAudit';
+import { EmailService } from './EmailService';
 import { hashPassword } from '../utils/password';
 import { AuthenticatedUser } from '../middleware/requireRole';
 
@@ -15,8 +16,9 @@ const MANAGEABLE_ROLES_BY_ACTOR: Record<UserRole, UserRole[]> = {
 export class UserService {
     private userRepository = AppDataSource.getRepository(User);
     private userManagementAuditRepository = AppDataSource.getRepository(UserManagementAudit);
+    private emailService = new EmailService();
 
-    public async getAllUsers(filters?: { role?: UserRole; status?: string }): Promise<User[]> {
+    public async getAllUsers(filters?: { role?: UserRole; status?: string; search?: string }): Promise<User[]> {
         const users = await this.userRepository.find({
             order: { createdAt: 'DESC' },
         });
@@ -24,7 +26,8 @@ export class UserService {
         return users.filter(user => {
             const matchesRole = filters?.role ? user.role === filters.role : true;
             const matchesStatus = this.matchesStatus(user, filters?.status);
-            return matchesRole && matchesStatus;
+            const matchesSearch = this.matchesSearch(user, filters?.search);
+            return matchesRole && matchesStatus && matchesSearch;
         });
     }
 
@@ -75,12 +78,40 @@ export class UserService {
         return await this.userRepository.save(user);
     }
 
-    public async createInternalUser(actor: AuthenticatedUser, userData: Partial<User>, role: UserRole): Promise<User> {
+    public async createInternalUser(actor: AuthenticatedUser, userData: Partial<User>, role: UserRole, locale?: string): Promise<User> {
         if (!MANAGEABLE_ROLES_BY_ACTOR[actor.role].includes(role)) {
             throw new Error('You do not have permission to create this user role.');
         }
 
-        return this.createUser(userData, role);
+        const plainPassword = userData.password?.trim();
+        if (!plainPassword) {
+            throw new Error('Password is required.');
+        }
+
+        const user = await this.createUser(
+            {
+                ...userData,
+                emailVerified: true,
+            },
+            role,
+        );
+
+        try {
+            await this.emailService.sendInternalUserCredentialsEmail({
+                to: user.email,
+                username: user.username,
+                password: plainPassword,
+                role: user.role,
+                firstName: user.firstName,
+                locale,
+            });
+        } catch (error) {
+            await this.userRepository.delete(user.id);
+            console.error('Failed to send internal user credentials email:', error);
+            throw new Error('Unable to send the account credentials email right now.');
+        }
+
+        return user;
     }
 
     public sanitizeUser(user: User) {
@@ -109,6 +140,7 @@ export class UserService {
         const user = await this.requireManageableExistingUser(actor, userId);
         user.isActive = true;
         user.deactivatedAt = null;
+        user.deletedAt = null;
 
         await this.userRepository.save(user);
         await this.recordAudit(actor, user, 'ACTIVATE', reason);
@@ -200,5 +232,24 @@ export class UserService {
         }
 
         return this.getUserStatus(user) === requestedStatus.trim().toUpperCase();
+    }
+
+    private matchesSearch(user: User, requestedSearch?: string): boolean {
+        if (!requestedSearch?.trim()) {
+            return true;
+        }
+
+        const search = requestedSearch.trim().toLowerCase();
+        const fullName = [user.firstName, user.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+            .toLowerCase();
+
+        return (
+            user.username.toLowerCase().includes(search) ||
+            user.email.toLowerCase().includes(search) ||
+            fullName.includes(search)
+        );
     }
 }

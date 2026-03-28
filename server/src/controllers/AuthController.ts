@@ -15,12 +15,14 @@ export class AuthController {
     private async register(req: Request, res: Response) {
         try {
             const { firstName, lastName, email, password, username } = req.body;
+            const locale = req.header('accept-language') || undefined;
             const result = await this.authService.register({
                 firstName,
                 lastName,
                 email,
                 password,
                 username,
+                locale,
             });
             console.log('Registration result:', result);
             return res.status(201).json(result);
@@ -46,7 +48,8 @@ export class AuthController {
     private async resendOtp(req: Request, res: Response) {
         try {
             const { email } = req.body;
-            const result = await this.authService.resendOtp(email);
+            const locale = req.header('accept-language') || undefined;
+            const result = await this.authService.resendOtp(email, locale);
             return res.status(200).json(result);
         } catch (error: any) {
             return res.status(400).json({ error: error.message });
