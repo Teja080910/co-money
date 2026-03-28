@@ -143,3 +143,20 @@ This must be enforced in backend logic.
 - Manage users
 - Events
 - Reports
+
+---
+
+## 5. Client APK Build
+
+To generate the Android APK locally from the native client project:
+
+```bash
+cd client/android
+GRADLE_USER_HOME=/tmp/gradle-co-money ANDROID_HOME=/home/teja/Android/Sdk ./gradlew assembleRelease
+```
+
+Generated APK path:
+
+```text
+client/android/app/build/outputs/apk/release/app-release.apk
+```
