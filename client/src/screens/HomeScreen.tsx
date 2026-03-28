@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -391,6 +391,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [managementFeedback, setManagementFeedback] = useState<ManagementFeedbackState>(createEmptyManagementFeedback);
   const [walletActionFeedback, setWalletActionFeedback] = useState<WalletActionFeedback>(null);
   const [activeTabKey, setActiveTabKey] = useState<keyof HomeTabParamList>('home');
+  const tabHistoryRef = useRef<Array<keyof HomeTabParamList>>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedShopId, setSelectedShopId] = useState('');
   const [points, setPoints] = useState('');
@@ -2926,7 +2927,38 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
   const isDesktopWeb = Platform.OS === 'web' && width >= 1120;
   const mobileBackTarget = routes.find(routeItem => routeItem.showWelcomeHeader)?.key ?? routes[0]?.key ?? 'home';
-  const showMobileBackButton = !isDesktopWeb && Boolean(routes.length) && activeTabKey !== mobileBackTarget;
+  const lastMobileTab = tabHistoryRef.current[tabHistoryRef.current.length - 1];
+  const showMobileBackButton = !isDesktopWeb && Boolean(lastMobileTab) && activeTabKey !== mobileBackTarget;
+
+  const navigateToTab = useCallback((
+    nextKey: keyof HomeTabParamList,
+    options?: { preserveHistory?: boolean },
+  ) => {
+    if (nextKey === activeTabKey) {
+      return;
+    }
+
+    if (!options?.preserveHistory) {
+      tabHistoryRef.current.push(activeTabKey);
+    }
+
+    setActiveTabKey(nextKey);
+  }, [activeTabKey]);
+
+  const handleMobileBack = useCallback(() => {
+    while (tabHistoryRef.current.length) {
+      const previousKey = tabHistoryRef.current.pop();
+
+      if (previousKey && previousKey !== activeTabKey) {
+        setActiveTabKey(previousKey);
+        return;
+      }
+    }
+
+    if (activeTabKey !== mobileBackTarget) {
+      setActiveTabKey(mobileBackTarget as keyof HomeTabParamList);
+    }
+  }, [activeTabKey, mobileBackTarget]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
@@ -3119,7 +3151,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                         onSelectRoute={index => {
                           const target = routes[index];
                           if (target?.key) {
-                            setActiveTabKey(target.key as keyof HomeTabParamList);
+                            navigateToTab(target.key as keyof HomeTabParamList);
                           }
                         }}
                         bottomInset={insets.bottom}
@@ -3182,7 +3214,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                       {showMobileBackButton ? (
                         <Pressable
                           accessibilityRole="button"
-                          onPress={() => setActiveTabKey(mobileBackTarget as keyof HomeTabParamList)}
+                          onPress={handleMobileBack}
                           style={[styles.mobileBackButton, { backgroundColor: theme.custom.surfaceStrong, borderColor: theme.custom.border }]}
                         >
                           <MaterialCommunityIcons name="arrow-left" size={20} color={theme.custom.textPrimary} />
@@ -3243,7 +3275,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             onSelectRoute={index => {
               const target = routes[index];
               if (target?.key) {
-                setActiveTabKey(target.key as keyof HomeTabParamList);
+                navigateToTab(target.key as keyof HomeTabParamList);
               }
             }}
             bottomInset={insets.bottom}
