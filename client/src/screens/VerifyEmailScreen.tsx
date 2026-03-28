@@ -39,6 +39,7 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
   const [resending, setResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const normalizedOtp = otp.replace(/\D/g, '').slice(0, 6);
+  const RootContainer = Platform.OS === 'web' ? View : Pressable;
   const clearErrorMessage = useCallback(() => {
     setErrorMessage(null);
   }, []);
@@ -97,7 +98,10 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
   };
 
   return (
-    <Pressable style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]} onPress={Keyboard.dismiss}>
+    <RootContainer
+      style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]}
+      {...(Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss })}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -199,7 +203,7 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Pressable>
+    </RootContainer>
   );
 }
 

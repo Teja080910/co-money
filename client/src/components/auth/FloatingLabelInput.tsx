@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Easing,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -118,6 +119,15 @@ export function FloatingLabelInput({
     }),
     [hasError, labelProgress, theme.custom.brand, theme.custom.error, theme.custom.textSecondary],
   );
+  const webInputReset = Platform.OS === 'web'
+    ? ({
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      boxShadow: 'none',
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+    } as any)
+    : null;
 
   return (
     <View style={styles.wrapper}>
@@ -172,7 +182,7 @@ export function FloatingLabelInput({
           ref={inputRef}
           secureTextEntry={secureTextEntry}
           selectionColor={theme.custom.brand}
-          style={[styles.input, multiline ? styles.multilineInput : null, { color: theme.custom.textPrimary }]}
+          style={[styles.input, multiline ? styles.multilineInput : null, webInputReset, { color: theme.custom.textPrimary }]}
           textContentType={textContentType}
           textAlignVertical={multiline ? 'top' : 'center'}
           value={value}

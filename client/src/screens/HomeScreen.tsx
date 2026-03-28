@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -334,6 +335,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const theme = useTheme<AppTheme>();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
   const [selectedCustomerWallet, setSelectedCustomerWallet] = useState<WalletResponse | null>(null);
@@ -2918,6 +2920,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   }), [authUser?.role, merchants, representatives, t, tabContext]);
 
   const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
+  const isDesktopWeb = Platform.OS === 'web' && width >= 1120;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
@@ -3012,6 +3015,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
               <View
                 style={[
                   styles.headerCard,
+                  isDesktopWeb ? styles.headerCardDesktop : null,
                   {
                     borderColor: 'rgba(255,255,255,0.1)',
                     shadowColor: theme.custom.shadow,
@@ -3054,55 +3058,137 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
             <View
               style={[
                 styles.sheet,
+                isDesktopWeb ? styles.sheetDesktop : null,
                 {
                   backgroundColor: theme.custom.surfaceStrong,
                   borderColor: 'rgba(243, 111, 33, 0.12)',
                 },
               ]}
             >
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
-                  {activeRoute?.title || t('dashboard.overview')}
-                </Text>
-                <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-                  {t('dashboard.sheetSubtitle')}
-                </Text>
-              </View>
+              {isDesktopWeb ? (
+                <View style={styles.desktopShell}>
+                  <View style={styles.desktopSidebar}>
+                    <View style={styles.desktopSidebarTop}>
+                      <View style={styles.desktopBrandBlock}>
+                        <Text style={[styles.desktopBrandEyebrow, { color: theme.custom.textSecondary }]}>
+                          Co-Money
+                        </Text>
+                        <Text style={[styles.desktopBrandTitle, { color: theme.custom.textPrimary }]}>
+                          Web workspace
+                        </Text>
+                        <Text style={[styles.desktopBrandSubtitle, { color: theme.custom.textSecondary }]}>
+                          A browser-first control panel for the same product you already built in the app.
+                        </Text>
+                      </View>
+                      <BottomTabBar
+                        routes={routes}
+                        routeIndex={activeRouteIndex >= 0 ? activeRouteIndex : 0}
+                        onSelectRoute={index => {
+                          const target = routes[index];
+                          if (target?.key) {
+                            setActiveTabKey(target.key as keyof HomeTabParamList);
+                          }
+                        }}
+                        bottomInset={insets.bottom}
+                      />
+                    </View>
+                    <View style={[styles.desktopSidebarFooter, { borderColor: theme.custom.border }]}>
+                      <Text style={[styles.desktopSidebarFooterTitle, { color: theme.custom.textPrimary }]}>
+                        {displayName || 'Co-Money'}
+                      </Text>
+                      <Text style={[styles.desktopSidebarFooterMeta, { color: theme.custom.textSecondary }]}>
+                        {authUser ? t(roleTitles[authUser.role]) : t('dashboard.overview')}
+                      </Text>
+                    </View>
+                  </View>
 
-	              <View style={styles.tabNavigatorShell}>
-	                <View style={styles.tabSceneContent}>
-	                  {activeTabContent}
-		            </View>
-	              </View>
-	              {activeDatePicker ? (
-	                <View style={styles.datePickerWrap}>
-	                  <DateTimePicker
-                    value={
-                      activeDatePicker === 'promotion-start'
-                        ? getPickerDate(promotionStartDate)
-                        : activeDatePicker === 'promotion-end'
-                          ? getPickerDate(promotionEndDate)
-                          : activeDatePicker === 'event-start'
-                            ? getPickerDate(eventStartDate)
-                            : getPickerDate(eventEndDate)
-                    }
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    onChange={handleDateChange}
-                  />
-                  {Platform.OS === 'ios' ? (
-                    <Button mode="text" onPress={() => setActiveDatePicker(null)}>
-                      Done
-                    </Button>
-                  ) : null}
+                  <View style={styles.desktopContentColumn}>
+                    <View style={styles.sheetHeader}>
+                      <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
+                        {activeRoute?.title || t('dashboard.overview')}
+                      </Text>
+                      <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                        {t('dashboard.sheetSubtitle')}
+                      </Text>
+                    </View>
+
+                    <View style={styles.tabNavigatorShell}>
+                      <View style={styles.tabSceneContent}>
+                        {activeTabContent}
+                      </View>
+                    </View>
+                    {activeDatePicker ? (
+                      <View style={styles.datePickerWrap}>
+                        <DateTimePicker
+                          value={
+                            activeDatePicker === 'promotion-start'
+                              ? getPickerDate(promotionStartDate)
+                              : activeDatePicker === 'promotion-end'
+                                ? getPickerDate(promotionEndDate)
+                                : activeDatePicker === 'event-start'
+                                  ? getPickerDate(eventStartDate)
+                                  : getPickerDate(eventEndDate)
+                          }
+                          mode="date"
+                          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                          onChange={handleDateChange}
+                        />
+                        {Platform.OS === 'ios' ? (
+                          <Button mode="text" onPress={() => setActiveDatePicker(null)}>
+                            Done
+                          </Button>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
-              ) : null}
+              ) : (
+                <>
+                  <View style={styles.sheetHeader}>
+                    <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
+                      {activeRoute?.title || t('dashboard.overview')}
+                    </Text>
+                    <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                      {t('dashboard.sheetSubtitle')}
+                    </Text>
+                  </View>
+
+	                <View style={styles.tabNavigatorShell}>
+	                  <View style={styles.tabSceneContent}>
+	                    {activeTabContent}
+		                  </View>
+	                </View>
+	                {activeDatePicker ? (
+	                  <View style={styles.datePickerWrap}>
+	                    <DateTimePicker
+                      value={
+                        activeDatePicker === 'promotion-start'
+                          ? getPickerDate(promotionStartDate)
+                          : activeDatePicker === 'promotion-end'
+                            ? getPickerDate(promotionEndDate)
+                            : activeDatePicker === 'event-start'
+                              ? getPickerDate(eventStartDate)
+                              : getPickerDate(eventEndDate)
+                      }
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                      onChange={handleDateChange}
+                    />
+                    {Platform.OS === 'ios' ? (
+                      <Button mode="text" onPress={() => setActiveDatePicker(null)}>
+                        Done
+                      </Button>
+                    ) : null}
+                  </View>
+                ) : null}
+                </>
+              )}
             </View>
 
           </>
         )}
       </ScrollView>
-      {!loading && routes.length ? (
+      {!loading && routes.length && !isDesktopWeb ? (
         <View style={styles.bottomBarOverlay}>
           <BottomTabBar
             routes={routes}
@@ -3182,6 +3268,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 28,
     elevation: 8,
+  },
+  headerCardDesktop: {
+    maxWidth: 1320,
+    width: '100%',
+    alignSelf: 'center',
+    marginBottom: 22,
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 22,
   },
   headerGlowBlue: {
     position: 'absolute',
@@ -3300,6 +3395,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 28,
     elevation: 10,
+  },
+  sheetDesktop: {
+    maxWidth: 1320,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 24,
   },
   sheetHeader: {
     marginBottom: 18,
@@ -3555,6 +3658,58 @@ const styles = StyleSheet.create({
   tabSceneContent: {
     paddingTop: 6,
     paddingBottom: 8,
+  },
+  desktopShell: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 24,
+  },
+  desktopSidebar: {
+    width: 320,
+    gap: 20,
+    alignSelf: 'stretch',
+  },
+  desktopSidebarTop: {
+    gap: 18,
+  },
+  desktopBrandBlock: {
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  desktopBrandEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+  },
+  desktopBrandTitle: {
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  desktopBrandSubtitle: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  desktopSidebarFooter: {
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 4,
+  },
+  desktopSidebarFooterTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  desktopSidebarFooterMeta: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  desktopContentColumn: {
+    flex: 1,
+    minWidth: 0,
   },
   bottomBarOverlay: {
     position: 'absolute',

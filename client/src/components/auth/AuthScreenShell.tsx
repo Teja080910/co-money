@@ -41,6 +41,7 @@ export function AuthScreenShell({
   const { width } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const entrance = useRef(new Animated.Value(0)).current;
+  const RootContainer = Platform.OS === 'web' ? View : Pressable;
 
   useEffect(() => {
     Animated.spring(entrance, {
@@ -87,7 +88,10 @@ export function AuthScreenShell({
   );
 
   return (
-    <Pressable style={[styles.root, { backgroundColor: theme.custom.background }]} onPress={Keyboard.dismiss}>
+    <RootContainer
+      style={[styles.root, { backgroundColor: theme.custom.background }]}
+      {...(Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss })}
+    >
       {backgroundLayers.map(layer => (
         <View key={`${layer.height}-${layer.width}-${layer.top ?? layer.bottom}`} style={[styles.blob, layer]} />
       ))}
@@ -138,7 +142,7 @@ export function AuthScreenShell({
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Pressable>
+    </RootContainer>
   );
 }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import type { AppTheme } from '../../theme/theme';
 
@@ -13,6 +13,13 @@ export function OtpInput({ value, length = 6, onChange }: Props) {
   const theme = useTheme<AppTheme>();
   const refs = useRef<Array<TextInput | null>>([]);
   const digits = Array.from({ length }, (_, index) => value[index] ?? '');
+  const webInputReset = Platform.OS === 'web'
+    ? ({
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      boxShadow: 'none',
+    } as any)
+    : null;
 
   useEffect(() => {
     const nextIndex = Math.min(value.length, length - 1);
@@ -78,6 +85,7 @@ export function OtpInput({ value, length = 6, onChange }: Props) {
             selectionColor={theme.custom.brand}
             style={[
               styles.input,
+              webInputReset,
               {
                 backgroundColor: theme.custom.input,
                 borderColor: isFilled ? theme.custom.brand : theme.custom.border,

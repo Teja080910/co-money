@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   ImageBackground,
   Keyboard,
@@ -11,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,6 +35,7 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -59,6 +60,9 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
   const clearSubmitError = useCallback(() => {
     setSubmitError(null);
   }, []);
+  const isDesktopWeb = Platform.OS === 'web' && width >= 1080;
+  const useTwoColumnNameRow = width >= 760;
+  const RootContainer = Platform.OS === 'web' ? View : Pressable;
 
   useAutoDismissMessage(submitError, clearSubmitError, FEEDBACK_AUTO_DISMISS_MS);
 
@@ -110,7 +114,10 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
   }, []);
 
   return (
-    <Pressable style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]} onPress={Keyboard.dismiss}>
+    <RootContainer
+      style={[styles.root, { backgroundColor: theme.custom.surfaceStrong }]}
+      {...(Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss })}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -120,187 +127,188 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
           ref={scrollRef}
           automaticallyAdjustKeyboardInsets
           bounces={false}
-          contentContainerStyle={{
-            paddingBottom: keyboardVisible ? Math.max(insets.bottom + 140, 160) : Math.max(insets.bottom + 28, 40),
-          }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: keyboardVisible ? Math.max(insets.bottom + 140, 160) : Math.max(insets.bottom + 28, 40),
+              paddingTop: isDesktopWeb ? Math.max(insets.top + 32, 42) : 0,
+            },
+          ]}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroWrap}>
-            <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
-              <View style={styles.heroOverlay}>
-                <View style={styles.topRow}>
-                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                    <MaterialCommunityIcons name="email-check-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.topPillText}>{t('auth.register.heroBadge')}</Text>
+          <View style={[styles.pageShell, isDesktopWeb ? styles.pageShellDesktop : null]}>
+            <View style={[styles.heroWrap, isDesktopWeb ? styles.heroWrapDesktop : null]}>
+              <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
+                <View style={[styles.heroOverlay, isDesktopWeb ? styles.heroOverlayDesktop : null]}>
+                  <View style={styles.topRow}>
+                    <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                      <MaterialCommunityIcons name="email-check-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.topPillText}>{t('auth.register.heroBadge')}</Text>
+                    </View>
+                    <LanguageSwitcher tone="light" />
                   </View>
-                  <LanguageSwitcher tone="light" />
+                  <Image source={logoSource} style={[styles.logo, isDesktopWeb ? styles.logoDesktop : null]} resizeMode="contain" />
+                  <Text style={[styles.heroTitle, isDesktopWeb ? styles.heroTitleDesktop : null]}>{t('auth.register.heroTitle')}</Text>
+                  <Text style={[styles.heroSubtitle, isDesktopWeb ? styles.heroSubtitleDesktop : null]}>{t('auth.register.heroSubtitle')}</Text>
                 </View>
-                <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-                <Text style={styles.heroTitle}>{t('auth.register.heroTitle')}</Text>
-                <Text style={styles.heroSubtitle}>{t('auth.register.heroSubtitle')}</Text>
-              </View>
-            </ImageBackground>
-          </View>
-
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: theme.custom.surfaceStrong,
-                borderColor: 'rgba(243, 111, 33, 0.12)',
-                marginTop: -28,
-              },
-            ]}
-          >
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.register.title')}</Text>
-              <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-                {t('auth.register.subtitle')}
-              </Text>
+              </ImageBackground>
             </View>
 
-            <View style={styles.nameRow}>
-              <View style={styles.halfField}>
-                <FloatingLabelInput
-                  accessibleLabel={t('auth.register.firstNameLabel')}
-                  autoCapitalize="words"
-                  autoComplete="name-given"
-                  error={errors.firstName}
-                  helperText={!errors.firstName ? t('auth.register.firstNameHelper') : undefined}
-                  icon="account-outline"
-                  label={t('auth.register.firstNameLabel')}
-                  onChangeText={text => {
-                    setFieldValue('firstName', text);
-                    touchField('firstName');
-                  }}
-                  onFocus={() => scrollToField(180)}
-                  onSubmitEditing={() => lastNameRef.current?.focus()}
-                  returnKeyType="next"
-                  valid={validity.firstName}
-                  value={values.firstName}
-                />
+            <View
+              style={[
+                styles.sheet,
+                isDesktopWeb ? styles.sheetDesktop : null,
+                {
+                  backgroundColor: theme.custom.surfaceStrong,
+                  borderColor: 'rgba(243, 111, 33, 0.12)',
+                  marginTop: isDesktopWeb ? 0 : -28,
+                },
+              ]}
+            >
+              <View style={styles.sheetHeader}>
+                <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.register.title')}</Text>
+                <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                  {t('auth.register.subtitle')}
+                </Text>
               </View>
-              <View style={styles.halfField}>
-                <FloatingLabelInput
-                  accessibleLabel={t('auth.register.lastNameLabel')}
-                  autoCapitalize="words"
-                  autoComplete="name-family"
-                  error={errors.lastName}
-                  helperText={!errors.lastName ? t('auth.register.lastNameHelper') : undefined}
-                  icon="badge-account-outline"
-                  inputRef={lastNameRef}
-                  label={t('auth.register.lastNameLabel')}
-                  onChangeText={text => {
-                    setFieldValue('lastName', text);
-                    touchField('lastName');
-                  }}
-                  onFocus={() => scrollToField(220)}
-                  onSubmitEditing={() => emailRef.current?.focus()}
-                  returnKeyType="next"
-                  valid={validity.lastName}
-                  value={values.lastName}
-                />
-              </View>
-            </View>
 
-            <FloatingLabelInput
-              accessibleLabel={t('auth.register.emailLabel')}
-              autoCapitalize="none"
-              autoComplete="email"
-              error={errors.email}
-              helperText={!errors.email ? t('auth.register.emailHelper') : undefined}
-              icon="email-outline"
-              inputRef={emailRef}
-              keyboardType="email-address"
-              label={t('auth.register.emailLabel')}
-              onChangeText={text => {
-                setFieldValue('email', text);
-                touchField('email');
-              }}
-              onFocus={() => scrollToField(300)}
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              returnKeyType="next"
-              valid={validity.email}
-              value={values.email}
-            />
-
-            <FloatingLabelInput
-              accessibleLabel={t('auth.register.passwordLabel')}
-              autoComplete="password-new"
-              error={errors.password}
-              helperText={!errors.password ? t('auth.register.passwordHelper') : undefined}
-              icon="lock-outline"
-              inputRef={passwordRef}
-              label={t('auth.register.passwordLabel')}
-              onChangeText={text => {
-                setFieldValue('password', text);
-                touchField('password');
-              }}
-              onFocus={() => scrollToField(420)}
-              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-              onToggleSecureEntry={() => setPasswordVisible(!passwordVisible)}
-              returnKeyType="next"
-              secureTextEntry={!passwordVisible}
-              textContentType="newPassword"
-              valid={validity.password}
-              value={values.password}
-            />
-
-            <FloatingLabelInput
-              accessibleLabel={t('auth.register.confirmPasswordLabel')}
-              autoComplete="password-new"
-              error={errors.confirmPassword}
-              helperText={!errors.confirmPassword ? t('auth.register.confirmPasswordHelper') : undefined}
-              icon="lock-check-outline"
-              inputRef={confirmPasswordRef}
-              label={t('auth.register.confirmPasswordLabel')}
-              onChangeText={text => {
-                setFieldValue('confirmPassword', text);
-                touchField('confirmPassword');
-              }}
-              onFocus={() => scrollToField(520)}
-              onSubmitEditing={handleRegister}
-              onToggleSecureEntry={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
-              returnKeyType="done"
-              secureTextEntry={!confirmPasswordVisible}
-              textContentType="password"
-              valid={validity.confirmPassword}
-              value={values.confirmPassword}
-            />
-
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <MaterialCommunityIcons name="shield-check-outline" size={18} color="#F36F21" />
-                <Text style={[styles.infoTitle, { color: theme.custom.textPrimary }]}>{t('auth.register.otpTitle')}</Text>
-              </View>
-              <Text style={[styles.infoText, { color: theme.custom.textSecondary }]}>
-                {t('auth.register.otpBody')}
-              </Text>
-            </View>
-
-            <View style={styles.actionWrap}>
-              {submitError ? <Text style={[styles.submitError, { color: theme.custom.error }]}>{submitError}</Text> : null}
-              {loading ? (
-                <View style={styles.loaderRow}>
-                  <ActivityIndicator color="#F36F21" size="small" />
-                  <Text style={[styles.loaderText, { color: theme.custom.textSecondary }]}>{t('auth.register.submitting')}</Text>
+              <View style={[styles.nameRow, !useTwoColumnNameRow ? styles.nameRowStacked : null]}>
+                <View style={[styles.halfField, !useTwoColumnNameRow ? styles.fullField : null]}>
+                  <FloatingLabelInput
+                    accessibleLabel={t('auth.register.firstNameLabel')}
+                    autoCapitalize="words"
+                    autoComplete="name-given"
+                    error={errors.firstName}
+                    helperText={!errors.firstName ? t('auth.register.firstNameHelper') : undefined}
+                    icon="account-outline"
+                    label={t('auth.register.firstNameLabel')}
+                    onChangeText={text => {
+                      setFieldValue('firstName', text);
+                      touchField('firstName');
+                    }}
+                    onFocus={() => scrollToField(180)}
+                    onSubmitEditing={() => lastNameRef.current?.focus()}
+                    returnKeyType="next"
+                    valid={validity.firstName}
+                    value={values.firstName}
+                  />
                 </View>
-              ) : null}
-              <PrimaryButton disabled={!isValid} label={t('auth.register.cta')} loading={loading} onPress={handleRegister} />
-            </View>
+                <View style={[styles.halfField, !useTwoColumnNameRow ? styles.fullField : null]}>
+                  <FloatingLabelInput
+                    accessibleLabel={t('auth.register.lastNameLabel')}
+                    autoCapitalize="words"
+                    autoComplete="name-family"
+                    error={errors.lastName}
+                    helperText={!errors.lastName ? t('auth.register.lastNameHelper') : undefined}
+                    icon="badge-account-outline"
+                    inputRef={lastNameRef}
+                    label={t('auth.register.lastNameLabel')}
+                    onChangeText={text => {
+                      setFieldValue('lastName', text);
+                      touchField('lastName');
+                    }}
+                    onFocus={() => scrollToField(220)}
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                    returnKeyType="next"
+                    valid={validity.lastName}
+                    value={values.lastName}
+                  />
+                </View>
+              </View>
 
-            <View style={styles.footerRow}>
-              <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.register.footerPrompt')}</Text>
-              <Text style={styles.footerLink} onPress={() => navigation.navigate('Login')}>
-                {t('auth.register.footerAction')}
-              </Text>
+              <FloatingLabelInput
+                accessibleLabel={t('auth.register.emailLabel')}
+                autoCapitalize="none"
+                autoComplete="email"
+                error={errors.email}
+                helperText={!errors.email ? t('auth.register.emailHelper') : undefined}
+                icon="email-outline"
+                inputRef={emailRef}
+                keyboardType="email-address"
+                label={t('auth.register.emailLabel')}
+                onChangeText={text => {
+                  setFieldValue('email', text);
+                  touchField('email');
+                }}
+                onFocus={() => scrollToField(300)}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                returnKeyType="next"
+                valid={validity.email}
+                value={values.email}
+              />
+
+              <FloatingLabelInput
+                accessibleLabel={t('auth.register.passwordLabel')}
+                autoComplete="password-new"
+                error={errors.password}
+                helperText={!errors.password ? t('auth.register.passwordHelper') : undefined}
+                icon="lock-outline"
+                inputRef={passwordRef}
+                label={t('auth.register.passwordLabel')}
+                onChangeText={text => {
+                  setFieldValue('password', text);
+                  touchField('password');
+                }}
+                onFocus={() => scrollToField(420)}
+                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                onToggleSecureEntry={() => setPasswordVisible(!passwordVisible)}
+                returnKeyType="next"
+                secureTextEntry={!passwordVisible}
+                textContentType="newPassword"
+                valid={validity.password}
+                value={values.password}
+              />
+
+              <FloatingLabelInput
+                accessibleLabel={t('auth.register.confirmPasswordLabel')}
+                autoComplete="password-new"
+                error={errors.confirmPassword}
+                helperText={!errors.confirmPassword ? t('auth.register.confirmPasswordHelper') : undefined}
+                icon="lock-check-outline"
+                inputRef={confirmPasswordRef}
+                label={t('auth.register.confirmPasswordLabel')}
+                onChangeText={text => {
+                  setFieldValue('confirmPassword', text);
+                  touchField('confirmPassword');
+                }}
+                onFocus={() => scrollToField(520)}
+                onSubmitEditing={handleRegister}
+                onToggleSecureEntry={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
+                returnKeyType="done"
+                secureTextEntry={!confirmPasswordVisible}
+                textContentType="password"
+                valid={validity.confirmPassword}
+                value={values.confirmPassword}
+              />
+
+              <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <MaterialCommunityIcons name="shield-check-outline" size={18} color="#F36F21" />
+                  <Text style={[styles.infoTitle, { color: theme.custom.textPrimary }]}>{t('auth.register.otpTitle')}</Text>
+                </View>
+                <Text style={[styles.infoText, { color: theme.custom.textSecondary }]}>
+                  {t('auth.register.otpBody')}
+                </Text>
+              </View>
+
+              <View style={styles.actionWrap}>
+                {submitError ? <Text style={[styles.submitError, { color: theme.custom.error }]}>{submitError}</Text> : null}
+                <PrimaryButton disabled={!isValid} label={t('auth.register.cta')} loading={loading} onPress={handleRegister} />
+              </View>
+
+              <View style={styles.footerRow}>
+                <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.register.footerPrompt')}</Text>
+                <Text style={styles.footerLink} onPress={() => navigation.navigate('Login')}>
+                  {t('auth.register.footerAction')}
+                </Text>
+              </View>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Pressable>
+    </RootContainer>
   );
 }
 
@@ -311,8 +319,30 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  pageShell: {
+    flexGrow: 1,
+  },
+  pageShellDesktop: {
+    maxWidth: 1220,
+    width: '100%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 22,
+    paddingHorizontal: 22,
+  },
   heroWrap: {
     height: 360,
+  },
+  heroWrapDesktop: {
+    flex: 1.08,
+    minHeight: 820,
+    height: 'auto',
+    borderRadius: 34,
+    overflow: 'hidden',
   },
   heroImage: {
     flex: 1,
@@ -325,6 +355,13 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     justifyContent: 'flex-end',
     alignItems: 'center',
+  },
+  heroOverlayDesktop: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    paddingTop: 72,
+    paddingHorizontal: 38,
+    paddingBottom: 42,
   },
   topRow: {
     position: 'absolute',
@@ -357,6 +394,11 @@ const styles = StyleSheet.create({
     height: 120,
     marginBottom: 12,
   },
+  logoDesktop: {
+    width: 188,
+    height: 132,
+    marginBottom: 18,
+  },
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 30,
@@ -364,12 +406,23 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 8,
   },
+  heroTitleDesktop: {
+    fontSize: 46,
+    lineHeight: 52,
+    maxWidth: 420,
+  },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.92)',
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
     maxWidth: 320,
+  },
+  heroSubtitleDesktop: {
+    maxWidth: 430,
+    textAlign: 'left',
+    fontSize: 16,
+    lineHeight: 24,
   },
   sheet: {
     marginHorizontal: 16,
@@ -383,6 +436,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 12,
+  },
+  sheetDesktop: {
+    flex: 0.92,
+    marginHorizontal: 0,
+    borderRadius: 34,
+    paddingHorizontal: 26,
+    paddingTop: 28,
+    paddingBottom: 28,
+    justifyContent: 'center',
+    alignSelf: 'stretch',
   },
   sheetHeader: {
     marginBottom: 16,
@@ -401,8 +464,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  nameRowStacked: {
+    flexDirection: 'column',
+    gap: 0,
+  },
   halfField: {
     flex: 1,
+  },
+  fullField: {
+    flexBasis: '100%',
   },
   infoCard: {
     borderRadius: 20,
@@ -428,16 +498,6 @@ const styles = StyleSheet.create({
   },
   actionWrap: {
     gap: 10,
-  },
-  loaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  loaderText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   submitError: {
     fontSize: 13,

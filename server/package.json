@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm migration:generate -- -d src/config/db.ts src/migrations/Update",
+    "migration:baseline": "ts-node src/scripts/baselineMigrations.ts",
     "migration:run": "npm run typeorm migration:run -- -d src/config/db.ts",
     "migration:revert": "npm run typeorm migration:revert -- -d src/config/db.ts",
     "seed:roles": "ALLOW_ROLE_USER_SEED=true ts-node src/scripts/seedRoleUsers.ts",

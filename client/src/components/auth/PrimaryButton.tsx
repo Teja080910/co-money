@@ -57,7 +57,7 @@ export function PrimaryButton({ label, onPress, disabled = false, loading = fals
         ]}
       >
         <View style={styles.buttonInner}>
-          {loading ? <ActivityIndicator color="#FFFFFF" /> : null}
+          {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
           <Text style={styles.label}>{label}</Text>
         </View>
       </Pressable>
