@@ -2921,6 +2921,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
   const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
   const isDesktopWeb = Platform.OS === 'web' && width >= 1120;
+  const mobileBackTarget = routes.find(routeItem => routeItem.showWelcomeHeader)?.key ?? routes[0]?.key ?? 'home';
+  const showMobileBackButton = !isDesktopWeb && Boolean(routes.length) && activeTabKey !== mobileBackTarget;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
@@ -3084,11 +3086,11 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
             <View
               style={[
-                styles.sheet,
+                isDesktopWeb ? styles.sheet : styles.sheetMobile,
                 isDesktopWeb ? styles.sheetDesktop : null,
                 {
-                  backgroundColor: theme.custom.surfaceStrong,
-                  borderColor: 'rgba(243, 111, 33, 0.12)',
+                  backgroundColor: isDesktopWeb ? theme.custom.surfaceStrong : 'transparent',
+                  borderColor: isDesktopWeb ? 'rgba(243, 111, 33, 0.12)' : 'transparent',
                 },
               ]}
             >
@@ -3171,11 +3173,25 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                 </View>
               ) : (
                 <>
-                  <View style={styles.sheetHeader}>
-                    <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>
-                      {activeRoute?.title || t('dashboard.overview')}
-                    </Text>
-                    <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                  <View style={[styles.sheetHeader, styles.sheetHeaderMobile]}>
+                    <View style={styles.mobileHeaderTopRow}>
+                      {showMobileBackButton ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => setActiveTabKey(mobileBackTarget as keyof HomeTabParamList)}
+                          style={[styles.mobileBackButton, { backgroundColor: theme.custom.surfaceStrong, borderColor: theme.custom.border }]}
+                        >
+                          <MaterialCommunityIcons name="arrow-left" size={20} color={theme.custom.textPrimary} />
+                        </Pressable>
+                      ) : (
+                        <View style={styles.mobileBackButtonSpacer} />
+                      )}
+                      <Text style={[styles.sheetTitle, styles.sheetTitleMobile, { color: theme.custom.textPrimary }]}>
+                        {activeRoute?.title || t('dashboard.overview')}
+                      </Text>
+                      <View style={styles.mobileBackButtonSpacer} />
+                    </View>
+                    <Text style={[styles.sheetSubtitle, styles.sheetSubtitleMobile, { color: theme.custom.textSecondary }]}>
                       {t('dashboard.sheetSubtitle')}
                     </Text>
                   </View>
@@ -3419,6 +3435,13 @@ const styles = StyleSheet.create({
     shadowRadius: 28,
     elevation: 10,
   },
+  sheetMobile: {
+    marginHorizontal: 16,
+    marginBottom: 0,
+    paddingHorizontal: 0,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
   sheetDesktop: {
     maxWidth: 1320,
     width: '100%',
@@ -3430,15 +3453,30 @@ const styles = StyleSheet.create({
   sheetHeader: {
     marginBottom: 18,
   },
+  sheetHeaderMobile: {
+    marginBottom: 14,
+    paddingHorizontal: 4,
+  },
   sheetTitle: {
     fontSize: 28,
     lineHeight: 32,
     fontWeight: '900',
     marginBottom: 8,
   },
+  sheetTitleMobile: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 24,
+    lineHeight: 28,
+    marginBottom: 0,
+  },
   sheetSubtitle: {
     fontSize: 14,
     lineHeight: 21,
+  },
+  sheetSubtitleMobile: {
+    marginTop: 10,
+    textAlign: 'center',
   },
   loaderWrap: {
     marginHorizontal: 16,
@@ -3681,6 +3719,24 @@ const styles = StyleSheet.create({
   tabSceneContent: {
     paddingTop: 6,
     paddingBottom: 8,
+  },
+  mobileHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  mobileBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileBackButtonSpacer: {
+    width: 40,
+    height: 40,
   },
   desktopShell: {
     flexDirection: 'row',
