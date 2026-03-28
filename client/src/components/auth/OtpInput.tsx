@@ -93,7 +93,6 @@ export function OtpInput({ value, length = 6, onChange }: Props) {
                 shadowColor: isFilled ? theme.custom.brand : theme.custom.shadow,
               },
             ]}
-            textAlign="center"
             textContentType="oneTimeCode"
             value={digit}
           />
@@ -118,6 +117,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     fontSize: 24,
     fontWeight: '800',
+    lineHeight: 62,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    textAlign: 'center',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 18,

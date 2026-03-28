@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,6 +33,7 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
   const email = route.params.email;
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(30);
@@ -39,6 +41,7 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
   const [resending, setResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const normalizedOtp = otp.replace(/\D/g, '').slice(0, 6);
+  const isDesktopWeb = Platform.OS === 'web' && width >= 1080;
   const RootContainer = Platform.OS === 'web' ? View : Pressable;
   const clearErrorMessage = useCallback(() => {
     setErrorMessage(null);
@@ -109,96 +112,105 @@ export function VerifyEmailScreen({ navigation, route }: ScreenProps<'VerifyEmai
       >
         <ScrollView
           bounces={false}
-          contentContainerStyle={{
-            paddingBottom: Math.max(insets.bottom + 28, 40),
-          }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: Math.max(insets.bottom + 28, 40),
+              paddingTop: isDesktopWeb ? Math.max(insets.top + 32, 42) : 0,
+            },
+          ]}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroWrap}>
-            <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
-              <View style={styles.heroOverlay}>
-                <View style={styles.topRow}>
-                  <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
-                    <MaterialCommunityIcons name="message-badge-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.topPillText}>{t('auth.verifyEmail.heroBadge')}</Text>
+          <View style={[styles.pageShell, isDesktopWeb ? styles.pageShellDesktop : null]}>
+            <View style={[styles.heroWrap, isDesktopWeb ? styles.heroWrapDesktop : null]}>
+              <ImageBackground source={backgroundSource} style={styles.heroImage} resizeMode="cover">
+                <View style={[styles.heroOverlay, isDesktopWeb ? styles.heroOverlayDesktop : null]}>
+                  <View style={styles.topRow}>
+                    <View style={[styles.topPill, { borderColor: 'rgba(255,255,255,0.42)' }]}>
+                      <MaterialCommunityIcons name="message-badge-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.topPillText}>{t('auth.verifyEmail.heroBadge')}</Text>
+                    </View>
+                    <LanguageSwitcher tone="light" />
                   </View>
-                  <LanguageSwitcher tone="light" />
+                  <Image source={logoSource} style={[styles.logo, isDesktopWeb ? styles.logoDesktop : null]} resizeMode="contain" />
+                  <Text style={[styles.heroTitle, isDesktopWeb ? styles.heroTitleDesktop : null]}>{t('auth.verifyEmail.heroTitle')}</Text>
+                  <Text style={[styles.heroSubtitle, isDesktopWeb ? styles.heroSubtitleDesktop : null]}>{t('auth.verifyEmail.heroSubtitle')}</Text>
                 </View>
-                <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-                <Text style={styles.heroTitle}>{t('auth.verifyEmail.heroTitle')}</Text>
-                <Text style={styles.heroSubtitle}>{t('auth.verifyEmail.heroSubtitle')}</Text>
-              </View>
-            </ImageBackground>
-          </View>
-
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: theme.custom.surfaceStrong,
-                borderColor: 'rgba(243, 111, 33, 0.12)',
-                marginTop: -28,
-              },
-            ]}
-          >
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.title')}</Text>
-              <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
-                {t('auth.verifyEmail.subtitle')}
-              </Text>
+              </ImageBackground>
             </View>
 
-            <View style={styles.emailCard}>
-              <MaterialCommunityIcons name="email-outline" size={18} color="#F36F21" />
-              <Text style={[styles.emailText, { color: theme.custom.textPrimary }]}>{email}</Text>
-            </View>
-
-            <View style={styles.formStack}>
-              <Text style={[styles.sectionLabel, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.sectionLabel')}</Text>
-              <OtpInput onChange={setOtp} value={normalizedOtp} />
-
-              {errorMessage ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{errorMessage}</Text> : null}
-
-              <View style={styles.buttonWrap}>
-                <PrimaryButton
-                  disabled={normalizedOtp.length !== 6}
-                  label={t('auth.verifyEmail.cta')}
-                  loading={loading}
-                  onPress={handleVerify}
-                />
-              </View>
-            </View>
-
-            <View style={styles.resendRow}>
-              <Text style={[styles.resendText, { color: theme.custom.textSecondary }]}>
-                {timer > 0
-                  ? t('auth.verifyEmail.resendCountdown', { time: timer.toString().padStart(2, '0') })
-                  : t('auth.verifyEmail.resendPrompt')}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                disabled={timer > 0 || resending}
-                onPress={handleResend}
-                style={({ pressed }) => [styles.resendAction, pressed && timer === 0 ? styles.resendPressed : null]}
-              >
-                <Text
-                  style={[
-                    styles.resendActionText,
-                    { color: timer > 0 || resending ? theme.custom.textSecondary : '#F36F21' },
-                  ]}
-                >
-                  {resending ? t('auth.verifyEmail.resending') : t('auth.verifyEmail.resendAction')}
+            <View
+              style={[
+                styles.sheet,
+                isDesktopWeb ? styles.sheetDesktop : null,
+                {
+                  backgroundColor: theme.custom.surfaceStrong,
+                  borderColor: 'rgba(243, 111, 33, 0.12)',
+                  marginTop: isDesktopWeb ? 0 : -28,
+                },
+              ]}
+            >
+              <View style={styles.sheetHeader}>
+                <Text style={[styles.sheetTitle, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.title')}</Text>
+                <Text style={[styles.sheetSubtitle, { color: theme.custom.textSecondary }]}>
+                  {t('auth.verifyEmail.subtitle')}
                 </Text>
-              </Pressable>
-            </View>
+              </View>
 
-            <View style={styles.footerRow}>
-              <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>{t('auth.verifyEmail.wrongEmailPrompt')}</Text>
-              <Text style={styles.footerLink} onPress={() => navigation.goBack()}>
-                {t('auth.verifyEmail.wrongEmailAction')}
-              </Text>
+              <View style={styles.emailCard}>
+                <MaterialCommunityIcons name="email-outline" size={18} color="#F36F21" />
+                <Text style={styles.emailText}>{email}</Text>
+              </View>
+
+              <View style={styles.formStack}>
+                <Text style={[styles.sectionLabel, { color: theme.custom.textPrimary }]}>{t('auth.verifyEmail.sectionLabel')}</Text>
+                <OtpInput onChange={setOtp} value={normalizedOtp} />
+
+                {errorMessage ? <Text style={[styles.errorText, { color: theme.custom.error }]}>{errorMessage}</Text> : null}
+
+                <View style={styles.buttonWrap}>
+                  <PrimaryButton
+                    disabled={normalizedOtp.length !== 6}
+                    label={t('auth.verifyEmail.cta')}
+                    loading={loading}
+                    onPress={handleVerify}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.resendRow}>
+                <Text style={[styles.resendText, { color: theme.custom.textSecondary }]}>
+                  {timer > 0
+                    ? t('auth.verifyEmail.resendCountdown', { time: timer.toString().padStart(2, '0') })
+                    : t('auth.verifyEmail.resendPrompt')}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={timer > 0 || resending}
+                  onPress={handleResend}
+                  style={({ pressed }) => [styles.resendAction, pressed && timer === 0 ? styles.resendPressed : null]}
+                >
+                  <Text
+                    style={[
+                      styles.resendActionText,
+                      { color: timer > 0 || resending ? theme.custom.textSecondary : '#F36F21' },
+                    ]}
+                  >
+                    {resending ? t('auth.verifyEmail.resending') : t('auth.verifyEmail.resendAction')}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.footerRow}>
+                <Text style={[styles.footerText, { color: theme.custom.textSecondary }]}>
+                  {t('auth.verifyEmail.wrongEmailPrompt')}
+                </Text>
+                <Text style={styles.footerLink} onPress={() => navigation.goBack()}>
+                  {t('auth.verifyEmail.wrongEmailAction')}
+                </Text>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -214,8 +226,30 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  pageShell: {
+    flexGrow: 1,
+  },
+  pageShellDesktop: {
+    maxWidth: 1220,
+    width: '100%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 22,
+    paddingHorizontal: 22,
+  },
   heroWrap: {
     height: 360,
+  },
+  heroWrapDesktop: {
+    flex: 1.08,
+    minHeight: 760,
+    height: 'auto',
+    borderRadius: 34,
+    overflow: 'hidden',
   },
   heroImage: {
     flex: 1,
@@ -228,6 +262,13 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     justifyContent: 'flex-end',
     alignItems: 'center',
+  },
+  heroOverlayDesktop: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    paddingTop: 72,
+    paddingHorizontal: 38,
+    paddingBottom: 42,
   },
   topRow: {
     position: 'absolute',
@@ -260,6 +301,11 @@ const styles = StyleSheet.create({
     height: 120,
     marginBottom: 12,
   },
+  logoDesktop: {
+    width: 188,
+    height: 132,
+    marginBottom: 18,
+  },
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 30,
@@ -267,12 +313,23 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 8,
   },
+  heroTitleDesktop: {
+    fontSize: 46,
+    lineHeight: 52,
+    maxWidth: 420,
+  },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.92)',
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
     maxWidth: 320,
+  },
+  heroSubtitleDesktop: {
+    maxWidth: 430,
+    textAlign: 'left',
+    fontSize: 16,
+    lineHeight: 24,
   },
   sheet: {
     marginHorizontal: 16,
@@ -286,6 +343,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 12,
+  },
+  sheetDesktop: {
+    flex: 0.92,
+    marginHorizontal: 0,
+    borderRadius: 34,
+    paddingHorizontal: 26,
+    paddingTop: 28,
+    paddingBottom: 28,
+    justifyContent: 'center',
+    alignSelf: 'stretch',
   },
   sheetHeader: {
     marginBottom: 12,
@@ -315,6 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
+    color: '#7C2D12',
   },
   sectionLabel: {
     fontSize: 14,

@@ -2925,10 +2925,37 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
       <View pointerEvents="none" style={styles.backdropLayer}>
-        <View style={styles.backdropBase} />
-        <View style={styles.backdropGlowBlue} />
-        <View style={styles.backdropGlowOrange} />
-        <View style={styles.backdropGrid} />
+        <View style={[styles.backdropBase, { backgroundColor: theme.custom.background }]} />
+        <View
+          style={[
+            styles.backdropGlowBlue,
+            {
+              backgroundColor: theme.custom.background === '#07111F'
+                ? 'rgba(47,107,255,0.22)'
+                : 'rgba(47,107,255,0.16)',
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.backdropGlowOrange,
+            {
+              backgroundColor: theme.custom.background === '#07111F'
+                ? 'rgba(243,111,33,0.14)'
+                : 'rgba(243,111,33,0.12)',
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.backdropGrid,
+            {
+              borderColor: theme.custom.background === '#07111F'
+                ? 'rgba(255,255,255,0.05)'
+                : 'rgba(15,23,42,0.05)',
+            },
+          ]}
+        />
       </View>
       {activeEditSheet ? (
         <Portal>
@@ -3216,7 +3243,6 @@ const styles = StyleSheet.create({
   },
   backdropBase: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#F4F7FB',
   },
   backdropGlowBlue: {
     position: 'absolute',
@@ -3225,7 +3251,6 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 999,
-    backgroundColor: 'rgba(47,107,255,0.16)',
   },
   backdropGlowOrange: {
     position: 'absolute',
@@ -3234,7 +3259,6 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 999,
-    backgroundColor: 'rgba(243,111,33,0.12)',
   },
   backdropGrid: {
     position: 'absolute',
@@ -3244,7 +3268,6 @@ const styles = StyleSheet.create({
     height: 132,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.05)',
   },
   contentFrame: {
     paddingHorizontal: 0,
