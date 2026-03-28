@@ -2883,6 +2883,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     () => routes.findIndex(routeItem => routeItem.key === activeTabKey),
     [activeTabKey, routes],
   );
+  const canManagePromotions = authUser?.role === UserRole.MERCHANT || authUser?.role === UserRole.ADMIN;
   const tabScenes = useMemo<Partial<Record<keyof HomeTabParamList, React.ReactNode>>>(() => ({
     home: <HomeOverviewTab context={tabContext} />,
     dashboard: <HomeOverviewTab context={tabContext} />,
@@ -2900,7 +2901,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     ),
     'category-settings': <CategorySettingsSection context={tabContext} />,
     configuration: <SystemConfigurationSection context={tabContext} />,
-    promotions: <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />,
+    promotions: <PromotionsSection context={tabContext} editable={canManagePromotions} />,
     events: <EventsSection context={tabContext} editable />,
     transactions: <TransactionsTab context={tabContext} />,
     customers: <CustomersTab context={tabContext} />,
@@ -2922,7 +2923,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       />
     ),
     profile: <ProfileTab context={tabContext} />,
-  }), [authUser?.role, merchants, representatives, t, tabContext]);
+  }), [canManagePromotions, authUser?.role, merchants, representatives, t, tabContext]);
 
   const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
   const isDesktopWeb = Platform.OS === 'web' && width >= 1120;
