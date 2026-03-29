@@ -26,6 +26,7 @@ export function HomeOverviewTab({ context }: Props) {
   const safeCustomers = customers ?? [];
   const safeShops = shops ?? [];
   const safeRepresentatives = representatives ?? [];
+  const canManagePromotions = authUser.role === UserRole.MERCHANT || authUser.role === UserRole.ADMIN;
 
   if (!authUser) {
     return null;
@@ -65,7 +66,7 @@ export function HomeOverviewTab({ context }: Props) {
         <View style={{ marginTop: 8 }}>
           <UserListSection context={context} title={t('overview.merchant.recentCustomersTitle')} subtitle={t('overview.merchant.recentCustomersSubtitle')} users={safeFilteredCustomers.slice(0, 5)} />
         </View>
-        <PromotionsSection context={context} editable />
+        <PromotionsSection context={context} editable={canManagePromotions} />
         <EventsSection context={context} editable={false} />
       </>
     );
@@ -81,7 +82,7 @@ export function HomeOverviewTab({ context }: Props) {
           {renderSummaryMetric(t('overview.representative.metrics.shops'), safeShops.length)}
         </View>
         <ShopManagementSection context={context} title={t('overview.representative.shopManagementTitle')} subtitle={t('overview.representative.shopManagementSubtitle')} />
-        <PromotionsSection context={context} editable />
+        <PromotionsSection context={context} editable={canManagePromotions} />
         {report ? (
           <Card style={[styles.card, { backgroundColor: theme.custom.surfaceStrong }]} mode="elevated">
             <Card.Title title={t('overview.representative.snapshotTitle')} subtitle={t('overview.representative.snapshotSubtitle')} />
