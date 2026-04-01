@@ -219,6 +219,10 @@ type PaginatedListState<T> = {
 
 type ActiveEditSheet = 'shop' | 'promotion' | 'event' | 'category' | 'configuration' | null;
 type WalletActionFeedback = 'earn' | 'spend' | 'preview' | null;
+type DatePickerKey = 'promotion-start' | 'promotion-end' | 'event-start' | 'event-end';
+type WebDateInputElement = HTMLInputElement & {
+  showPicker?: () => void;
+};
 type ManagementFeedbackTarget =
   | 'shopForm'
   | 'shopList'
@@ -260,6 +264,15 @@ const transactionStatusOptions = ['ALL', 'SUCCESS', 'PENDING', 'FAILED'];
 const pointTypeOptions: Array<'STANDARD' | 'BONUS'> = ['STANDARD', 'BONUS'];
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const defaultPageSize = 5;
+const webDateInputOverlayStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: 1,
+  height: 1,
+  opacity: 0,
+  pointerEvents: 'none',
+};
 
 function createInitialPaginatedListState<T>(): PaginatedListState<T> {
   return {
@@ -462,8 +475,14 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     confirm: false,
   });
   const [activeDatePicker, setActiveDatePicker] = useState<
-    'promotion-start' | 'promotion-end' | 'event-start' | 'event-end' | null
+    DatePickerKey | null
   >(null);
+  const webDateInputRefs = useRef<Record<DatePickerKey, WebDateInputElement | null>>({
+    'promotion-start': null,
+    'promotion-end': null,
+    'event-start': null,
+    'event-end': null,
+  });
 
   const clearManagementFeedback = useCallback(() => {
     setManagementFeedback(createEmptyManagementFeedback());
@@ -1551,19 +1570,8 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     });
   };
 
-  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (event.type === 'dismissed') {
-      setActiveDatePicker(null);
-      return;
-    }
-
-    if (!selectedDate || !activeDatePicker) {
-      return;
-    }
-
-    const nextValue = formatDateInputValue(selectedDate);
-
-    switch (activeDatePicker) {
+  const setDateValue = useCallback((pickerKey: DatePickerKey, nextValue: string) => {
+    switch (pickerKey) {
       case 'promotion-start':
         setPromotionStartDate(nextValue);
         break;
@@ -1577,32 +1585,96 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
         setEventEndDate(nextValue);
         break;
     }
+  }, []);
+
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (event.type === 'dismissed') {
+      setActiveDatePicker(null);
+      return;
+    }
+
+    if (!selectedDate || !activeDatePicker) {
+      return;
+    }
+
+    const nextValue = formatDateInputValue(selectedDate);
+
+    setDateValue(activeDatePicker, nextValue);
 
     if (Platform.OS !== 'ios') {
       setActiveDatePicker(null);
     }
   };
 
+  const openWebDatePicker = useCallback((pickerKey: DatePickerKey) => {
+    const input = webDateInputRefs.current[pickerKey];
+
+    if (!input) {
+      return;
+    }
+
+    input.focus();
+
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+      return;
+    }
+
+    input.click();
+  }, []);
+
   const renderDateField = (
     label: string,
     value: string,
-    pickerKey: NonNullable<typeof activeDatePicker>,
+    pickerKey: DatePickerKey,
     helperText: string,
-  ) => (
-    <View style={styles.dateFieldBlock}>
-      <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{label}</Text>
-      <Pressable
-        onPress={() => setActiveDatePicker(pickerKey)}
-        style={[styles.dateField, { borderColor: theme.custom.border, backgroundColor: theme.custom.background }]}
-      >
-        <Text style={[styles.dateFieldValue, { color: value ? theme.custom.textPrimary : theme.custom.textSecondary }]}>
-          {value || t('common.selectDate')}
-        </Text>
-        <MaterialCommunityIcons name="calendar-month-outline" size={20} color={theme.custom.textSecondary} />
-      </Pressable>
-      <Text style={[styles.dateFieldHelper, { color: theme.custom.textSecondary }]}>{helperText}</Text>
-    </View>
-  );
+  ) => {
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.dateFieldBlock}>
+          <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{label}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => openWebDatePicker(pickerKey)}
+            style={[styles.dateField, { borderColor: theme.custom.border, backgroundColor: theme.custom.background }]}
+          >
+            <Text style={[styles.dateFieldValue, { color: value ? theme.custom.textPrimary : theme.custom.textSecondary }]}>
+              {value || t('common.selectDate')}
+            </Text>
+            <MaterialCommunityIcons name="calendar-month-outline" size={20} color={theme.custom.textSecondary} />
+            {React.createElement('input', {
+              'aria-label': label,
+              ref: (node: WebDateInputElement | null) => {
+                webDateInputRefs.current[pickerKey] = node;
+              },
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => setDateValue(pickerKey, event.target.value),
+              style: webDateInputOverlayStyle,
+              tabIndex: -1,
+              type: 'date',
+              value,
+            })}
+          </Pressable>
+          <Text style={[styles.dateFieldHelper, { color: theme.custom.textSecondary }]}>{helperText}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.dateFieldBlock}>
+        <Text style={[styles.sectionLabel, { color: theme.custom.textSecondary }]}>{label}</Text>
+        <Pressable
+          onPress={() => setActiveDatePicker(pickerKey)}
+          style={[styles.dateField, { borderColor: theme.custom.border, backgroundColor: theme.custom.background }]}
+        >
+          <Text style={[styles.dateFieldValue, { color: value ? theme.custom.textPrimary : theme.custom.textSecondary }]}>
+            {value || t('common.selectDate')}
+          </Text>
+          <MaterialCommunityIcons name="calendar-month-outline" size={20} color={theme.custom.textSecondary} />
+        </Pressable>
+        <Text style={[styles.dateFieldHelper, { color: theme.custom.textSecondary }]}>{helperText}</Text>
+      </View>
+    );
+  };
 
   const handleAddPoints = async () => {
     if (!selectedCustomerId.trim()) {
@@ -2883,6 +2955,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     () => routes.findIndex(routeItem => routeItem.key === activeTabKey),
     [activeTabKey, routes],
   );
+  const canManagePromotions = authUser?.role === UserRole.MERCHANT || authUser?.role === UserRole.ADMIN;
   const tabScenes = useMemo<Partial<Record<keyof HomeTabParamList, React.ReactNode>>>(() => ({
     home: <HomeOverviewTab context={tabContext} />,
     dashboard: <HomeOverviewTab context={tabContext} />,
@@ -2900,7 +2973,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
     ),
     'category-settings': <CategorySettingsSection context={tabContext} />,
     configuration: <SystemConfigurationSection context={tabContext} />,
-    promotions: <PromotionsSection context={tabContext} editable={authUser?.role !== UserRole.CUSTOMER} />,
+    promotions: <PromotionsSection context={tabContext} editable={canManagePromotions} />,
     events: <EventsSection context={tabContext} editable />,
     transactions: <TransactionsTab context={tabContext} />,
     customers: <CustomersTab context={tabContext} />,
@@ -2922,7 +2995,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       />
     ),
     profile: <ProfileTab context={tabContext} />,
-  }), [authUser?.role, merchants, representatives, t, tabContext]);
+  }), [canManagePromotions, authUser?.role, merchants, representatives, t, tabContext]);
 
   const activeTabContent = tabScenes[activeTabKey] ?? tabScenes.home ?? tabScenes.dashboard ?? null;
   const isDesktopWeb = Platform.OS === 'web' && width >= 1120;
@@ -3182,7 +3255,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
                         {activeTabContent}
                       </View>
                     </View>
-                    {activeDatePicker ? (
+                    {Platform.OS !== 'web' && activeDatePicker ? (
                       <View style={styles.datePickerWrap}>
                         <DateTimePicker
                           value={
@@ -3237,7 +3310,7 @@ export function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 	                    {activeTabContent}
 		                  </View>
 	                </View>
-	                {activeDatePicker ? (
+	                {Platform.OS !== 'web' && activeDatePicker ? (
 	                  <View style={styles.datePickerWrap}>
 	                    <DateTimePicker
                       value={
@@ -3734,6 +3807,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   dateField: {
+    position: 'relative',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,

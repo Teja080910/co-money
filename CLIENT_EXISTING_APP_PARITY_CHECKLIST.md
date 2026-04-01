@@ -1,6 +1,12 @@
 # Client Existing-App Parity Checklist
 
-This checklist compares the current React Native client in `client/` against the reconstructed behavior and requirements documented from `existing-app/`.
+This checklist compares the current shared client in `client/` against the reconstructed behavior and requirements documented from `existing-app/`.
+
+Implementation note:
+
+- this present version is intended to serve both web and app
+- parity should therefore be evaluated against the shared client, not as a mobile-only rebuild
+- platform-specific implementation differences are acceptable where they preserve the intended product behavior across web and native
 
 Status meanings:
 
@@ -19,7 +25,7 @@ Status meanings:
 | Promotions browse | Present | [PromotionsSection](./client/src/components/home-tabs/ManagementSections.tsx) renders customer-facing promotions. | Verify customer visibility rules are enforced server-side. |
 | Promotion claim flow | Present | [handleClaimPromotion](./client/src/screens/HomeScreen.tsx) posts to `/api/promotions/:id/claim`. | Confirm this is intended product behavior, since legacy app only inferred claimability. |
 | Offline QR rendering after auth | Present | [CustomerQrScreen](./client/src/screens/CustomerQrScreen.tsx) caches the last valid QR payload and shows it when a live refresh fails. | Keep QR expiry semantics aligned with backend validation rules. |
-| Secure token storage | Present | [auth.ts](./client/src/services/auth.ts), [api.ts](./client/src/services/api.ts), and [secureSessionStorage.ts](./client/src/services/secureSessionStorage.ts) store auth session data in `SecureStore` with migration from legacy `AsyncStorage`. | Verify secure-storage migration on physical devices before release. |
+| Secure token storage | Present | [auth.ts](./client/src/services/auth.ts), [api.ts](./client/src/services/api.ts), [secureSessionStorage.ts](./client/src/services/secureSessionStorage.ts), and [secureSessionStorage.native.ts](./client/src/services/secureSessionStorage.native.ts) use platform-aware session storage: native uses `SecureStore`, while the shared web-compatible module falls back where secure native storage is unavailable. | Verify native secure-storage migration on physical devices and confirm the browser storage policy is acceptable for web. |
 
 ## Merchant
 
@@ -51,7 +57,7 @@ Status meanings:
 | Customer directory/listing | Present | [RepresentativeUserManagementSection](./client/src/components/home-tabs/ManagementSections.tsx) shows customer directory. | Confirm this matches legacy scope. |
 | Internal user creation for merchant/customer | Present | [InternalUserManagementSection](./client/src/components/home-tabs/ManagementSections.tsx) plus [handleCreateInternalUser](./client/src/screens/HomeScreen.tsx). | Verify allowed roles remain limited to representative permissions. |
 | Rich zone leaderboard / top-area reporting | Present | Representatives now have a reachable `reports` tab via [homeTabConfig](./client/src/navigation/homeTabConfig.ts), and ranked shop reporting is shown in [ReportsTab](./client/src/components/home-tabs/ReportsTab.tsx). | Keep report ranking scoped correctly to representative-owned shops. |
-| Role constraints around promotions | Missing/Risk | Non-customer roles can edit promotions through [PromotionsSection](./client/src/components/home-tabs/ManagementSections.tsx). | Confirm whether representatives should manage promotions or only events. |
+| Role constraints around promotions | Present | Promotion management is limited to merchant/admin flows, while representative overview renders promotions in view-only mode through [HomeOverviewTab](./client/src/components/home-tabs/HomeOverviewTab.tsx) and [HomeScreen](./client/src/screens/HomeScreen.tsx). | Keep permission boundaries aligned with backend authorization. |
 
 ## Admin / Centrale
 
@@ -80,12 +86,12 @@ Status meanings:
 | Analytics events for business actions | Missing/Risk | No explicit client analytics hooks were found in the reviewed screens. | Add analytics instrumentation for scan, earn, spend, promotion, event, and admin flows. |
 | Network retry behavior for non-destructive reads | Present | [api.ts](./client/src/services/api.ts) retries retryable `GET` failures once for timeout/offline conditions before surfacing an error. | Add screen-level retry affordances where UX needs a visible recovery action beyond the shared automatic retry. |
 | Client-side evidence of privacy-safe merchant views | Partial | Merchant sees customer identity and wallet summary, but explicit privacy minimization rules are not visible in UI code. | Review what wallet/customer fields are shown during merchant operations. |
-| Platform-secure token storage | Present | [auth.ts](./client/src/services/auth.ts), [api.ts](./client/src/services/api.ts), and [secureSessionStorage.ts](./client/src/services/secureSessionStorage.ts) use secure session storage with fallback only where secure storage is unavailable. | Validate storage behavior on every target platform in release builds. |
+| Platform-aware session storage | Present | [auth.ts](./client/src/services/auth.ts), [api.ts](./client/src/services/api.ts), [secureSessionStorage.ts](./client/src/services/secureSessionStorage.ts), and [secureSessionStorage.native.ts](./client/src/services/secureSessionStorage.native.ts) use a shared storage abstraction across web and native, with secure native storage where available. | Validate storage behavior on every target platform in release builds and document the intended browser-session model. |
 
 ## Highest-Priority Follow-Ups
 
-1. Decide whether representative promotion editing is intended or a parity drift from the legacy app.
+1. Confirm the shared web + app storage model is acceptable for browser security, while keeping native on secure storage.
 2. Decide whether screen-level parity matters for merchant flows, or whether current consolidated UX is acceptable.
 3. Add missing observability and analytics instrumentation for critical business actions.
 4. Review privacy-safe field exposure during merchant verification and wallet flows.
-5. Expand explicit retry/refresh affordances on individual screens where the shared automatic retry is not enough UX recovery.
+5. Keep validating web + native platform differences where legacy requirements were mobile-first.
