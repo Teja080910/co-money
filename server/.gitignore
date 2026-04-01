@@ -17,3 +17,4 @@ yarn-error.log*
 # Root IDE files
 .vscode/
 .idea/
+build

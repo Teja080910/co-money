@@ -160,3 +160,33 @@ Generated APK path:
 ```text
 client/android/app/build/outputs/apk/release/app-release.apk
 ```
+
+## 6. Server Deployment With PM2
+
+The backend already reads its environment from `server/.env`, so PM2 can run it from the compiled build.
+
+```bash
+cd server
+npm install
+npm run build
+pm2 start ecosystem.config.js --env production
+pm2 save
+```
+
+Useful PM2 commands:
+
+```bash
+cd server
+pm2 logs co-money-server
+pm2 restart co-money-server
+pm2 stop co-money-server
+pm2 delete co-money-server
+```
+
+You can also use the package scripts:
+
+```bash
+cd server
+npm run pm2:start
+npm run pm2:logs
+```

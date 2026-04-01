@@ -10,8 +10,14 @@ import { ShopCategory } from '../models/ShopCategory';
 import { SystemConfig } from '../models/SystemConfig';
 import { UserManagementAudit } from '../models/UserManagementAudit';
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
+
+const isCompiledRuntime = __filename.endsWith('.js');
+const migrationsGlob = isCompiledRuntime
+    ? path.join(__dirname, '..', 'migrations', '**', '*.js')
+    : path.join(__dirname, '..', 'migrations', '**', '*.ts');
 
 export const AppDataSource = new DataSource({
     type: 'postgres',
@@ -20,6 +26,6 @@ export const AppDataSource = new DataSource({
     migrationsRun: false,
     logging: ['error'],
     entities: [User, Shop, Wallet, WalletTransaction, Promotion, PromotionClaim, Event, ShopCategory, SystemConfig, UserManagementAudit],
-    migrations: ['src/migrations/**/*.ts'],
+    migrations: [migrationsGlob],
     subscribers: [],
 });
