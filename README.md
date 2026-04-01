@@ -165,6 +165,8 @@ client/android/app/build/outputs/apk/release/app-release.apk
 
 The backend already reads its environment from `server/.env`, so PM2 can run it from the compiled build.
 
+Node.js 20 or newer is required for this repo.
+
 ```bash
 cd server
 npm install
@@ -194,6 +196,8 @@ npm run pm2:logs
 ## 7. Client Web Deployment
 
 The React Native app uses Expo web, so deployment is a static export.
+
+Node.js 20 or newer is required. If you see `configs.toReversed is not a function`, the server is using an older Node release.
 
 Set the client API URL first:
 
@@ -240,4 +244,12 @@ pm2 logs co-money-web
 pm2 restart co-money-web
 pm2 stop co-money-web
 pm2 delete co-money-web
+```
+
+If your VPS is on an older Node version, switch before building:
+
+```bash
+nvm install 20
+nvm use 20
+node -v
 ```
