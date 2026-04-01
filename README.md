@@ -190,3 +190,54 @@ cd server
 npm run pm2:start
 npm run pm2:logs
 ```
+
+## 7. Client Web Deployment
+
+The React Native app uses Expo web, so deployment is a static export.
+
+Set the client API URL first:
+
+```bash
+cd client
+cp .env.example .env
+```
+
+Update `EXPO_PUBLIC_API_URL` in `client/.env` to your deployed backend URL, for example:
+
+```bash
+EXPO_PUBLIC_API_URL=https://api.your-domain.com
+```
+
+Build the web app:
+
+```bash
+cd client
+npm install
+npm run build:web
+```
+
+Expo will generate the static site in:
+
+```text
+client/dist
+```
+
+You can deploy that `dist` folder to any static host like Nginx, Vercel, Netlify, or Cloudflare Pages.
+
+If you want to serve it with PM2 on a VPS:
+
+```bash
+cd /home/teja/Desktop/projects/co-money/client
+npm run build:web
+pm2 serve dist 3000 --spa --name co-money-web
+pm2 save
+```
+
+Useful PM2 commands:
+
+```bash
+pm2 logs co-money-web
+pm2 restart co-money-web
+pm2 stop co-money-web
+pm2 delete co-money-web
+```
